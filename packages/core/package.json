@@ -1,0 +1,10 @@
+{
+  "name": "@zara-twin/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ядро: общи типове и интерфейси, независими от платформата за срещи и доставчика на говор",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

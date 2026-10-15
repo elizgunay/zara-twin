@@ -1,0 +1,23 @@
+{
+  "name": "zara-twin",
+  "private": true,
+  "description": "AI двойник на ръководителя: Live Copilot и автономен двойник",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "tools/strategy-doc"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p packages/core --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "strategy-doc": "node tools/strategy-doc/build.js"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

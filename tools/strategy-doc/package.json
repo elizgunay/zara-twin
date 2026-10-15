@@ -1,0 +1,10 @@
+{
+  "name": "@zara-twin/strategy-doc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Генератор на Word документа с архитектурната стратегия",
+  "type": "commonjs",
+  "dependencies": {
+    "docx": "9.11.0"
+  }
+}

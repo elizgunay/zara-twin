@@ -1,0 +1,24 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Тайни: ключовете се въвеждат лично от собственика и НИКОГА не влизат в git
+.env
+.env.*
+!.env.example
+
+# Записи и транскрипти от реални разговори съдържат лични данни (GDPR).
+# Пазят се само локално, никога в git.
+data/
+recordings/
+*.wav
+*.mp3
+*.m4a
+*.webm
+
+# Временни файлове на Word
+~$*.docx
+
+.DS_Store
+Thumbs.db
