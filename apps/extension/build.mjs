@@ -15,7 +15,6 @@ const options = {
   entryPoints: {
     background: join(root, "src/background.ts"),
     content: join(root, "src/content.ts"),
-    offscreen: join(root, "src/offscreen/offscreen.ts"),
     "pcm-worklet": join(root, "src/audio/pcm-worklet.ts"),
     permission: join(root, "src/permission/permission.ts"),
     settings: join(root, "src/settings/settings.ts"),
@@ -33,12 +32,16 @@ const options = {
   logLevel: "info",
 };
 
-// Тестът на компютъра ползва transformers.js и ONNX Runtime, които зареждат
+// Тестът на компютъра и offscreen документът (разпознаване на говор) ползват transformers.js и ONNX Runtime, които зареждат
 // WebAssembly динамично: затова е ES модул, отделно от останалите скриптове.
 /** @type {import("esbuild").BuildOptions} */
 const selftestOptions = {
   ...options,
-  entryPoints: { selftest: join(root, "src/selftest/selftest.ts") },
+  entryPoints: {
+    selftest: join(root, "src/selftest/selftest.ts"),
+    offscreen: join(root, "src/offscreen/offscreen.ts"),
+    "stt-worker": join(root, "src/offscreen/sttWorker.ts"),
+  },
   format: "esm",
   platform: "browser",
   logLevel: "warning",

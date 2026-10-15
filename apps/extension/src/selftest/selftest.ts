@@ -1,48 +1,29 @@
-import { env } from "@huggingface/transformers";
 import { decodeWav, downsampleToInt16, int16ToFloat32, TARGET_SAMPLE_RATE, wordErrorRate } from "@zara-twin/core";
 import { createTransformersTranscriber, type TransformersTranscriberOptions } from "@zara-twin/stt-whisper/transformers";
+import { pickBest, resolveAuto, STT_CHOICE_STORAGE_KEY, STT_CHOICES, type SttChoiceKey } from "../stt/choices";
+import { configureRuntime, detectGpu, type GpuInfo } from "../stt/runtime";
 import { liveLatencySeconds, VERDICT_LABEL, verdictForLatency } from "./verdict";
 
 // Тест на компютъра: същият модел и същата библиотека, които ще работят в разширението
 // (вариант A, в браузъра). Работи на Windows и на Mac, в Chrome или Edge.
 
 interface TestPlan {
+  key: SttChoiceKey;
   name: string;
   options: TransformersTranscriberOptions;
-}
-
-interface GpuInfo {
-  available: boolean;
-  /** 16-битови изчисления (shader-f16): Apple Silicon и повечето съвременни видеокарти. */
-  f16: boolean;
-  description: string;
 }
 
 /** Дължина на „изречението“, с което мерим закъснението на живо. */
 const UTTERANCE_SECONDS = 5;
 
-const CPU_TEST: TestPlan = {
-  name: "Процесор (WASM)",
-  options: { model: "onnx-community/whisper-small", dtype: "q8", device: "wasm" },
-};
+const CPU_TEST: TestPlan = { key: "cpu-small", name: "Процесор (WASM)", options: STT_CHOICES["cpu-small"].options };
 
 function gpuTest(gpu: GpuInfo): TestPlan {
   // С 16-битови изчисления моделът е по-малък (≈ 540 MB) и по-бърз; иначе 4-битов (≈ 720 MB).
-  const precision = gpu.f16 ? "q4f16" : "q4";
-  return {
-    name: "Видеокарта (WebGPU)",
-    options: {
-      model: "onnx-community/whisper-large-v3-turbo",
-      dtype: { encoder_model: precision, decoder_model_merged: precision },
-      device: "webgpu",
-    },
-  };
+  const key = resolveAuto(gpu);
+  return { key, name: "Видеокарта (WebGPU)", options: STT_CHOICES[key].options };
 }
 
-// Двоичните файлове на ONNX Runtime са вградени в разширението: MV3 забранява код от чужди сървъри.
-env.allowLocalModels = false;
-env.backends.onnx.wasm!.wasmPaths = new URL("ort/", location.href).href;
-env.backends.onnx.wasm!.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const start = $<HTMLButtonElement>("start");
@@ -51,6 +32,7 @@ const runGpu = $<HTMLInputElement>("run-gpu");
 const progress = $<HTMLElement>("progress");
 const resultsBox = $<HTMLElement>("results");
 const summaryLines: string[] = [];
+const latencies: { key: SttChoiceKey; latencySeconds: number }[] = [];
 let gpuInfo: GpuInfo = { available: false, f16: false, description: "" };
 
 void (async () => {
@@ -81,6 +63,7 @@ start.addEventListener("click", async () => {
     const sample = await loadSample();
     const plans = [runCpu.checked && CPU_TEST, runGpu.checked && gpuTest(gpuInfo)].filter(Boolean) as TestPlan[];
     for (const plan of plans) await runTest(plan, sample);
+    await rememberBest();
     progress.textContent = "Тестът приключи.";
   } catch (error) {
     progress.textContent = `Грешка: ${error instanceof Error ? error.message : error}`;
@@ -105,6 +88,7 @@ async function loadSample(): Promise<{ audio: Float32Array; reference: string; s
 
 async function runTest(plan: TestPlan, sample: { audio: Float32Array; reference: string; seconds: number }) {
   progress.className = "";
+  configureRuntime();
   progress.textContent = `${plan.name}: зареждане на модела...`;
   const loadStart = performance.now();
   let model;
@@ -140,6 +124,7 @@ async function runTest(plan: TestPlan, sample: { audio: Float32Array; reference:
     utteranceSeconds = Math.min(utteranceSeconds, (performance.now() - t) / 1000);
   }
   const latency = liveLatencySeconds(utteranceSeconds);
+  latencies.push({ key: plan.key, latencySeconds: latency });
   const verdict = verdictForLatency(latency);
 
   report(plan.name, [
@@ -170,23 +155,15 @@ function report(title: string, rows: [string, string, string?][]) {
   summaryLines.push("", `== ${title}`, ...rows.map(([label, value]) => `${label}: ${value}`));
 }
 
-interface Adapter {
-  features: { has(name: string): boolean };
-  info?: { vendor?: string; architecture?: string; description?: string };
-}
-
-async function detectGpu(): Promise<GpuInfo> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(o?: object): Promise<Adapter | null> } }).gpu;
-  if (!gpu) return { available: false, f16: false, description: "" };
-  try {
-    const adapter = await gpu.requestAdapter({ powerPreference: "high-performance" });
-    if (!adapter) return { available: false, f16: false, description: "" };
-    const info = adapter.info ?? {};
-    const description = [info.vendor, info.architecture, info.description].filter(Boolean).join(" · ");
-    return { available: true, f16: adapter.features.has("shader-f16"), description };
-  } catch {
-    return { available: false, f16: false, description: "" };
-  }
+/** Copilot ще ползва най-бързия вариант от теста при следващата среща. */
+async function rememberBest(): Promise<void> {
+  const best = pickBest(latencies);
+  if (best === null) return;
+  const line = `Copilot ще използва: ${STT_CHOICES[best].label}`;
+  resultsBox.append(Object.assign(document.createElement("p"), { textContent: line }));
+  summaryLines.push("", line);
+  // Само в разширението; при проверка в обикновен браузър chrome.storage липсва.
+  await globalThis.chrome?.storage?.local.set({ [STT_CHOICE_STORAGE_KEY]: best }).catch(() => {});
 }
 
 function platformName(): string {

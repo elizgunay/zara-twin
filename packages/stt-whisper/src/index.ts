@@ -3,3 +3,4 @@
 export { WhisperLocalProvider, type Transcriber, type WhisperProviderOptions } from "./whisperProvider";
 export { DEFAULT_SEGMENTER, UtteranceSegmenter, type SegmenterOptions, type Utterance } from "./segmenter";
 export { isLikelyHallucination } from "./hallucinations";
+export { BacklogError, serialTranscriber } from "./serial";

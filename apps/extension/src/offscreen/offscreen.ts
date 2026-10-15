@@ -11,6 +11,8 @@ import {
   type CaptureErrorCode,
   type OffscreenResponse,
 } from "../shared/messages";
+import type { SttChoice } from "../stt/choices";
+import { WorkerTranscription } from "./workerTranscription";
 
 // Offscreen документ: невидима страница на разширението, единственото място в MV3,
 // където може да се ползва getUserMedia за звука на таба. Service worker-ът я създава
@@ -19,6 +21,7 @@ import {
 interface CaptureSession {
   context: AudioContext;
   streams: MediaStream[];
+  transcription: WorkerTranscription;
 }
 
 let session: CaptureSession | null = null;
@@ -27,7 +30,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   if (!isOffscreenMessage(message)) return;
   const done = (response: OffscreenResponse) => sendResponse(response);
   if (message.type === "offscreen-start") {
-    start(message.streamId).then(
+    start(message.streamId, message.stt).then(
       () => done({ ok: true }),
       (error: unknown) => done({ ok: false, error: describe(error) }),
     );
@@ -37,11 +40,16 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   return true; // отговорът е асинхронен
 });
 
-async function start(streamId: string): Promise<void> {
+async function start(streamId: string, stt: SttChoice): Promise<void> {
   await stop();
   const context = new AudioContext();
   const streams: MediaStream[] = [];
-  session = { context, streams };
+  const transcription = new WorkerTranscription({
+    onText: (speaker, text, latencyMs) => send({ type: "offscreen-transcript", speaker, text, latencyMs }),
+    onStatus: (tone, text) => send({ type: "offscreen-status", tone, text }),
+  });
+  session = { context, streams, transcription };
+  const sources: AudioSourceKind[] = ["tab"];
 
   try {
     await context.audioWorklet.addModule("pcm-worklet.js");
@@ -68,6 +76,7 @@ async function start(streamId: string): Promise<void> {
     streams.push(micStream);
     // Микрофонът не се пуска към високоговорителите, за да няма ехо.
     collect(context, context.createMediaStreamSource(micStream), "microphone");
+    sources.push("microphone");
   } catch (error) {
     const code: CaptureErrorCode =
       error instanceof DOMException && error.name === "NotAllowedError"
@@ -75,12 +84,16 @@ async function start(streamId: string): Promise<void> {
         : "mic-unavailable";
     send({ type: "offscreen-error", code, detail: describe(error) });
   }
+
+  // 3. Разпознаване на говор. Не чакаме зареждането на модела: звукът и нивата вече работят.
+  transcription.start(stt, sources);
 }
 
 async function stop(): Promise<void> {
   if (session === null) return;
-  const { context, streams } = session;
+  const { context, streams, transcription } = session;
   session = null;
+  transcription.stop();
   for (const stream of streams) for (const track of stream.getTracks()) track.stop();
   await context.close();
 }
@@ -100,8 +113,8 @@ function collect(context: AudioContext, source: MediaStreamAudioSourceNode, kind
 }
 
 function handleChunk(chunk: AudioChunk): void {
-  // Следваща стъпка: тук парчетата ще отиват към SpeechToTextProvider.
   send({ type: "offscreen-level", source: chunk.source, level: rmsLevel(chunk.pcm) });
+  session?.transcription.write(chunk);
 }
 
 function send(message: BackgroundMessage): void {

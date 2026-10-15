@@ -67,6 +67,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       break;
     case "transcript-segment":
       panel.appendSegment(message);
+      if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       for (const hint of [...meeting.hints.onSegment(message), ...meeting.objections.onSegment(message)]) {
         panel.showHint(hint);
       }

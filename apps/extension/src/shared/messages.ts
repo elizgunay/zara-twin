@@ -1,4 +1,5 @@
 import type { AudioSourceKind, SpeakerRole } from "@zara-twin/core";
+import { isSttChoice, type SttChoice } from "../stt/choices";
 
 /**
  * Съобщенията между частите на разширението, групирани по получател.
@@ -19,7 +20,8 @@ export type ContentMessage =
   | { type: "session-state"; active: boolean }
   | { type: "audio-level"; source: AudioSourceKind; level: number }
   | { type: "capture-notice"; tone: "info" | "error"; text: string }
-  | { type: "transcript-segment"; speaker: SpeakerRole; text: string };
+  /** latencyMs: от края на изречението до текста; служи за диагностика в пилота. */
+  | { type: "transcript-segment"; speaker: SpeakerRole; text: string; latencyMs?: number };
 
 /** Горна граница за едно изречение: защита срещу огромни съобщения. */
 export const MAX_SEGMENT_LENGTH = 2000;
@@ -29,6 +31,8 @@ export type BackgroundMessage =
   | { type: "panel-closed" }
   | { type: "offscreen-level"; source: AudioSourceKind; level: number }
   | { type: "offscreen-error"; code: CaptureErrorCode; detail: string }
+  | { type: "offscreen-transcript"; speaker: SpeakerRole; text: string; latencyMs: number | null }
+  | { type: "offscreen-status"; tone: "info" | "error"; text: string }
   /** От content script-а: заетите интервали в календара (милисекунди от епохата). */
   | { type: "calendar-busy"; start: number; end: number };
 
@@ -41,7 +45,7 @@ const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Към offscreen документа. */
 export type OffscreenMessage =
-  | { type: "offscreen-start"; streamId: string }
+  | { type: "offscreen-start"; streamId: string; stt: SttChoice }
   | { type: "offscreen-stop" };
 
 export type OffscreenResponse = { ok: true } | { ok: false; error: string };
@@ -56,6 +60,14 @@ const ERROR_CODES: ReadonlySet<unknown> = new Set<CaptureErrorCode>([
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isLatency(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isSegmentText(value: unknown): value is string {
+  return typeof value === "string" && value.length <= MAX_SEGMENT_LENGTH;
 }
 
 function isLevel(value: unknown): value is number {
@@ -74,8 +86,8 @@ export function isContentMessage(value: unknown): value is ContentMessage {
     case "transcript-segment":
       return (
         SPEAKERS.has(value.speaker) &&
-        typeof value.text === "string" &&
-        value.text.length <= MAX_SEGMENT_LENGTH
+        isSegmentText(value.text) &&
+        (value.latencyMs === undefined || isLatency(value.latencyMs))
       );
     default:
       return false;
@@ -91,6 +103,10 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       return AUDIO_SOURCES.has(value.source) && isLevel(value.level);
     case "offscreen-error":
       return ERROR_CODES.has(value.code) && typeof value.detail === "string";
+    case "offscreen-transcript":
+      return SPEAKERS.has(value.speaker) && isSegmentText(value.text) && (value.latencyMs === null || isLatency(value.latencyMs));
+    case "offscreen-status":
+      return (value.tone === "info" || value.tone === "error") && typeof value.text === "string";
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&
@@ -107,7 +123,7 @@ export function isOffscreenMessage(value: unknown): value is OffscreenMessage {
   if (!isRecord(value)) return false;
   switch (value.type) {
     case "offscreen-start":
-      return typeof value.streamId === "string" && value.streamId.length > 0;
+      return typeof value.streamId === "string" && value.streamId.length > 0 && isSttChoice(value.stt);
     case "offscreen-stop":
       return true;
     default:

@@ -37,6 +37,14 @@ describe("isBackgroundMessage", () => {
     expect(isBackgroundMessage({ type: "calendar-busy", start: "0", end: day })).toBe(false);
   });
 
+  it("проверява текста и състоянието от разпознаването", () => {
+    expect(isBackgroundMessage({ type: "offscreen-transcript", speaker: "owner", text: "Добър ден", latencyMs: 1200 })).toBe(true);
+    expect(isBackgroundMessage({ type: "offscreen-transcript", speaker: "owner", text: "Добър ден", latencyMs: null })).toBe(true);
+    expect(isBackgroundMessage({ type: "offscreen-transcript", speaker: "owner", text: "х", latencyMs: -5 })).toBe(false);
+    expect(isBackgroundMessage({ type: "offscreen-status", tone: "info", text: "Зареждане…" })).toBe(true);
+    expect(isContentMessage({ type: "transcript-segment", speaker: "owner", text: "х", latencyMs: Number.NaN })).toBe(false);
+  });
+
   it("отказва непознати кодове и типове", () => {
     expect(isBackgroundMessage({ type: "offscreen-error", code: "boom", detail: "" })).toBe(false);
     expect(isBackgroundMessage({ type: "offscreen-start", streamId: "x" })).toBe(false);
@@ -45,8 +53,9 @@ describe("isBackgroundMessage", () => {
 
 describe("isOffscreenMessage", () => {
   it("изисква непразен streamId", () => {
-    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc" })).toBe(true);
-    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "" })).toBe(false);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto" })).toBe(true);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "", stt: "auto" })).toBe(false);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "cloud" })).toBe(false);
     expect(isOffscreenMessage({ type: "offscreen-stop" })).toBe(true);
   });
 

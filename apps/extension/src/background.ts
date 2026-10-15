@@ -9,6 +9,7 @@ import {
   type OffscreenMessage,
   type OffscreenResponse,
 } from "./shared/messages";
+import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
 // за старт и стоп. Това е изрично действие на собственика и точно то позволява
@@ -51,7 +52,7 @@ async function startSession(tabId: number): Promise<void> {
   try {
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
     await ensureOffscreen();
-    const start: OffscreenMessage = { type: "offscreen-start", streamId };
+    const start: OffscreenMessage = { type: "offscreen-start", streamId, stt: await sttChoice() };
     const response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
     if (!response?.ok) throw new Error(response?.error ?? "Offscreen документът не отговори.");
 
@@ -102,6 +103,12 @@ async function calendarBusy(start: number, end: number): Promise<CalendarBusyRes
   }
 }
 
+/** Вариантът, избран от теста на компютъра; без тест: „auto“ (по видеокартата). */
+async function sttChoice(): Promise<SttChoice> {
+  const stored: unknown = (await chrome.storage.local.get(STT_CHOICE_STORAGE_KEY))[STT_CHOICE_STORAGE_KEY];
+  return isSttChoice(stored) ? stored : "auto";
+}
+
 async function handleMessage(
   message: Exclude<BackgroundMessage, { type: "calendar-busy" }>,
   sender: chrome.runtime.MessageSender,
@@ -118,6 +125,21 @@ async function handleMessage(
 
   if (message.type === "offscreen-level") {
     await notifyTab(tabId, { type: "audio-level", source: message.source, level: message.level });
+    return;
+  }
+
+  if (message.type === "offscreen-transcript") {
+    await notifyTab(tabId, {
+      type: "transcript-segment",
+      speaker: message.speaker,
+      text: message.text,
+      ...(message.latencyMs !== null && { latencyMs: message.latencyMs }),
+    });
+    return;
+  }
+
+  if (message.type === "offscreen-status") {
+    await notifyTab(tabId, { type: "capture-notice", tone: message.tone, text: message.text });
     return;
   }
 

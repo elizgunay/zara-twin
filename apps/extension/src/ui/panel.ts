@@ -66,6 +66,7 @@ export class CopilotPanel {
       this.setLevel("tab", 0);
       this.setLevel("microphone", 0);
       this.part("talk").hidden = true;
+      this.part("stt").hidden = true;
     }
   }
 
@@ -73,6 +74,13 @@ export class CopilotPanel {
   setLevel(source: AudioSourceKind, level: number): void {
     const percent = Math.min(100, Math.round(Math.sqrt(level) * 160));
     this.part(`level-${source}`).style.width = `${percent}%`;
+  }
+
+  /** Колко след края на изречението е дошъл текстът (диагностика за пилота). */
+  setSttLatency(latencyMs: number): void {
+    const stt = this.part("stt");
+    stt.hidden = false;
+    stt.textContent = `Разпознаване: ${(latencyMs / 1000).toFixed(1).replace(".", ",")} s след изречението`;
   }
 
   /** Дял на говоренето (0–1) за последните минути; null = още никой не е говорил. */
@@ -211,6 +219,7 @@ const TEMPLATE = /* html */ `
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
   <div class="meta" data-part="meeting">Няма активна среща</div>
+  <div class="meta" data-part="stt" hidden></div>
   <div class="consent">Уведомете участниците, че разговорът се транскрибира.</div>
   <div class="notice" data-part="notice" role="status" hidden></div>
   <div class="levels" data-part="levels" hidden>
@@ -223,7 +232,7 @@ const TEMPLATE = /* html */ `
   </div>
   <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>
   <div class="transcript" data-part="transcript">
-    <p class="empty" data-part="empty">Транскрипцията идва в следващата стъпка.</p>
+    <p class="empty" data-part="empty">Текстът от разговора ще се появи тук.</p>
   </div>
 </section>
 `;
