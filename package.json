@@ -5,10 +5,12 @@
   "type": "module",
   "workspaces": [
     "packages/core",
+    "apps/extension",
     "tools/strategy-doc"
   ],
   "scripts": {
-    "typecheck": "tsc -p packages/core --noEmit",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p apps/extension --noEmit",
+    "build:extension": "npm run build -w @zara-twin/extension",
     "test": "vitest run",
     "test:watch": "vitest",
     "strategy-doc": "node tools/strategy-doc/build.js"

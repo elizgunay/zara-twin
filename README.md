@@ -11,7 +11,7 @@ Live Copilot (подсказки на живо в онлайн срещи), а �
 | Папка | Какво съдържа |
 |---|---|
 | `packages/core` | Общи типове и интерфейси: среща, звук, транскрипт, разпознаване на говор, проверка за регион в ЕС, метрики (WER, закъснение) |
-| `apps/extension` | Chrome разширението за Google Meet (Фаза 1.0, предстои) |
+| `apps/extension` | Chrome разширението за Google Meet: адаптер за Meet и панел (Фаза 1.0, скелет). Виж [инструкциите за зареждане](apps/extension/README.md) |
 | `tools/strategy-doc` | Генератор на Word документа със стратегията |
 | `docs/strategy` | Версиите на архитектурната стратегия |
 
@@ -29,6 +29,10 @@ npm test
 
 ```bash
 npm run typecheck
+```
+
+```bash
+npm run build:extension
 ```
 
 ## Правила за сигурност

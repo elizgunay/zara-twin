@@ -31,3 +31,5 @@ B2B продукт, затова ядрото не съдържа нищо сп�
 
 - `npm test` пуска тестовете (Vitest).
 - `npm run typecheck` проверява типовете.
+- `npm run build:extension` изгражда разширението в `apps/extension/dist` (esbuild, IIFE).
+- Визуална проверка на панела без Meet: страница, която подменя `window.chrome`, зарежда `dist/content.js` и се снима с `msedge --headless=new --screenshot`.

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Zara Copilot",
+  "description": "Подсказки на живо в Google Meet (пилот, Фаза 1.0)",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Zara Copilot: включи/изключи панела"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [],
+  "host_permissions": ["https://meet.google.com/*"]
+}

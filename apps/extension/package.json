@@ -1,0 +1,18 @@
+{
+  "name": "@zara-twin/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome разширение (Manifest V3): Live Copilot за Google Meet",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  },
+  "dependencies": {
+    "@zara-twin/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.1.43",
+    "esbuild": "0.25.12"
+  }
+}
