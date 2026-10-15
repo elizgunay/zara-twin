@@ -1,28 +1,43 @@
 import { env } from "@huggingface/transformers";
 import { decodeWav, downsampleToInt16, int16ToFloat32, TARGET_SAMPLE_RATE, wordErrorRate } from "@zara-twin/core";
 import { createTransformersTranscriber, type TransformersTranscriberOptions } from "@zara-twin/stt-whisper/transformers";
-import { expectedLatencySeconds, VERDICT_LABEL, verdictFor } from "./verdict";
+import { liveLatencySeconds, VERDICT_LABEL, verdictForLatency } from "./verdict";
 
 // Тест на компютъра: същият модел и същата библиотека, които ще работят в разширението
-// (вариант A, в браузъра). Изпълнява се на компютъра на ръководителя или на клиента.
+// (вариант A, в браузъра). Работи на Windows и на Mac, в Chrome или Edge.
 
 interface TestPlan {
   name: string;
   options: TransformersTranscriberOptions;
 }
 
+interface GpuInfo {
+  available: boolean;
+  /** 16-битови изчисления (shader-f16): Apple Silicon и повечето съвременни видеокарти. */
+  f16: boolean;
+  description: string;
+}
+
+/** Дължина на „изречението“, с което мерим закъснението на живо. */
+const UTTERANCE_SECONDS = 5;
+
 const CPU_TEST: TestPlan = {
   name: "Процесор (WASM)",
   options: { model: "onnx-community/whisper-small", dtype: "q8", device: "wasm" },
 };
-const GPU_TEST: TestPlan = {
-  name: "Видеокарта (WebGPU)",
-  options: {
-    model: "onnx-community/whisper-large-v3-turbo",
-    dtype: { encoder_model: "q4", decoder_model_merged: "q4" },
-    device: "webgpu",
-  },
-};
+
+function gpuTest(gpu: GpuInfo): TestPlan {
+  // С 16-битови изчисления моделът е по-малък (≈ 540 MB) и по-бърз; иначе 4-битов (≈ 720 MB).
+  const precision = gpu.f16 ? "q4f16" : "q4";
+  return {
+    name: "Видеокарта (WebGPU)",
+    options: {
+      model: "onnx-community/whisper-large-v3-turbo",
+      dtype: { encoder_model: precision, decoder_model_merged: precision },
+      device: "webgpu",
+    },
+  };
+}
 
 // Двоичните файлове на ONNX Runtime са вградени в разширението: MV3 забранява код от чужди сървъри.
 env.allowLocalModels = false;
@@ -36,20 +51,25 @@ const runGpu = $<HTMLInputElement>("run-gpu");
 const progress = $<HTMLElement>("progress");
 const resultsBox = $<HTMLElement>("results");
 const summaryLines: string[] = [];
+let gpuInfo: GpuInfo = { available: false, f16: false, description: "" };
 
 void (async () => {
-  const gpu = await hasWebGpu();
+  gpuInfo = await detectGpu();
   const info = [
+    `Система: ${platformName()}`,
     `Ядра (нишки): ${navigator.hardwareConcurrency || "?"}`,
     `Памет (по данни на браузъра): ${(navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? "?"} GB или повече`,
-    `Видеокарта за AI (WebGPU): ${gpu ? "има" : "няма"}`,
+    `Видеокарта за AI (WebGPU): ${gpuInfo.available ? gpuInfo.description || "има" : "няма"}`,
+    `16-битови изчисления на видеокартата: ${gpuInfo.f16 ? "да" : "не"}`,
     `Многонишкова обработка: ${self.crossOriginIsolated ? "да" : "не"}`,
   ];
   $("device-info").replaceChildren(...info.map((line) => Object.assign(document.createElement("p"), { textContent: line })));
   summaryLines.push("Zara Copilot: тест на компютъра", ...info);
-  runGpu.checked = gpu;
-  runGpu.disabled = !gpu;
-  if (!gpu) $("gpu-note").textContent = "Недостъпно: браузърът не вижда подходяща видеокарта.";
+  runGpu.checked = gpuInfo.available;
+  runGpu.disabled = !gpuInfo.available;
+  $("gpu-note").textContent = gpuInfo.available
+    ? `whisper-large-v3-turbo, сваляне ≈ ${gpuInfo.f16 ? 540 : 720} MB`
+    : "Недостъпно: браузърът не вижда подходяща видеокарта.";
 })();
 
 start.addEventListener("click", async () => {
@@ -59,7 +79,7 @@ start.addEventListener("click", async () => {
   $("results-section").hidden = false;
   try {
     const sample = await loadSample();
-    const plans = [runCpu.checked && CPU_TEST, runGpu.checked && GPU_TEST].filter(Boolean) as TestPlan[];
+    const plans = [runCpu.checked && CPU_TEST, runGpu.checked && gpuTest(gpuInfo)].filter(Boolean) as TestPlan[];
     for (const plan of plans) await runTest(plan, sample);
     progress.textContent = "Тестът приключи.";
   } catch (error) {
@@ -103,18 +123,32 @@ async function runTest(plan: TestPlan, sample: { audio: Float32Array; reference:
   }
   const loadSeconds = (performance.now() - loadStart) / 1000;
 
+  // 1. Точност: целият запис.
   progress.textContent = `${plan.name}: разпознаване на ${Math.round(sample.seconds)} s български говор...`;
-  const runStart = performance.now();
+  const fullStart = performance.now();
   const heard = await model.transcribe(sample.audio);
-  const rtf = (performance.now() - runStart) / 1000 / sample.seconds;
+  const rtf = (performance.now() - fullStart) / 1000 / sample.seconds;
   const wer = wordErrorRate(sample.reference, heard);
-  const verdict = verdictFor(rtf);
+
+  // 2. Скорост на живо: изказване от 5 s, както ще ги подава разделянето по паузи. Най-доброто от 2 опита.
+  progress.textContent = `${plan.name}: мерене на изречение от ${UTTERANCE_SECONDS} s...`;
+  const utterance = sample.audio.subarray(0, UTTERANCE_SECONDS * TARGET_SAMPLE_RATE);
+  let utteranceSeconds = Infinity;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const t = performance.now();
+    await model.transcribe(utterance);
+    utteranceSeconds = Math.min(utteranceSeconds, (performance.now() - t) / 1000);
+  }
+  const latency = liveLatencySeconds(utteranceSeconds);
+  const verdict = verdictForLatency(latency);
 
   report(plan.name, [
     ["Модел", model.id],
+    ...(plan.options.device === "webgpu" ? [["Видеокарта", gpuInfo.description || "?"] as [string, string]] : []),
     ["Зареждане (вкл. сваляне)", `${loadSeconds.toFixed(0)} s`],
-    ["Скорост спрямо говора (RTF)", `${rtf.toFixed(2)} (под 0,25 е добре)`],
-    ["Очаквано закъснение на живо", `≈ ${expectedLatencySeconds(rtf)} s (цел: под 2 s)`],
+    [`Разпознаване на изречение от ${UTTERANCE_SECONDS} s`, `${utteranceSeconds.toFixed(2)} s`],
+    ["Закъснение на живо", `≈ ${latency} s (цел: под 2 s)`],
+    ["Скорост спрямо говора (RTF, 16 s запис)", rtf.toFixed(2)],
     ["Грешни думи (синтетичен глас)", `${(wer.wer * 100).toFixed(1)}% (цел: под 15%)`],
     ["Присъда", VERDICT_LABEL[verdict], verdict],
     ["Разпознато", heard.trim(), "heard"],
@@ -136,12 +170,29 @@ function report(title: string, rows: [string, string, string?][]) {
   summaryLines.push("", `== ${title}`, ...rows.map(([label, value]) => `${label}: ${value}`));
 }
 
-async function hasWebGpu(): Promise<boolean> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-  if (!gpu) return false;
+interface Adapter {
+  features: { has(name: string): boolean };
+  info?: { vendor?: string; architecture?: string; description?: string };
+}
+
+async function detectGpu(): Promise<GpuInfo> {
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(o?: object): Promise<Adapter | null> } }).gpu;
+  if (!gpu) return { available: false, f16: false, description: "" };
   try {
-    return (await gpu.requestAdapter()) !== null;
+    const adapter = await gpu.requestAdapter({ powerPreference: "high-performance" });
+    if (!adapter) return { available: false, f16: false, description: "" };
+    const info = adapter.info ?? {};
+    const description = [info.vendor, info.architecture, info.description].filter(Boolean).join(" · ");
+    return { available: true, f16: adapter.features.has("shader-f16"), description };
   } catch {
-    return false;
+    return { available: false, f16: false, description: "" };
   }
+}
+
+function platformName(): string {
+  const platform =
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform;
+  if (/mac/i.test(platform)) return "macOS";
+  if (/win/i.test(platform)) return "Windows";
+  return platform || "?";
 }

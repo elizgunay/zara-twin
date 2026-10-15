@@ -31,11 +31,11 @@
   <main>
     <h1>Тест на компютъра</h1>
     <section>
-      <p>Проверява дали този компютър може да разпознава български говор достатъчно бързо за подсказки на живо. Отнема 2–10 минути.</p>
+      <p>Проверява дали този компютър може да разпознава български говор достатъчно бързо за подсказки на живо. Работи на Windows и Mac. Отнема 2–10 минути.</p>
       <p>Моделът за разпознаване се сваля веднъж от Hugging Face и се пази в браузъра. Тестовият запис е синтетичен глас и е вграден в разширението. <strong>Нищо от този компютър не се изпраща никъде.</strong></p>
       <div id="device-info"></div>
       <label><input type="checkbox" id="run-cpu" checked><span>Тест с процесора<small>whisper-small, сваляне ≈ 240 MB</small></span></label>
-      <label><input type="checkbox" id="run-gpu"><span>Тест с видеокартата (WebGPU)<small id="gpu-note">whisper-large-v3-turbo, сваляне ≈ 720 MB</small></span></label>
+      <label><input type="checkbox" id="run-gpu"><span>Тест с видеокартата (WebGPU)<small id="gpu-note">whisper-large-v3-turbo, сваляне ≈ 540–720 MB</small></span></label>
       <button id="start" type="button">Започни теста</button>
       <div id="progress" role="status"></div>
     </section>

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { expectedLatencySeconds, verdictFor } from "./verdict";
+import { liveLatencySeconds, verdictForLatency } from "./verdict";
 
 describe("присъда от теста на компютъра", () => {
-  it("класифицира по скорост спрямо говора (RTF)", () => {
-    expect(verdictFor(0.1)).toBe("suitable");
-    expect(verdictFor(0.25)).toBe("suitable");
-    expect(verdictFor(0.4)).toBe("borderline");
-    expect(verdictFor(3.0)).toBe("unsuitable"); // слабият лаптоп от измерванията
+  it("закъснението на живо = пауза 0,6 s + разпознаване на изказването", () => {
+    expect(liveLatencySeconds(1.0)).toBe(1.6);
+    expect(liveLatencySeconds(2.84)).toBe(3.4);
   });
 
-  it("смята очакваното закъснение за изказване от 5 s", () => {
-    expect(expectedLatencySeconds(0.25)).toBe(1.9);
-    expect(expectedLatencySeconds(3.0)).toBe(15.6);
+  it("класифицира по закъснението (цел под 2 s)", () => {
+    expect(verdictForLatency(1.6)).toBe("suitable");
+    expect(verdictForLatency(2)).toBe("suitable");
+    expect(verdictForLatency(2.7)).toBe("borderline");
+    expect(verdictForLatency(8.7)).toBe("unsuitable");
   });
 });

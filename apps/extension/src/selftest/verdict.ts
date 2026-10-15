@@ -1,6 +1,9 @@
 /**
- * Присъдата от теста на компютъра. На живо Whisper получава изказвания от ~5 s;
- * закъснението ≈ паузата (0,6 s) + RTF × 5 s. RTF 0,25 → около 1,9 s, на ръба на целта от 2 s.
+ * Присъдата от теста на компютъра. На живо Whisper получава изказване от няколко секунди
+ * и закъснението е: паузата, по която разбираме, че изречението е свършило (0,6 s),
+ * плюс времето за разпознаване на самото изказване. Затова мерим реално 5-секундно
+ * изречение, а не изчисляваме от скоростта на дълъг запис (Whisper винаги обработва
+ * 30-секундни прозорци, затова времето не е пропорционално на дължината).
  */
 export type Verdict = "suitable" | "borderline" | "unsuitable";
 
@@ -10,13 +13,16 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   unsuitable: "❌ Не е подходящ за работа на живо",
 };
 
-export function verdictFor(realTimeFactor: number): Verdict {
-  if (realTimeFactor <= 0.25) return "suitable";
-  if (realTimeFactor <= 0.5) return "borderline";
-  return "unsuitable";
+/** Паузата след изречението, по която разделяме изказванията (DEFAULT_SEGMENTER.endSilenceMs). */
+export const END_SILENCE_SECONDS = 0.6;
+
+export function liveLatencySeconds(utteranceProcessingSeconds: number): number {
+  return Math.round((END_SILENCE_SECONDS + utteranceProcessingSeconds) * 10) / 10;
 }
 
-/** Очаквано закъснение на живо в секунди за изказване от 5 s. */
-export function expectedLatencySeconds(realTimeFactor: number): number {
-  return Math.round((0.6 + realTimeFactor * 5) * 10) / 10;
+/** Цел: под 2 s (Р23). До 3 s още е използваемо, но подсказката идва късно. */
+export function verdictForLatency(latencySeconds: number): Verdict {
+  if (latencySeconds <= 2) return "suitable";
+  if (latencySeconds <= 3) return "borderline";
+  return "unsuitable";
 }
