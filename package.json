@@ -18,7 +18,8 @@
     "bench:sample": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/stt-bench/make-tts-sample.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
-    "strategy-doc": "node tools/strategy-doc/build.js"
+    "strategy-doc": "node tools/strategy-doc/build.js",
+    "client-brief": "node tools/strategy-doc/client-brief.js"
   },
   "devDependencies": {
     "@types/node": "22.15.0",
