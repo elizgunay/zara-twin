@@ -1,0 +1,11 @@
+{
+  "name": "@zara-twin/stt-bench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Измерване на доставчиците за разпознаване на говор (Фаза 1.0): WER, скорост, закъснение",
+  "type": "module",
+  "dependencies": {
+    "@zara-twin/core": "0.1.0",
+    "@zara-twin/stt-whisper": "0.1.0"
+  }
+}

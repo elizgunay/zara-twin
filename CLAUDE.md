@@ -31,5 +31,7 @@ B2B продукт, затова ядрото не съдържа нищо сп�
 
 - `npm test` пуска тестовете (Vitest).
 - `npm run typecheck` проверява типовете.
+- `npm run bench:sample` създава български тестов запис (Windows TTS) в `data/bench/`, а `npm.cmd run bench:stt -- --audio … --reference … --model …` мери доставчик. В PowerShell: `npm.cmd`, не `npm` (губи аргументите след `--`). Моделите се кешират в `data/models/`.
+- `.ps1` файлове с кирилица се записват като UTF-8 **с BOM**, иначе Windows PowerShell 5.1 ги чете грешно.
 - `npm run build:extension` изгражда разширението в `apps/extension/dist` (esbuild, IIFE).
 - Визуална проверка на панела без Meet: страница, която подменя `window.chrome`, зарежда `dist/content.js` и се снима с `msedge --headless=new --screenshot`.

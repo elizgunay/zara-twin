@@ -1,0 +1,15 @@
+{
+  "name": "@zara-twin/stt-whisper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Локален Whisper (transformers.js) зад SpeechToTextProvider: без акаунти, звукът не напуска компютъра",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./transformers": "./src/transformersTranscriber.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "@zara-twin/core": "0.1.0"
+  }
+}

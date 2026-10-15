@@ -11,3 +11,4 @@ export type { SpeechToTextProvider, SttSegment, SttStream, SttStreamOptions } fr
 export { assertEuRegion, isEuRegion } from "./region";
 export { normalizeForWer, wordErrorRate, type WerResult } from "./metrics/wer";
 export { summarizeLatency, type LatencySummary } from "./metrics/latency";
+export { downsampleToInt16, int16ToFloat32, rmsLevel, TARGET_SAMPLE_RATE } from "./audio/pcm";

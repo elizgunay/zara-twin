@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { downsampleToInt16, rmsLevel } from "./pcm";
+import { downsampleToInt16, int16ToFloat32, rmsLevel } from "./pcm";
+
+describe("int16ToFloat32", () => {
+  it("връща стойности в [-1, 1]", () => {
+    expect(Array.from(int16ToFloat32(new Int16Array([0, 16384, -32768])))).toEqual([0, 0.5, -1]);
+  });
+});
 
 describe("downsampleToInt16", () => {
   it("превръща 100 ms при 48 kHz и при 44.1 kHz в точно 1600 семпла при 16 kHz", () => {

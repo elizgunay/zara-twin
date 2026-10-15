@@ -41,3 +41,10 @@ export function rmsLevel(pcm: Int16Array): number {
   }
   return Math.sqrt(sum / pcm.length);
 }
+
+/** Обратното преобразуване: моделите (Whisper) очакват float в [-1, 1]. */
+export function int16ToFloat32(pcm: Int16Array): Float32Array {
+  const output = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) output[i] = pcm[i]! / 0x8000;
+  return output;
+}

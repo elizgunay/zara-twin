@@ -18,4 +18,6 @@ export interface TranscriptSegment {
   providerId: string;
   /** Часовник (Date.now()) в момента, в който текстът е стигнал до нас. Служи за измерване на закъснението. */
   receivedAt: number;
+  /** Часовник в момента, в който говорът е спрял. Закъснение = receivedAt - speechEndedAt. */
+  speechEndedAt?: number;
 }

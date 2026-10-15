@@ -1,5 +1,10 @@
-import type { AudioChunk, AudioSourceKind } from "@zara-twin/core";
-import { downsampleToInt16, rmsLevel, TARGET_SAMPLE_RATE } from "../audio/pcm";
+import {
+  downsampleToInt16,
+  rmsLevel,
+  TARGET_SAMPLE_RATE,
+  type AudioChunk,
+  type AudioSourceKind,
+} from "@zara-twin/core";
 import {
   isOffscreenMessage,
   type BackgroundMessage,
