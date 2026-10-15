@@ -24,8 +24,9 @@ const h1 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [ne
 const h2 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(t)] });
 const bullet = (t, level = 0) =>
   new Paragraph({ numbering: { reference: "bullets", level }, spacing: { after: 60 }, children: runs(t) });
-const num = (t, ref = "nums") =>
-  new Paragraph({ numbering: { reference: ref, level: 0 }, spacing: { after: 60 }, children: runs(t) });
+/** Номериран ред. Различен `instance` започва номерацията отначало (нов списък). */
+const num = (t, instance = 0) =>
+  new Paragraph({ numbering: { reference: "nums", level: 0, instance }, spacing: { after: 60 }, children: runs(t) });
 const gap = () => new Paragraph({ spacing: { after: 120 }, children: [] });
 
 function note(text, fill = LIGHT, border = ACCENT) {
