@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  decodeWav,
   downsampleToInt16,
   summarizeLatency,
   TARGET_SAMPLE_RATE,
@@ -17,7 +18,6 @@ import {
 } from "@zara-twin/core";
 import { DEFAULT_SEGMENTER, WhisperLocalProvider, type Transcriber } from "@zara-twin/stt-whisper";
 import { createTransformersTranscriber, type TransformersTranscriberOptions } from "@zara-twin/stt-whisper/transformers";
-import { decodeWav } from "./wav";
 
 const TARGET_WER = 0.15;
 const TARGET_LATENCY_MS = 2000;

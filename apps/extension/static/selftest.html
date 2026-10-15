@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zara Copilot: тест на компютъра</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8f9fa; --card: #ffffff; --text: #202124; --muted: #5f6368; --accent: #1a73e8; --ok: #188038; --warn: #b06000; --err: #c5221f; --line: #dadce0; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #202124; --card: #2d2f33; --text: #e8eaed; --muted: #9aa0a6; --accent: #8ab4f8; --ok: #81c995; --warn: #fdd663; --err: #f28b82; --line: #3c4043; }
+    }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", Roboto, Arial, sans-serif; padding: 24px 16px; box-sizing: border-box; }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 16px; }
+    section { background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.12); margin-bottom: 16px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    label { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; }
+    label small { display: block; color: var(--muted); }
+    button { font: inherit; font-weight: 600; padding: 9px 18px; border-radius: 999px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--card); margin-top: 12px; }
+    button.secondary { background: transparent; color: var(--accent); }
+    button:disabled { opacity: .5; cursor: default; }
+    #progress { margin-top: 12px; min-height: 1.5em; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; width: 45%; }
+    .suitable { color: var(--ok); font-weight: 700; } .borderline { color: var(--warn); font-weight: 700; } .unsuitable, .error { color: var(--err); font-weight: 700; }
+    .heard { font-style: italic; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Тест на компютъра</h1>
+    <section>
+      <p>Проверява дали този компютър може да разпознава български говор достатъчно бързо за подсказки на живо. Отнема 2–10 минути.</p>
+      <p>Моделът за разпознаване се сваля веднъж от Hugging Face и се пази в браузъра. Тестовият запис е синтетичен глас и е вграден в разширението. <strong>Нищо от този компютър не се изпраща никъде.</strong></p>
+      <div id="device-info"></div>
+      <label><input type="checkbox" id="run-cpu" checked><span>Тест с процесора<small>whisper-small, сваляне ≈ 240 MB</small></span></label>
+      <label><input type="checkbox" id="run-gpu"><span>Тест с видеокартата (WebGPU)<small id="gpu-note">whisper-large-v3-turbo, сваляне ≈ 720 MB</small></span></label>
+      <button id="start" type="button">Започни теста</button>
+      <div id="progress" role="status"></div>
+    </section>
+    <section id="results-section" hidden>
+      <h2 style="margin-top:0;font-size:17px">Резултати</h2>
+      <div id="results"></div>
+      <button id="copy" class="secondary" type="button">Копирай резултатите</button>
+      <p style="margin-top:12px">Поставете ги в чата с Claude.</p>
+    </section>
+  </main>
+  <script type="module" src="selftest.js"></script>
+</body>
+</html>

@@ -18,14 +18,20 @@ if ($null -eq $guide) { throw "Липсва PDF инструкция в docs\pil
 npm.cmd run build:extension | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Изграждането на разширението не успя." }
 
-if (Test-Path $out) { Remove-Item $out -Recurse -Force -Confirm:$false }
+# Изчистваме съдържанието, а не самата папка: тя може да е отворена в Explorer
+# или заредена в Chrome, и тогава Windows не позволява изтриването ѝ.
 New-Item -ItemType Directory -Force $out | Out-Null
+Get-ChildItem $out -Force | Remove-Item -Recurse -Force -Confirm:$false
 Copy-Item (Join-Path $root "apps\extension\dist") (Join-Path $out "extension") -Recurse
 Copy-Item (Join-Path $root "tools\hardware-check.ps1") $out
 Copy-Item $guide.FullName (Join-Path $out "Инструкция.pdf")
 
 # Пакетът за ръководителя не бива да съдържа тайни или данни от разговори.
-$forbidden = Get-ChildItem $out -Recurse -File | Where-Object { $_.Name -match '\.(pem|env|wav|mp3|m4a|webm)$' -or $_.Name -eq ".env" }
+# Изключение: синтетичният запис за теста на компютъра (Windows TTS, без лични данни).
+$allowed = Join-Path $out "extension\selftest\sample.wav"
+$forbidden = Get-ChildItem $out -Recurse -File | Where-Object {
+  ($_.Name -match '\.(pem|env|wav|mp3|m4a|webm)$' -or $_.Name -eq ".env") -and $_.FullName -ne $allowed
+}
 if ($forbidden) { throw "В пакета има забранени файлове: $($forbidden.Name -join ', ')" }
 
 if (Test-Path $zip) { Remove-Item $zip -Force -Confirm:$false }

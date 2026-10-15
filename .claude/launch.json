@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "extension-selftest",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve-extension.mjs", "5178"],
+      "port": 5178
+    }
+  ]
+}

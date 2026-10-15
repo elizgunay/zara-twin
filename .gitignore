@@ -17,6 +17,8 @@ recordings/
 *.mp3
 *.m4a
 *.webm
+# Изключение: синтетичен глас (Windows TTS) за теста на компютъра, без лични данни.
+!apps/extension/static/selftest/sample.wav
 
 # Временни файлове на Word
 ~$*.docx

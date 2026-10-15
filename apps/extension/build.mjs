@@ -33,14 +33,32 @@ const options = {
   logLevel: "info",
 };
 
+// Тестът на компютъра ползва transformers.js и ONNX Runtime, които зареждат
+// WebAssembly динамично: затова е ES модул, отделно от останалите скриптове.
+/** @type {import("esbuild").BuildOptions} */
+const selftestOptions = {
+  ...options,
+  entryPoints: { selftest: join(root, "src/selftest/selftest.ts") },
+  format: "esm",
+  platform: "browser",
+  logLevel: "warning",
+};
+
+// Двоичните файлове на ONNX Runtime трябва да са в разширението (MV3 забранява код от чужди сървъри).
+const ortDist = join(root, "..", "..", "node_modules", "onnxruntime-web", "dist");
+// Само вариантът „jsep“ (WebGPU + WASM): проверено в браузъра, че другият не се зарежда.
+const ortFiles = ["ort-wasm-simd-threaded.jsep.mjs", "ort-wasm-simd-threaded.jsep.wasm"];
+
 await rm(outdir, { recursive: true, force: true });
-await mkdir(outdir, { recursive: true });
+await mkdir(join(outdir, "ort"), { recursive: true });
 await copyFile(join(root, "manifest.json"), join(outdir, "manifest.json"));
 await cp(join(root, "static"), outdir, { recursive: true });
+for (const file of ortFiles) await copyFile(join(ortDist, file), join(outdir, "ort", file));
 
 if (watch) {
-  const ctx = await context(options);
-  await ctx.watch();
+  await (await context(selftestOptions)).watch();
+  await (await context(options)).watch();
 } else {
+  await build(selftestOptions);
   await build(options);
 }
