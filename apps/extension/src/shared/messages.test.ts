@@ -29,6 +29,14 @@ describe("isBackgroundMessage", () => {
     expect(isBackgroundMessage({ type: "offscreen-error", code: "mic-unavailable", detail: "" })).toBe(true);
   });
 
+  it("проверява заявката към календара", () => {
+    const day = 9 * 60 * 60 * 1000;
+    expect(isBackgroundMessage({ type: "calendar-busy", start: 0, end: day })).toBe(true);
+    expect(isBackgroundMessage({ type: "calendar-busy", start: day, end: 0 })).toBe(false);
+    expect(isBackgroundMessage({ type: "calendar-busy", start: 0, end: 30 * 24 * day })).toBe(false);
+    expect(isBackgroundMessage({ type: "calendar-busy", start: "0", end: day })).toBe(false);
+  });
+
   it("отказва непознати кодове и типове", () => {
     expect(isBackgroundMessage({ type: "offscreen-error", code: "boom", detail: "" })).toBe(false);
     expect(isBackgroundMessage({ type: "offscreen-start", streamId: "x" })).toBe(false);

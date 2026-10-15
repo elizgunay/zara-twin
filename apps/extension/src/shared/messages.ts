@@ -28,7 +28,16 @@ export const MAX_SEGMENT_LENGTH = 2000;
 export type BackgroundMessage =
   | { type: "panel-closed" }
   | { type: "offscreen-level"; source: AudioSourceKind; level: number }
-  | { type: "offscreen-error"; code: CaptureErrorCode; detail: string };
+  | { type: "offscreen-error"; code: CaptureErrorCode; detail: string }
+  /** От content script-а: заетите интервали в календара (милисекунди от епохата). */
+  | { type: "calendar-busy"; start: number; end: number };
+
+export type CalendarBusyResponse =
+  | { ok: true; busy: { start: number; end: number }[] }
+  | { ok: false; error: "not-configured" | "not-connected" | "failed" };
+
+/** Календарът се пита най-много за една седмица наведнъж. */
+const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Към offscreen документа. */
 export type OffscreenMessage =
@@ -82,6 +91,13 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       return AUDIO_SOURCES.has(value.source) && isLevel(value.level);
     case "offscreen-error":
       return ERROR_CODES.has(value.code) && typeof value.detail === "string";
+    case "calendar-busy":
+      return (
+        Number.isFinite(value.start) &&
+        Number.isFinite(value.end) &&
+        (value.end as number) > (value.start as number) &&
+        (value.end as number) - (value.start as number) <= MAX_CALENDAR_RANGE_MS
+      );
     default:
       return false;
   }

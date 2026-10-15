@@ -1,5 +1,6 @@
 // Изгражда разширението в dist/, готово за „Load unpacked“ в Chrome/Edge.
 // Употреба: npm run build -w @zara-twin/extension  (или --watch за автоматично преизграждане)
+// GOOGLE_OAUTH_CLIENT_ID се чете от .env в корена (виж docs/setup/google-calendar.md).
 import { build, context } from "esbuild";
 import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -17,6 +18,11 @@ const options = {
     offscreen: join(root, "src/offscreen/offscreen.ts"),
     "pcm-worklet": join(root, "src/audio/pcm-worklet.ts"),
     permission: join(root, "src/permission/permission.ts"),
+    settings: join(root, "src/settings/settings.ts"),
+  },
+  define: {
+    // Client ID не е тайна (вижда се в адреса за вход), но е различен за всяка инсталация.
+    __GOOGLE_CLIENT_ID__: JSON.stringify(process.env.GOOGLE_OAUTH_CLIENT_ID ?? ""),
   },
   outdir,
   bundle: true,

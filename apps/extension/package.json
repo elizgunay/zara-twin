@@ -5,8 +5,9 @@
   "description": "Chrome разширение (Manifest V3): Live Copilot за Google Meet",
   "type": "module",
   "scripts": {
-    "build": "node build.mjs",
-    "watch": "node build.mjs --watch"
+    "build": "node --env-file-if-exists=../../.env build.mjs",
+    "watch": "node --env-file-if-exists=../../.env build.mjs --watch",
+    "generate-key": "node scripts/generate-key.mjs"
   },
   "dependencies": {
     "@zara-twin/core": "0.1.0",

@@ -1,7 +1,10 @@
+import { fetchBusy } from "./calendar/google";
+import { forgetToken, getStoredToken, GOOGLE_CLIENT_ID, isConnected, signIn } from "./calendar/token";
 import { parseMeetCode } from "./meet/meetUrl";
 import {
   isBackgroundMessage,
   type BackgroundMessage,
+  type CalendarBusyResponse,
   type ContentMessage,
   type OffscreenMessage,
   type OffscreenResponse,
@@ -24,8 +27,14 @@ chrome.action.onClicked.addListener(async (tab) => {
   if (activeTab !== tab.id) await startSession(tab.id);
 });
 
-chrome.runtime.onMessage.addListener((message: unknown, sender) => {
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!isBackgroundMessage(message)) return;
+  if (message.type === "calendar-busy") {
+    // Календарът се пита само от таб с активна среща в Meet.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    calendarBusy(message.start, message.end).then(sendResponse);
+    return true; // отговорът е асинхронен
+  }
   void handleMessage(message, sender);
 });
 
@@ -69,7 +78,34 @@ async function stopSession(): Promise<void> {
   await notifyTab(tabId, { type: "session-state", active: false });
 }
 
-async function handleMessage(message: BackgroundMessage, sender: chrome.runtime.MessageSender): Promise<void> {
+async function calendarBusy(start: number, end: number): Promise<CalendarBusyResponse> {
+  if (!GOOGLE_CLIENT_ID) return { ok: false, error: "not-configured" };
+  let token = await getStoredToken();
+  if (token === null) {
+    // Тих опит за нов токен, само ако ръководителят вече е свързал календара от настройките.
+    if (!(await isConnected())) return { ok: false, error: "not-connected" };
+    try {
+      token = await signIn(false);
+    } catch {
+      return { ok: false, error: "not-connected" };
+    }
+  }
+  try {
+    const busy = await fetchBusy(token.accessToken, { start: new Date(start), end: new Date(end) });
+    return { ok: true, busy: busy.map((range) => ({ start: range.start.getTime(), end: range.end.getTime() })) };
+  } catch (error) {
+    if (error instanceof Error && error.message === "unauthorized") {
+      await forgetToken();
+      return { ok: false, error: "not-connected" };
+    }
+    return { ok: false, error: "failed" };
+  }
+}
+
+async function handleMessage(
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" }>,
+  sender: chrome.runtime.MessageSender,
+): Promise<void> {
   const tabId = await getSessionTab();
   if (message.type === "panel-closed") {
     if (sender.tab?.id !== undefined && sender.tab.id === tabId) await stopSession();

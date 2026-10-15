@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zara Copilot: настройки</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8f9fa; --card: #ffffff; --text: #202124; --muted: #5f6368; --accent: #1a73e8; --ok: #188038; --err: #c5221f; --line: #dadce0; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #202124; --card: #2d2f33; --text: #e8eaed; --muted: #9aa0a6; --accent: #8ab4f8; --ok: #81c995; --err: #f28b82; --line: #3c4043; }
+    }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", Roboto, Arial, sans-serif; padding: 24px 16px; box-sizing: border-box; }
+    main { max-width: 560px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 16px; }
+    section { background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+    h2 { font-size: 17px; margin: 0 0 8px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    button { font: inherit; font-weight: 600; padding: 9px 18px; border-radius: 999px; cursor: pointer; border: 1px solid var(--accent); }
+    .primary { background: var(--accent); color: var(--card); }
+    .secondary { background: transparent; color: var(--accent); }
+    button:disabled { opacity: .5; cursor: default; }
+    #status { font-weight: 600; margin-top: 12px; min-height: 1.5em; }
+    .ok { color: var(--ok); } .err { color: var(--err); }
+    details { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px; }
+    summary { cursor: pointer; color: var(--muted); }
+    code { font-size: 13px; word-break: break-all; background: var(--bg); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Zara Copilot: настройки</h1>
+    <section>
+      <h2>Google Calendar</h2>
+      <p>Copilot проверява дали сте свободни, когато уговаряте среща. Вижда <strong>само заетите часове</strong>: без заглавия, участници или описания на събитията.</p>
+      <p>Ключът за достъп се пази само в паметта на браузъра, не на диска. Може да прекъснете достъпа по всяко време.</p>
+      <div class="actions">
+        <button id="connect" class="primary" type="button">Свържи календара</button>
+        <button id="disconnect" class="secondary" type="button">Прекъсни</button>
+      </div>
+      <div id="status" role="status"></div>
+      <details>
+        <summary>Данни за настройката в Google Cloud</summary>
+        <p>Адрес за пренасочване (Authorized redirect URI):<br><code id="redirect"></code></p>
+        <p>Идентификатор на разширението:<br><code id="extension-id"></code></p>
+      </details>
+    </section>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>
