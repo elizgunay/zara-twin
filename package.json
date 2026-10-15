@@ -7,12 +7,13 @@
     "packages/core",
     "packages/stt-whisper",
     "packages/knowledge",
+    "packages/hints",
     "apps/extension",
     "tools/stt-bench",
     "tools/strategy-doc"
   ],
   "scripts": {
-    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/stt-whisper --noEmit && tsc -p packages/knowledge --noEmit && tsc -p apps/extension --noEmit && tsc -p tools/stt-bench --noEmit",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/stt-whisper --noEmit && tsc -p packages/knowledge --noEmit && tsc -p packages/hints --noEmit && tsc -p apps/extension --noEmit && tsc -p tools/stt-bench --noEmit",
     "build:extension": "npm run build -w @zara-twin/extension",
     "bench:stt": "tsx tools/stt-bench/src/bench.ts",
     "bench:sample": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/stt-bench/make-tts-sample.ps1",

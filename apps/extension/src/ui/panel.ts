@@ -1,9 +1,15 @@
-import type { AudioSourceKind, MeetingInfo, TranscriptSegment } from "@zara-twin/core";
+import type { AudioSourceKind, MeetingInfo, SpeakerRole } from "@zara-twin/core";
+import type { Hint } from "@zara-twin/hints";
 
-const SPEAKER_LABEL: Record<TranscriptSegment["speaker"], string> = {
+const SPEAKER_LABEL: Record<SpeakerRole, string> = {
   owner: "Вие",
   counterpart: "Събеседник",
 };
+
+/** Повече карти наведнъж не се четат по време на разговор. */
+const MAX_HINTS = 3;
+/** Последните реплики са достатъчни за контекст. Целият разговор не се пази. */
+const MAX_TRANSCRIPT_ROWS = 50;
 
 export interface PanelOptions {
   /** Затварянето на панела спира и прихващането на звука. */
@@ -75,14 +81,54 @@ export class CopilotPanel {
     notice.hidden = false;
   }
 
-  appendSegment(segment: TranscriptSegment): void {
+  appendSegment(segment: { speaker: SpeakerRole; text: string }): void {
     this.emptyState.hidden = true;
     const row = this.doc.createElement("p");
     const speaker = this.doc.createElement("strong");
     speaker.textContent = `${SPEAKER_LABEL[segment.speaker]}: `;
     row.append(speaker, segment.text);
     this.transcript.append(row);
+    while (this.transcript.querySelectorAll("p:not([data-part])").length > MAX_TRANSCRIPT_ROWS) {
+      this.transcript.querySelector("p:not([data-part])")!.remove();
+    }
     this.transcript.scrollTop = this.transcript.scrollHeight;
+  }
+
+  /** Най-новата подсказка е най-отгоре. Всичко се вмъква чрез textContent. */
+  showHint(hint: Hint): void {
+    const hints = this.part("hints");
+    const card = this.doc.createElement("article");
+    card.className = `hint ${hint.kind}`;
+
+    const title = this.doc.createElement("h2");
+    title.textContent = hint.title;
+    card.append(title);
+
+    if (hint.lines.length > 0) {
+      const list = this.doc.createElement("ul");
+      for (const line of hint.lines) {
+        const item = this.doc.createElement("li");
+        item.textContent = line;
+        list.append(item);
+      }
+      card.append(list);
+    }
+
+    if (hint.sourceUrl?.startsWith("https://")) {
+      const source = this.doc.createElement("a");
+      source.href = hint.sourceUrl;
+      source.target = "_blank";
+      source.rel = "noopener noreferrer";
+      source.textContent = "източник";
+      card.append(source);
+    }
+
+    hints.prepend(card);
+    while (hints.children.length > MAX_HINTS) hints.lastElementChild!.remove();
+  }
+
+  clearHints(): void {
+    this.part("hints").replaceChildren();
   }
 
   private part(name: string): HTMLElement {
@@ -119,7 +165,15 @@ const TEMPLATE = /* html */ `
   .levels { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; padding: 10px 12px 0; font-size: 12px; color: #bdc1c6; }
   .meter { height: 6px; border-radius: 3px; background: #3c4352; overflow: hidden; }
   .meter > div { height: 100%; width: 0; background: #81c995; transition: width 90ms linear; }
-  .transcript { flex: 1; overflow-y: auto; padding: 4px 12px 12px; }
+  .hints { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 0; }
+  .hints:empty { display: none; }
+  .hint { padding: 8px 10px; border-radius: 8px; background: #263041; border-left: 3px solid #8ab4f8; }
+  .hint.no-data { border-left-color: #fdd663; }
+  .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
+  .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }
+  .hint li { margin: 2px 0; }
+  .hint a { display: inline-block; margin-top: 4px; font-size: 11px; color: #8ab4f8; }
+  .transcript { flex: 1; overflow-y: auto; padding: 4px 12px 12px; border-top: 1px solid #3c4352; margin-top: 10px; }
   .transcript p { margin: 6px 0; }
   .transcript strong { color: #8ab4f8; font-weight: 600; }
   .empty { color: #9aa0a6; font-style: italic; }
@@ -138,7 +192,8 @@ const TEMPLATE = /* html */ `
     <span>Събеседник</span><div class="meter"><div data-part="level-tab"></div></div>
     <span>Вие</span><div class="meter"><div data-part="level-microphone"></div></div>
   </div>
-  <div class="transcript" data-part="transcript" aria-live="polite">
+  <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>
+  <div class="transcript" data-part="transcript">
     <p class="empty" data-part="empty">Транскрипцията идва в следващата стъпка.</p>
   </div>
 </section>

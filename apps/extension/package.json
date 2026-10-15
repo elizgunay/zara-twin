@@ -9,7 +9,9 @@
     "watch": "node build.mjs --watch"
   },
   "dependencies": {
-    "@zara-twin/core": "0.1.0"
+    "@zara-twin/core": "0.1.0",
+    "@zara-twin/hints": "0.1.0",
+    "@zara-twin/knowledge": "0.1.0"
   },
   "devDependencies": {
     "@types/chrome": "0.1.43",

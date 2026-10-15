@@ -1,4 +1,4 @@
-import type { AudioSourceKind } from "@zara-twin/core";
+import type { AudioSourceKind, SpeakerRole } from "@zara-twin/core";
 
 /**
  * Съобщенията между частите на разширението, групирани по получател.
@@ -18,7 +18,11 @@ export type CaptureErrorCode =
 export type ContentMessage =
   | { type: "session-state"; active: boolean }
   | { type: "audio-level"; source: AudioSourceKind; level: number }
-  | { type: "capture-notice"; tone: "info" | "error"; text: string };
+  | { type: "capture-notice"; tone: "info" | "error"; text: string }
+  | { type: "transcript-segment"; speaker: SpeakerRole; text: string };
+
+/** Горна граница за едно изречение: защита срещу огромни съобщения. */
+export const MAX_SEGMENT_LENGTH = 2000;
 
 /** Към service worker-а. */
 export type BackgroundMessage =
@@ -34,6 +38,7 @@ export type OffscreenMessage =
 export type OffscreenResponse = { ok: true } | { ok: false; error: string };
 
 const AUDIO_SOURCES: ReadonlySet<unknown> = new Set<AudioSourceKind>(["tab", "microphone"]);
+const SPEAKERS: ReadonlySet<unknown> = new Set<SpeakerRole>(["owner", "counterpart"]);
 const ERROR_CODES: ReadonlySet<unknown> = new Set<CaptureErrorCode>([
   "mic-permission-denied",
   "mic-unavailable",
@@ -57,6 +62,12 @@ export function isContentMessage(value: unknown): value is ContentMessage {
       return AUDIO_SOURCES.has(value.source) && isLevel(value.level);
     case "capture-notice":
       return (value.tone === "info" || value.tone === "error") && typeof value.text === "string";
+    case "transcript-segment":
+      return (
+        SPEAKERS.has(value.speaker) &&
+        typeof value.text === "string" &&
+        value.text.length <= MAX_SEGMENT_LENGTH
+      );
     default:
       return false;
   }

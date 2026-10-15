@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
+import { productCard } from "./card";
 import { codePattern, MentionFinder } from "./mentions";
 import { validatePack } from "./validate";
 
@@ -66,6 +67,31 @@ describe("разпознаване на модели в разговора", () 
 
   it("codePattern отказва невалиден код", () => {
     expect(() => codePattern("40")).toThrow();
+  });
+});
+
+describe("productCard", () => {
+  const byId = (id: string) => pack.products.find((p) => p.id === id)!;
+
+  it("показва най-важното за почистващ робот", () => {
+    expect(productCard(byId("kleenbot-c40s"))).toEqual({
+      title: "Keenon Kleenbot C40S",
+      lines: ["Ефективност: до 1 100 м²/час", "Минимален проход: 65 см", "Живот — почистване: ~5 часа", "Режими: Метене / Прахосмучене / Миене / Търкане"],
+      sourceUrl: "https://zararobotics.com/robots/kleenbot-c40s",
+    });
+  });
+
+  it("показва товара и прохода за сервитьор", () => {
+    expect(productCard(byId("dinerbot-t11"), 2).lines).toEqual([
+      "Товароносимост: 20 кг общо (5 кг средно + 10 кг долно ниво)",
+      "Минимален проход: 49 см (най-тесен в серията)",
+    ]);
+  });
+
+  it("всеки модел има поне 2 реда в картата", () => {
+    for (const product of pack.products) {
+      expect(productCard(product).lines.length, product.id).toBeGreaterThanOrEqual(2);
+    }
   });
 });
 

@@ -1,10 +1,14 @@
+import { HintEngine } from "@zara-twin/hints";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
+import { pack } from "./pack";
 import { isContentMessage, type BackgroundMessage } from "./shared/messages";
 import { CopilotPanel } from "./ui/panel";
 
 // Content script: работи вътре в meet.google.com и само показва състоянието.
 // Звукът се прихваща в offscreen документа, а сесията се управлява от service worker-а.
+// Подсказките от пакета със знания се изчисляват тук, локално, за милисекунди.
 const adapter = new GoogleMeetAdapter();
+let hints = new HintEngine(pack);
 const panel = new CopilotPanel({
   onClose: () => {
     const message: BackgroundMessage = { type: "panel-closed" };
@@ -24,6 +28,9 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         panel.show();
       } else {
         panel.setRecording(false);
+        panel.clearHints();
+        // Нова среща = чиста памет за повторенията на подсказки.
+        hints = new HintEngine(pack);
         panel.hide();
       }
       break;
@@ -33,6 +40,10 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     case "capture-notice":
       panel.setNotice(message.tone, message.text);
       panel.show();
+      break;
+    case "transcript-segment":
+      panel.appendSegment(message);
+      for (const hint of hints.onSegment(message)) panel.showHint(hint);
       break;
   }
 });

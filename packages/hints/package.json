@@ -1,0 +1,14 @@
+{
+  "name": "@zara-twin/hints",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Подсказки на живо от пакета със знания: без AI модел, само факти от пакета",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zara-twin/core": "0.1.0",
+    "@zara-twin/knowledge": "0.1.0"
+  }
+}

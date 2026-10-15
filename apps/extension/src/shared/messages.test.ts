@@ -14,6 +14,12 @@ describe("isContentMessage", () => {
     expect(isContentMessage({ type: "audio-level", source: "tab", level: 7 })).toBe(false);
     expect(isContentMessage({ type: "capture-notice", tone: "html", text: "<b>" })).toBe(false);
   });
+
+  it("проверява изреченията от разговора", () => {
+    expect(isContentMessage({ type: "transcript-segment", speaker: "counterpart", text: "Колко струва?" })).toBe(true);
+    expect(isContentMessage({ type: "transcript-segment", speaker: "boss", text: "…" })).toBe(false);
+    expect(isContentMessage({ type: "transcript-segment", speaker: "owner", text: "х".repeat(2001) })).toBe(false);
+  });
 });
 
 describe("isBackgroundMessage", () => {
