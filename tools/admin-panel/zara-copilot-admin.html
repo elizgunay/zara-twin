@@ -1,0 +1,415 @@
+<title>Пулт на Zara Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Пулт: обобщение отгоре, после фази, тестове (графика + таблица + въвеждане) и задачи. Цветовете следват Word документите на проекта (тъмносиньо + синьо). */
+:root {
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --ink: #1b2436;
+  --muted: #5b6579;
+  --line: #dde2ec;
+  --navy: #1f3864;
+  --accent: #2e75b6;
+  --accent-soft: #e3edf8;
+  --good: #1f7a45;
+  --good-soft: #e2f3e8;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd9;
+  --bad: #b3261e;
+  --bad-soft: #fbe3e1;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151d; --surface: #1a2030; --ink: #e6e9f0; --muted: #9aa3b5; --line: #2c3446;
+    --navy: #9db8e8; --accent: #7fb2ea; --accent-soft: #1f3150;
+    --good: #7fd29d; --good-soft: #17301f; --warn: #f0bf6a; --warn-soft: #33270f; --bad: #f19a92; --bad-soft: #3a1c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151d; --surface: #1a2030; --ink: #e6e9f0; --muted: #9aa3b5; --line: #2c3446;
+  --navy: #9db8e8; --accent: #7fb2ea; --accent-soft: #1f3150;
+  --good: #7fd29d; --good-soft: #17301f; --warn: #f0bf6a; --warn-soft: #33270f; --bad: #f19a92; --bad-soft: #3a1c1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 20px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; color: var(--navy); }
+h1 { font-size: 1.6rem; font-weight: 700; }
+h2 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+header.top .meta { display: grid; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.chip.phase { background: var(--accent-soft); color: var(--navy); }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.idle { background: var(--line); color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px; }
+.tile .value { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tile .hint { font-size: .82rem; color: var(--muted); }
+
+.phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
+.phase { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; }
+.phase.now { border-color: var(--accent); background: var(--accent-soft); }
+.phase .n { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+.phase .t { font-weight: 600; line-height: 1.3; }
+.phase .d { font-size: .82rem; color: var(--muted); }
+
+.grid-2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; }
+@media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.chart svg { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.chart .label { fill: var(--ink); font-size: 12.5px; }
+.chart .value-label { font-family: var(--font-mono); fill: var(--ink); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .target { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart .target-text { fill: var(--good); font-weight: 600; }
+.bar-good { fill: var(--good); } .bar-warn { fill: var(--warn); } .bar-bad { fill: var(--bad); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .82rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 640px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+.device { display: grid; gap: 2px; }
+.device small { color: var(--muted); }
+.note { font-size: .8rem; color: var(--warn); }
+
+form { display: grid; gap: 10px; }
+label { font-weight: 600; font-size: .88rem; display: grid; gap: 6px; }
+input[type="text"], textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; }
+textarea { font-family: var(--font-mono); font-size: .82rem; min-height: 150px; resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); justify-self: start; }
+button:disabled { opacity: .5; cursor: default; }
+.preview { font-size: .85rem; border: 1px dashed var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 4px; }
+.status { font-size: .85rem; min-height: 1.3em; }
+.status.ok { color: var(--good); } .status.err { color: var(--bad); }
+
+.tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.task { display: flex; align-items: flex-start; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.task:last-child { border-bottom: 0; }
+.task input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--good); flex: none; }
+.task .text { flex: 1; min-width: 0; }
+.task.done .text { color: var(--muted); text-decoration: line-through; }
+.who { font-size: .74rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; }
+.who.claude { background: var(--accent-soft); color: var(--navy); }
+.empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
+@media (prefers-reduced-motion: no-preference) { .bar { transition: width .4s ease; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="meta">
+      <span class="eyebrow">AI двойник на ръководителя · Zara Robotics</span>
+      <h1>Пулт на Zara Copilot</h1>
+    </div>
+    <span class="chip phase">Сега: Фаза 1 · Copilot в срещите</span>
+  </header>
+
+  <section class="tiles" aria-label="Обобщение">
+    <div class="tile"><span class="eyebrow">Тествани компютри</span><span class="value" id="t-count">–</span><span class="hint" id="t-count-hint">Добавете първия резултат по-долу</span></div>
+    <div class="tile"><span class="eyebrow">Подходящи за работа на живо</span><span class="value" id="t-ok">–</span><span class="hint">Закъснение до 2 s</span></div>
+    <div class="tile"><span class="eyebrow">Най-малко закъснение</span><span class="value" id="t-best">–</span><span class="hint" id="t-best-hint">Цел: под 2 s</span></div>
+    <div class="tile"><span class="eyebrow">Най-малко грешки</span><span class="value" id="t-wer">–</span><span class="hint" id="t-wer-hint">Цел: под 15% грешни думи</span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="phases-h">
+    <div class="panel-head"><h2 id="phases-h">Фази</h2><span class="muted" style="font-size:.85rem">Подробно: docs/strategy в проекта</span></div>
+    <ol class="phases">
+      <li class="phase"><span class="n">0</span><span class="t">Визия и план</span><span class="chip good">Готово</span></li>
+      <li class="phase now"><span class="n">1</span><span class="t">Copilot в срещите</span><span class="chip warn">Почти готово</span><span class="d">Чака теста при шефа</span></li>
+      <li class="phase"><span class="n">2</span><span class="t">Памет</span><span class="chip idle">Предстои</span><span class="d">Помни важното, с одобрение</span></li>
+      <li class="phase"><span class="n">3</span><span class="t">Двойник в текст</span><span class="chip idle">Предстои</span><span class="d">Насрочва срещи, прости въпроси</span></li>
+      <li class="phase"><span class="n">4</span><span class="t">Двойник с глас</span><span class="chip idle">Предстои</span><span class="d">Телефон и срещи с гласа на шефа</span></li>
+      <li class="phase"><span class="n">5</span><span class="t">Продукт за клиенти</span><span class="chip idle">Предстои</span><span class="d">Продажба на други фирми</span></li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-labelledby="tests-h">
+    <div class="panel-head">
+      <h2 id="tests-h">Тестове на компютри: закъснение на живо</h2>
+      <div class="legend"><span style="--c: var(--good)">Подходящ</span><span style="--c: var(--warn)">На границата</span><span style="--c: var(--bad)">Не е подходящ</span></div>
+    </div>
+    <div class="chart" id="chart"><p class="empty">Тук ще се появи графика, щом добавите резултат от „Тест на компютъра“.</p></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Компютър</th><th>Вариант</th><th class="num">Закъснение</th><th class="num">Грешки</th><th>Присъда</th><th>Дата</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="6" class="empty">Още няма резултати.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="add-h">
+      <div class="panel-head"><h2 id="add-h">Добави резултат</h2></div>
+      <p class="muted" style="font-size:.88rem">В разширението: Options, после „Отвори теста“, после „Копирай резултатите“. Поставете текста тук.</p>
+      <form id="add-form" novalidate>
+        <label for="f-label">Компютър
+          <input type="text" id="f-label" maxlength="80" placeholder="напр. Mac на шефа (MacBook Pro M2)" autocomplete="off">
+        </label>
+        <label for="f-text">Резултати от теста
+          <textarea id="f-text" spellcheck="false" placeholder="Zara Copilot: тест на компютъра&#10;Система: macOS&#10;…"></textarea>
+        </label>
+        <div class="preview" id="preview" hidden></div>
+        <button type="submit" id="f-save" disabled>Запази резултата</button>
+        <div class="status" id="f-status" role="status"></div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="tasks-h">
+      <div class="panel-head"><h2 id="tasks-h">Задачи</h2><span class="muted" id="tasks-count" style="font-size:.85rem"></span></div>
+      <ul class="tasks" id="tasks"><li class="empty">Задачите се зареждат…</li></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const VERDICT = {
+    suitable: { text: "Подходящ", chip: "good", bar: "bar-good" },
+    borderline: { text: "На границата", chip: "warn", bar: "bar-warn" },
+    unsuitable: { text: "Не е подходящ", chip: "bad", bar: "bar-bad" },
+  };
+  let db = null;
+  let canWrite = true;
+  let tests = [];
+  let parsed = null;
+
+  // ---------- Разчитане на текста от „Копирай резултатите“ ----------
+  function num(s) {
+    const m = String(s).replace(",", ".").match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : null;
+  }
+  function verdictOf(s) {
+    if (/✅|Подходящ за работа/.test(s) && !/Не е подходящ/.test(s)) return "suitable";
+    if (/⚠|границата/.test(s)) return "borderline";
+    if (/❌|Не е подходящ/.test(s)) return "unsuitable";
+    return null;
+  }
+  function parseResults(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const entry = { platform: "", cores: null, memoryGb: null, gpu: "", runs: [] };
+    let run = null;
+    for (const line of lines) {
+      const head = line.match(/^==\s*(.+)$/);
+      if (head) { run = { name: head[1].trim(), model: "", latencySeconds: null, werPercent: null, rtf: null, verdict: null, estimated: false }; entry.runs.push(run); continue; }
+      const kv = line.match(/^([^:]+):\s*(.*)$/);
+      if (!kv) continue;
+      const key = kv[1].trim(), value = kv[2].trim();
+      if (!run) {
+        if (key === "Система") entry.platform = value;
+        else if (key.startsWith("Ядра")) entry.cores = num(value);
+        else if (key.startsWith("Памет")) entry.memoryGb = num(value);
+        else if (key.startsWith("Видеокарта")) entry.gpu = value;
+        continue;
+      }
+      if (key === "Модел") run.model = value;
+      else if (key === "Закъснение на живо") run.latencySeconds = num(value);
+      else if (key === "Очаквано закъснение на живо") { run.latencySeconds = num(value); run.estimated = true; }
+      else if (key.startsWith("Скорост спрямо говора")) run.rtf = num(value);
+      else if (key.startsWith("Грешни думи")) run.werPercent = num(value);
+      else if (key === "Присъда") run.verdict = verdictOf(value);
+    }
+    entry.runs = entry.runs.filter((r) => r.latencySeconds !== null || r.verdict);
+    return entry;
+  }
+
+  // ---------- Въвеждане ----------
+  function refreshPreview() {
+    const text = $("f-text").value.trim();
+    const box = $("preview");
+    parsed = text ? parseResults(text) : null;
+    if (!parsed) { box.hidden = true; $("f-save").disabled = true; return; }
+    box.hidden = false;
+    box.replaceChildren();
+    const add = (t, cls) => { const p = document.createElement("div"); p.textContent = t; if (cls) p.className = cls; box.append(p); };
+    if (parsed.runs.length === 0) {
+      add("Не намирам резултати в текста. Поставете целия текст от бутона „Копирай резултатите“.", "status err");
+      $("f-save").disabled = true;
+      return;
+    }
+    add(`${parsed.platform || "Система ?"} · ${parsed.cores ?? "?"} нишки · ${parsed.gpu || "без видеокарта за AI"}`);
+    for (const r of parsed.runs) {
+      const v = r.verdict ? VERDICT[r.verdict].text : "без присъда";
+      add(`${r.name}: ${fmtS(r.latencySeconds)} закъснение, ${fmtPct(r.werPercent)} грешки, ${v}`);
+    }
+    $("f-save").disabled = !db || !canWrite || !$("f-label").value.trim();
+  }
+  $("f-text").addEventListener("input", refreshPreview);
+  $("f-label").addEventListener("input", refreshPreview);
+
+  $("add-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = $("f-status");
+    const label = $("f-label").value.trim();
+    if (!label) { status.className = "status err"; status.textContent = "Въведете име на компютъра."; return; }
+    if (!parsed || parsed.runs.length === 0) { status.className = "status err"; status.textContent = "Поставете резултатите от теста."; return; }
+    $("f-save").disabled = true;
+    try {
+      await db.collection("tests").add({ label, addedAt: new Date().toISOString(), ...parsed });
+      status.className = "status ok"; status.textContent = "Запазено.";
+      $("f-text").value = ""; $("f-label").value = ""; refreshPreview();
+    } catch (e) {
+      status.className = "status err";
+      status.textContent = e && e.code === "quota_exceeded" ? "Базата е пълна. Изтрийте стари резултати." : "Не успях да запазя. Опитайте отново след малко.";
+      $("f-save").disabled = false;
+    }
+  });
+
+  // ---------- Показване ----------
+  const fmtS = (v) => (v === null || v === undefined ? "–" : `${String(v).replace(".", ",")} s`);
+  const fmtPct = (v) => (v === null || v === undefined ? "–" : `${String(v).replace(".", ",")}%`);
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" }); } catch { return ""; } };
+
+  function allRuns() {
+    return tests.flatMap((t) => (t.runs || []).map((r) => ({ ...r, test: t })));
+  }
+
+  function renderTiles() {
+    const runs = allRuns();
+    $("t-count").textContent = tests.length || "0";
+    $("t-count-hint").textContent = tests.length ? `${runs.length} измервания` : "Добавете първия резултат по-долу";
+    const okTests = tests.filter((t) => (t.runs || []).some((r) => r.verdict === "suitable")).length;
+    $("t-ok").textContent = tests.length ? `${okTests} от ${tests.length}` : "–";
+    const withLatency = runs.filter((r) => typeof r.latencySeconds === "number");
+    if (withLatency.length) {
+      const best = withLatency.reduce((a, b) => (b.latencySeconds < a.latencySeconds ? b : a));
+      $("t-best").textContent = fmtS(best.latencySeconds);
+      $("t-best-hint").textContent = `${best.test.label} · цел под 2 s`;
+    } else { $("t-best").textContent = "–"; }
+    const withWer = runs.filter((r) => typeof r.werPercent === "number");
+    if (withWer.length) {
+      const best = withWer.reduce((a, b) => (b.werPercent < a.werPercent ? b : a));
+      $("t-wer").textContent = fmtPct(best.werPercent);
+      $("t-wer-hint").textContent = `${best.model || best.name} · цел под 15%`;
+    } else { $("t-wer").textContent = "–"; }
+  }
+
+  function renderTable() {
+    const body = $("rows");
+    body.replaceChildren();
+    const runs = allRuns();
+    if (!runs.length) {
+      const tr = body.insertRow(); const td = tr.insertCell(); td.colSpan = 6; td.className = "empty"; td.textContent = "Още няма резултати.";
+      return;
+    }
+    for (const r of runs) {
+      const t = r.test, tr = body.insertRow();
+      const dev = tr.insertCell(); const d = document.createElement("div"); d.className = "device";
+      const name = document.createElement("strong"); name.textContent = t.label;
+      const small = document.createElement("small"); small.textContent = [t.platform, t.cores ? `${t.cores} нишки` : "", t.gpu].filter(Boolean).join(" · ");
+      d.append(name, small);
+      if (t.note) { const n = document.createElement("span"); n.className = "note"; n.textContent = t.note; d.append(n); }
+      dev.append(d);
+      const variant = tr.insertCell(); variant.textContent = r.model ? `${r.name}, ${r.model}` : r.name;
+      const lat = tr.insertCell(); lat.className = "num"; lat.textContent = (r.estimated ? "≈ " : "") + fmtS(r.latencySeconds);
+      const wer = tr.insertCell(); wer.className = "num"; wer.textContent = fmtPct(r.werPercent);
+      const verdict = tr.insertCell();
+      if (r.verdict) { const c = document.createElement("span"); c.className = `chip ${VERDICT[r.verdict].chip}`; c.textContent = VERDICT[r.verdict].text; verdict.append(c); }
+      const date = tr.insertCell(); date.className = "muted"; date.textContent = fmtDate(t.addedAt);
+    }
+  }
+
+  function renderChart() {
+    const box = $("chart");
+    const runs = allRuns().filter((r) => typeof r.latencySeconds === "number");
+    if (!runs.length) { box.innerHTML = '<p class="empty">Тук ще се появи графика, щом добавите резултат от „Тест на компютъра“.</p>'; return; }
+    const W = 760, labelW = 260, right = 70, rowH = 34, top = 26, bottom = 28;
+    const H = top + runs.length * rowH + bottom;
+    const max = Math.max(4, Math.ceil(Math.max(...runs.map((r) => r.latencySeconds)) / 2) * 2);
+    const x = (v) => labelW + (v / max) * (W - labelW - right);
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Закъснение на живо по компютри, цел под 2 секунди");
+    const el = (name, attrs, text) => { const n = document.createElementNS(ns, name); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text !== undefined) n.textContent = text; svg.append(n); return n; };
+    const step = max <= 6 ? 1 : max <= 12 ? 2 : 4;
+    for (let v = 0; v <= max; v += step) {
+      el("line", { x1: x(v), x2: x(v), y1: top - 6, y2: H - bottom, class: "grid" });
+      el("text", { x: x(v), y: H - 8, "text-anchor": "middle" }, `${v} s`);
+    }
+    runs.forEach((r, i) => {
+      const y = top + i * rowH;
+      const label = `${r.test.label} · ${r.name.replace(/\s*\(.+\)/, "")}`;
+      el("text", { x: labelW - 10, y: y + rowH / 2 + 4, "text-anchor": "end", class: "label" }, label.length > 38 ? label.slice(0, 36) + "…" : label);
+      const cls = r.verdict ? VERDICT[r.verdict].bar : "bar-bad";
+      el("rect", { x: x(0), y: y + 7, width: Math.max(2, x(r.latencySeconds) - x(0)), height: rowH - 14, rx: 3, class: cls });
+      el("text", { x: x(r.latencySeconds) + 6, y: y + rowH / 2 + 4, class: "value-label" }, (r.estimated ? "≈" : "") + fmtS(r.latencySeconds));
+    });
+    el("line", { x1: x(2), x2: x(2), y1: top - 12, y2: H - bottom, class: "target" });
+    el("text", { x: x(2) + 4, y: top - 12, class: "target-text" }, "цел 2 s");
+    box.replaceChildren(svg);
+  }
+
+  function renderTests() { renderTiles(); renderChart(); renderTable(); }
+
+  // ---------- Задачи ----------
+  function renderTasks(docs) {
+    const list = $("tasks");
+    list.replaceChildren();
+    if (!docs.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Няма задачи."; list.append(li); $("tasks-count").textContent = ""; return; }
+    let open = 0;
+    for (const doc of docs) {
+      const t = doc.data(); if (!t.done) open++;
+      const li = document.createElement("li"); li.className = "task" + (t.done ? " done" : "");
+      const box = document.createElement("input"); box.type = "checkbox"; box.id = "task-" + doc.id; box.checked = !!t.done; box.disabled = !canWrite;
+      box.addEventListener("change", async () => {
+        box.disabled = true;
+        try { await db.doc("tasks/" + doc.id).update({ done: box.checked }); } catch { box.checked = !box.checked; }
+        box.disabled = !canWrite;
+      });
+      const text = document.createElement("label"); text.className = "text"; text.htmlFor = box.id; text.style.fontWeight = "400"; text.style.display = "block"; text.textContent = t.title;
+      const who = document.createElement("span"); who.className = "who" + (t.owner === "Claude" ? " claude" : ""); who.textContent = t.owner || "Вие";
+      li.append(box, text, who); list.append(li);
+    }
+    $("tasks-count").textContent = `${open} отворени от ${docs.length}`;
+  }
+
+  // ---------- Данни ----------
+  (async () => {
+    const claude = window.claude;
+    db = claude ? await claude.use("db") : null;
+    if (!db) {
+      $("tasks").innerHTML = '<li class="empty">Данните не са достъпни в този изглед. Отворете страницата в claude.ai, влезли в профила си.</li>';
+      $("f-status").textContent = "Запазването не е достъпно в този изглед.";
+      return;
+    }
+    const user = await claude.use("user");
+    const can = user ? await user.can("data.write") : null;
+    canWrite = can !== false;
+    if (!canWrite) $("f-status").textContent = "Имате права само за преглед.";
+    db.collection("tests").orderBy("addedAt", "desc").onSnapshot(
+      (snap) => { tests = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderTests(); },
+      () => { $("rows").innerHTML = '<tr><td colspan="6" class="empty">Резултатите не се заредиха. Презаредете страницата.</td></tr>'; },
+    );
+    db.collection("tasks").orderBy("order").onSnapshot(
+      (snap) => renderTasks(snap.docs),
+      () => { $("tasks").innerHTML = '<li class="empty">Задачите не се заредиха. Презаредете страницата.</li>'; },
+    );
+    refreshPreview();
+  })();
+})();
+</script>
