@@ -170,6 +170,7 @@ const TEMPLATE = /* html */ `
   .hint { padding: 8px 10px; border-radius: 8px; background: #263041; border-left: 3px solid #8ab4f8; }
   .hint.no-data, .hint.calendar { border-left-color: #fdd663; }
   .hint.calendar-free { border-left-color: #81c995; }
+  .hint.objection { border-left-color: #c58af9; background: #2d2638; }
   .hint.calendar-busy { border-left-color: #f28b82; background: #3a2526; }
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }

@@ -2,3 +2,4 @@ export type { BusinessInfo, FaqEntry, KnowledgePack, Product, ProductFamily, Sou
 export { validatePack } from "./validate";
 export { codePattern, MentionFinder, type Mentions } from "./mentions";
 export { productCard, type ProductCard } from "./card";
+export { validateMethodPack, type MethodPack, type Objection, type Tip } from "./method";

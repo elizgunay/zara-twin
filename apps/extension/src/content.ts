@@ -1,7 +1,7 @@
-import { HintEngine, ScheduleAssistant } from "@zara-twin/hints";
+import { HintEngine, ObjectionDetector, ScheduleAssistant } from "@zara-twin/hints";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
-import { pack } from "./pack";
+import { method, pack } from "./pack";
 import { isContentMessage, type BackgroundMessage } from "./shared/messages";
 import { CopilotPanel } from "./ui/panel";
 
@@ -10,6 +10,7 @@ import { CopilotPanel } from "./ui/panel";
 // Подсказките от пакета със знания се изчисляват тук, локално, за милисекунди.
 const adapter = new GoogleMeetAdapter();
 let hints = new HintEngine(pack);
+let objections = new ObjectionDetector(method, pack);
 // Google Calendar (само free/busy) през service worker-а. Ако не е свързан,
 // помощникът пак показва конкретната дата на уговорения час.
 const calendar = new ExtensionCalendarProvider();
@@ -36,6 +37,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         panel.clearHints();
         // Нова среща = чиста памет за повторенията на подсказки.
         hints = new HintEngine(pack);
+        objections = new ObjectionDetector(method, pack);
         schedule = new ScheduleAssistant(calendar);
         panel.hide();
       }
@@ -49,7 +51,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       break;
     case "transcript-segment":
       panel.appendSegment(message);
-      for (const hint of hints.onSegment(message)) panel.showHint(hint);
+      for (const hint of [...hints.onSegment(message), ...objections.onSegment(message)]) panel.showHint(hint);
       void schedule.onSegment(message).then((found) => found.forEach((hint) => panel.showHint(hint)));
       break;
   }
