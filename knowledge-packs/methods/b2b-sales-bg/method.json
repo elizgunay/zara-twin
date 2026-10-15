@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "kind": "method",
   "language": "bg-BG",
+  "talkRatio": {
+    "maxOwnerShare": 0.65,
+    "windowMinutes": 3,
+    "monologueSeconds": 60
+  },
   "objections": [
     {
       "id": "price",

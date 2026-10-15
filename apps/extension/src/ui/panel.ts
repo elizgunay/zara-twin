@@ -65,6 +65,7 @@ export class CopilotPanel {
     if (!active) {
       this.setLevel("tab", 0);
       this.setLevel("microphone", 0);
+      this.part("talk").hidden = true;
     }
   }
 
@@ -72,6 +73,21 @@ export class CopilotPanel {
   setLevel(source: AudioSourceKind, level: number): void {
     const percent = Math.min(100, Math.round(Math.sqrt(level) * 160));
     this.part(`level-${source}`).style.width = `${percent}%`;
+  }
+
+  /** Дял на говоренето (0–1) за последните минути; null = още никой не е говорил. */
+  setTalkShare(ownerShare: number | null, maxOwnerShare: number): void {
+    const row = this.part("talk");
+    if (ownerShare === null) {
+      row.hidden = true;
+      return;
+    }
+    row.hidden = false;
+    const owner = Math.round(ownerShare * 100);
+    this.part("talk-text").textContent = `Вие ${owner}% · Клиент ${100 - owner}%`;
+    const bar = this.part("talk-owner");
+    bar.style.width = `${owner}%`;
+    bar.classList.toggle("over", ownerShare > maxOwnerShare);
   }
 
   setNotice(tone: "info" | "error", text: string): void {
@@ -165,6 +181,12 @@ const TEMPLATE = /* html */ `
   .levels { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; padding: 10px 12px 0; font-size: 12px; color: #bdc1c6; }
   .meter { height: 6px; border-radius: 3px; background: #3c4352; overflow: hidden; }
   .meter > div { height: 100%; width: 0; background: #81c995; transition: width 90ms linear; }
+  .talk { padding: 10px 12px 0; font-size: 12px; color: #bdc1c6; }
+  .talk-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .talk-bar { height: 6px; border-radius: 3px; background: #8ab4f8; overflow: hidden; }
+  .talk-bar > div { height: 100%; width: 50%; background: #81c995; transition: width 300ms; }
+  .talk-bar > div.over { background: #fdd663; }
+  .hint.talk { border-left-color: #fdd663; }
   .hints { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 0; }
   .hints:empty { display: none; }
   .hint { padding: 8px 10px; border-radius: 8px; background: #263041; border-left: 3px solid #8ab4f8; }
@@ -194,6 +216,10 @@ const TEMPLATE = /* html */ `
   <div class="levels" data-part="levels" hidden>
     <span>Събеседник</span><div class="meter"><div data-part="level-tab"></div></div>
     <span>Вие</span><div class="meter"><div data-part="level-microphone"></div></div>
+  </div>
+  <div class="talk" data-part="talk" hidden>
+    <div class="talk-head"><span title="Последните 3 минути">Говорене</span><span data-part="talk-text"></span></div>
+    <div class="talk-bar"><div data-part="talk-owner"></div></div>
   </div>
   <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>
   <div class="transcript" data-part="transcript">

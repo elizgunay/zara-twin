@@ -9,7 +9,7 @@ import { MentionFinder, productCard, type KnowledgePack } from "@zara-twin/knowl
 export interface Hint {
   /** Ключ за повторения: една и съща подсказка не се показва отново в рамките на cooldown. */
   key: string;
-  kind: "product" | "family" | "no-data" | "objection" | "calendar" | "calendar-free" | "calendar-busy";
+  kind: "product" | "family" | "no-data" | "objection" | "talk" | "calendar" | "calendar-free" | "calendar-busy";
   title: string;
   lines: string[];
   sourceUrl?: string;
