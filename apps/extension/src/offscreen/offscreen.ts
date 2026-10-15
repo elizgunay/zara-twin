@@ -1,0 +1,110 @@
+import type { AudioChunk, AudioSourceKind } from "@zara-twin/core";
+import { downsampleToInt16, rmsLevel, TARGET_SAMPLE_RATE } from "../audio/pcm";
+import {
+  isOffscreenMessage,
+  type BackgroundMessage,
+  type CaptureErrorCode,
+  type OffscreenResponse,
+} from "../shared/messages";
+
+// Offscreen документ: невидима страница на разширението, единственото място в MV3,
+// където може да се ползва getUserMedia за звука на таба. Service worker-ът я създава
+// при старт и я затваря при стоп.
+
+interface CaptureSession {
+  context: AudioContext;
+  streams: MediaStream[];
+}
+
+let session: CaptureSession | null = null;
+
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if (!isOffscreenMessage(message)) return;
+  const done = (response: OffscreenResponse) => sendResponse(response);
+  if (message.type === "offscreen-start") {
+    start(message.streamId).then(
+      () => done({ ok: true }),
+      (error: unknown) => done({ ok: false, error: describe(error) }),
+    );
+  } else {
+    stop().then(() => done({ ok: true }));
+  }
+  return true; // отговорът е асинхронен
+});
+
+async function start(streamId: string): Promise<void> {
+  await stop();
+  const context = new AudioContext();
+  const streams: MediaStream[] = [];
+  session = { context, streams };
+
+  try {
+    await context.audioWorklet.addModule("pcm-worklet.js");
+
+    // 1. Звукът на срещата (събеседникът). Без него няма смисъл да продължаваме.
+    const tabStream = await navigator.mediaDevices.getUserMedia({
+      audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } },
+    } as MediaStreamConstraints);
+    streams.push(tabStream);
+    const tabSource = context.createMediaStreamSource(tabStream);
+    // Прихващането заглушава таба. Пускаме звука обратно, иначе собственикът спира да чува събеседника.
+    tabSource.connect(context.destination);
+    collect(context, tabSource, "tab");
+  } catch (error) {
+    await stop();
+    throw error;
+  }
+
+  // 2. Микрофонът (собственикът). Ако липсва, продължаваме само със събеседника.
+  try {
+    const micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+    streams.push(micStream);
+    // Микрофонът не се пуска към високоговорителите, за да няма ехо.
+    collect(context, context.createMediaStreamSource(micStream), "microphone");
+  } catch (error) {
+    const code: CaptureErrorCode =
+      error instanceof DOMException && error.name === "NotAllowedError"
+        ? "mic-permission-denied"
+        : "mic-unavailable";
+    send({ type: "offscreen-error", code, detail: describe(error) });
+  }
+}
+
+async function stop(): Promise<void> {
+  if (session === null) return;
+  const { context, streams } = session;
+  session = null;
+  for (const stream of streams) for (const track of stream.getTracks()) track.stop();
+  await context.close();
+}
+
+function collect(context: AudioContext, source: MediaStreamAudioSourceNode, kind: AudioSourceKind): void {
+  // Без изходи: възелът само чете звука, нищо не се добавя към високоговорителите.
+  const node = new AudioWorkletNode(context, "pcm-collector", { numberOfOutputs: 0 });
+  node.port.onmessage = (event: MessageEvent<Float32Array>) => {
+    handleChunk({
+      source: kind,
+      pcm: downsampleToInt16(event.data, context.sampleRate),
+      sampleRate: TARGET_SAMPLE_RATE,
+      capturedAt: Date.now(),
+    });
+  };
+  source.connect(node);
+}
+
+function handleChunk(chunk: AudioChunk): void {
+  // Следваща стъпка: тук парчетата ще отиват към SpeechToTextProvider.
+  send({ type: "offscreen-level", source: chunk.source, level: rmsLevel(chunk.pcm) });
+}
+
+function send(message: BackgroundMessage): void {
+  chrome.runtime.sendMessage(message).catch(() => {
+    // Service worker-ът може да е спрян за момент. Индикаторът не е критичен.
+  });
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}

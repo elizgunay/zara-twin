@@ -1,7 +1,7 @@
 // Изгражда разширението в dist/, готово за „Load unpacked“ в Chrome/Edge.
 // Употреба: npm run build -w @zara-twin/extension  (или --watch за автоматично преизграждане)
 import { build, context } from "esbuild";
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,9 @@ const options = {
   entryPoints: {
     background: join(root, "src/background.ts"),
     content: join(root, "src/content.ts"),
+    offscreen: join(root, "src/offscreen/offscreen.ts"),
+    "pcm-worklet": join(root, "src/audio/pcm-worklet.ts"),
+    permission: join(root, "src/permission/permission.ts"),
   },
   outdir,
   bundle: true,
@@ -27,6 +30,7 @@ const options = {
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 await copyFile(join(root, "manifest.json"), join(outdir, "manifest.json"));
+await cp(join(root, "static"), outdir, { recursive: true });
 
 if (watch) {
   const ctx = await context(options);

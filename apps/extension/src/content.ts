@@ -1,20 +1,38 @@
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
-import { isCopilotMessage } from "./shared/messages";
+import { isContentMessage, type BackgroundMessage } from "./shared/messages";
 import { CopilotPanel } from "./ui/panel";
 
-// Content script: работи вътре в meet.google.com. Панелът се показва само
-// когато собственикът натисне иконата на разширението.
+// Content script: работи вътре в meet.google.com и само показва състоянието.
+// Звукът се прихваща в offscreen документа, а сесията се управлява от service worker-а.
 const adapter = new GoogleMeetAdapter();
-const panel = new CopilotPanel();
+const panel = new CopilotPanel({
+  onClose: () => {
+    const message: BackgroundMessage = { type: "panel-closed" };
+    chrome.runtime.sendMessage(message).catch(() => {});
+  },
+});
 panel.mount();
 
 chrome.runtime.onMessage.addListener((message: unknown) => {
-  if (!isCopilotMessage(message)) return;
+  if (!isContentMessage(message)) return;
   switch (message.type) {
-    case "toggle-panel":
-      // Meet сменя адреса без презареждане (SPA), затова срещата се чете наново.
-      panel.setMeeting(adapter.currentMeeting());
-      panel.toggle();
+    case "session-state":
+      if (message.active) {
+        // Meet сменя адреса без презареждане (SPA), затова срещата се чете наново.
+        panel.setMeeting(adapter.currentMeeting());
+        panel.setRecording(true);
+        panel.show();
+      } else {
+        panel.setRecording(false);
+        panel.hide();
+      }
+      break;
+    case "audio-level":
+      panel.setLevel(message.source, message.level);
+      break;
+    case "capture-notice":
+      panel.setNotice(message.tone, message.text);
+      panel.show();
       break;
   }
 });

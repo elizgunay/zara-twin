@@ -1,16 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { isCopilotMessage } from "./messages";
+import { isBackgroundMessage, isContentMessage, isOffscreenMessage } from "./messages";
 
-describe("isCopilotMessage", () => {
-  it("приема познатите съобщения", () => {
-    expect(isCopilotMessage({ type: "toggle-panel" })).toBe(true);
+describe("isContentMessage", () => {
+  it("приема валидни съобщения", () => {
+    expect(isContentMessage({ type: "session-state", active: true })).toBe(true);
+    expect(isContentMessage({ type: "audio-level", source: "tab", level: 0.3 })).toBe(true);
+    expect(isContentMessage({ type: "capture-notice", tone: "error", text: "…" })).toBe(true);
+  });
+
+  it("отказва грешни полета", () => {
+    expect(isContentMessage({ type: "session-state", active: "yes" })).toBe(false);
+    expect(isContentMessage({ type: "audio-level", source: "speaker", level: 0.3 })).toBe(false);
+    expect(isContentMessage({ type: "audio-level", source: "tab", level: 7 })).toBe(false);
+    expect(isContentMessage({ type: "capture-notice", tone: "html", text: "<b>" })).toBe(false);
+  });
+});
+
+describe("isBackgroundMessage", () => {
+  it("приема валидни съобщения", () => {
+    expect(isBackgroundMessage({ type: "panel-closed" })).toBe(true);
+    expect(isBackgroundMessage({ type: "offscreen-level", source: "microphone", level: 0 })).toBe(true);
+    expect(isBackgroundMessage({ type: "offscreen-error", code: "mic-unavailable", detail: "" })).toBe(true);
+  });
+
+  it("отказва непознати кодове и типове", () => {
+    expect(isBackgroundMessage({ type: "offscreen-error", code: "boom", detail: "" })).toBe(false);
+    expect(isBackgroundMessage({ type: "offscreen-start", streamId: "x" })).toBe(false);
+  });
+});
+
+describe("isOffscreenMessage", () => {
+  it("изисква непразен streamId", () => {
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc" })).toBe(true);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "" })).toBe(false);
+    expect(isOffscreenMessage({ type: "offscreen-stop" })).toBe(true);
   });
 
   it("отказва всичко останало", () => {
-    expect(isCopilotMessage({ type: "delete-everything" })).toBe(false);
-    expect(isCopilotMessage({ type: 42 })).toBe(false);
-    expect(isCopilotMessage("toggle-panel")).toBe(false);
-    expect(isCopilotMessage(null)).toBe(false);
-    expect(isCopilotMessage(undefined)).toBe(false);
+    expect(isOffscreenMessage(null)).toBe(false);
+    expect(isOffscreenMessage("offscreen-stop")).toBe(false);
+    expect(isOffscreenMessage({ type: "panel-closed" })).toBe(false);
   });
 });

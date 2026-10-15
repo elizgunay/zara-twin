@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Zara Copilot: включи/изключи панела"
+    "default_title": "Zara Copilot: включи/изключи (прихваща звука на срещата)"
   },
   "background": {
     "service_worker": "background.js"
@@ -17,6 +17,6 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": [],
+  "permissions": ["tabCapture", "offscreen", "storage"],
   "host_permissions": ["https://meet.google.com/*"]
 }
