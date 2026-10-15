@@ -1,0 +1,13 @@
+{
+  "name": "@zara-twin/knowledge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Пакети със знания (Р21): профил на бизнеса, продукти, политики. Данните са отделно от кода, в knowledge-packs/",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zara-twin/core": "0.1.0"
+  }
+}
