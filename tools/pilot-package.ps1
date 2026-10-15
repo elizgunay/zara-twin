@@ -24,6 +24,7 @@ New-Item -ItemType Directory -Force $out | Out-Null
 Get-ChildItem $out -Force | Remove-Item -Recurse -Force -Confirm:$false
 Copy-Item (Join-Path $root "apps\extension\dist") (Join-Path $out "extension") -Recurse
 Copy-Item (Join-Path $root "tools\hardware-check.ps1") $out
+Copy-Item (Join-Path $root "tools\hardware-check.cmd") $out
 Copy-Item $guide.FullName (Join-Path $out "Инструкция.pdf")
 
 # Пакетът за ръководителя не бива да съдържа тайни или данни от разговори.
