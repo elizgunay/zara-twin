@@ -36,5 +36,18 @@ $forbidden = Get-ChildItem $out -Recurse -File | Where-Object {
 if ($forbidden) { throw "В пакета има забранени файлове: $($forbidden.Name -join ', ')" }
 
 if (Test-Path $zip) { Remove-Item $zip -Force -Confirm:$false }
-Compress-Archive -Path $out -DestinationPath $zip
+# Не Compress-Archive: в Windows PowerShell 5.1 той записва пътищата с „\“ и на Mac
+# архивът се разархивира като плоски файлове („extension\manifest.json“) вместо папки.
+# Пишем записите ръчно с „/“ (ZIP стандарт); .NET слага UTF-8 за имената на кирилица.
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+  $base = Split-Path $out -Parent
+  Get-ChildItem $out -Recurse -File | ForEach-Object {
+    $entryName = $_.FullName.Substring($base.Length + 1).Replace('\', '/')
+    [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal)
+  }
+} finally {
+  $archive.Dispose()
+}
 "Готово: $zip ($([math]::Round((Get-Item $zip).Length / 1KB)) KB)"
