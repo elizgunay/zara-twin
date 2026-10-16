@@ -117,6 +117,11 @@ export class CopilotPanel {
   /** Показва логовете за копиране и ги слага в клипборда, ако браузърът позволи. */
   private async showLogs(load: PanelOptions["onLogs"]): Promise<void> {
     const box = this.part("logs-box") as HTMLTextAreaElement;
+    // Второ натискане скрива логовете, за да не заемат място.
+    if (!box.hidden) {
+      box.hidden = true;
+      return;
+    }
     const lines = load ? await load().catch((error: unknown) => [`Логовете не се заредиха: ${String(error)}`]) : [];
     box.value = lines.join("\n");
     box.hidden = false;

@@ -1,3 +1,4 @@
+import { EchoFilter } from "@zara-twin/core";
 import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker } from "@zara-twin/hints";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
@@ -23,6 +24,7 @@ function freshAssistants() {
     schedule: new ScheduleAssistant(calendar),
     talk: new TalkRatioTracker({ rules: talkRules }),
     talkShownAt: 0,
+    echo: new EchoFilter(),
   };
 }
 
@@ -75,6 +77,8 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       panel.show();
       break;
     case "transcript-segment":
+      // Без слушалки едно изречение идва и от микрофона, и от таба: показваме го веднъж.
+      if (meeting.echo.isEcho(message.speaker, message.text, Date.now())) break;
       panel.appendSegment(message);
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       for (const hint of [...meeting.hints.onSegment(message), ...meeting.objections.onSegment(message)]) {

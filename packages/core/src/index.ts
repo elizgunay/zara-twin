@@ -15,3 +15,4 @@ export { summarizeLatency, type LatencySummary } from "./metrics/latency";
 export { downsampleToInt16, int16ToFloat32, rmsLevel, TARGET_SAMPLE_RATE } from "./audio/pcm";
 export { decodeWav, type DecodedWav } from "./audio/wav";
 export { AutoGain, type AutoGainOptions } from "./audio/autoGain";
+export { EchoFilter, type EchoFilterOptions } from "./echoFilter";
