@@ -42,6 +42,7 @@ const selftestOptions = {
     offscreen: join(root, "src/offscreen/offscreen.ts"),
     "stt-worker": join(root, "src/offscreen/sttWorker.ts"),
     "devtest-pipeline": join(root, "src/devtest/pipeline.ts"),
+    "devtest-models": join(root, "src/devtest/models.ts"),
   },
   format: "esm",
   platform: "browser",
