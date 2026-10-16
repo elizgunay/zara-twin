@@ -7,6 +7,7 @@ import {
   type CalendarBusyResponse,
   type ContentMessage,
   type OffscreenMessage,
+  type MicProblem,
   type OffscreenResponse,
 } from "./shared/messages";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
@@ -93,6 +94,7 @@ async function startSession(tabId: number): Promise<void> {
     await chrome.action.setBadgeBackgroundColor({ tabId, color: "#d93025" });
     await chrome.action.setBadgeText({ tabId, text: "REC" });
     await notifyTab(tabId, { type: "session-state", active: true });
+    if (response.mic) await reportMic(tabId, response.mic);
   } catch (error) {
     await closeOffscreen();
     await notifyTab(tabId, {
@@ -176,18 +178,20 @@ async function handleMessage(
     return;
   }
 
-  if (message.code === "mic-permission-denied") {
+  await reportMic(tabId, message);
+}
+
+async function reportMic(tabId: number, mic: MicProblem): Promise<void> {
+  if (mic.code === "mic-permission-denied") {
     await chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") });
     await notifyTab(tabId, {
-      type: "capture-notice",
-      tone: "info",
-      text: "Микрофонът не е разрешен. Отворих страница за разрешение. Засега се чува само събеседникът.",
+      type: "mic-problem",
+      text: "Микрофонът не е разрешен: отворих страница за разрешение. След това спрете и пуснете Copilot отново. Засега се чува само събеседникът.",
     });
   } else {
     await notifyTab(tabId, {
-      type: "capture-notice",
-      tone: "info",
-      text: "Микрофонът не е достъпен. Засега се чува само събеседникът.",
+      type: "mic-problem",
+      text: `Микрофонът не е достъпен (${mic.detail}). Засега се чува само събеседникът.`,
     });
   }
 }

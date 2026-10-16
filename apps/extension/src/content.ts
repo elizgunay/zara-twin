@@ -65,6 +65,10 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       panel.setNotice(message.tone, message.text);
       panel.show();
       break;
+    case "mic-problem":
+      panel.setMicProblem(message.text);
+      panel.show();
+      break;
     case "transcript-segment":
       panel.appendSegment(message);
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);

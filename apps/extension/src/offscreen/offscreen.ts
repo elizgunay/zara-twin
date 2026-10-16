@@ -9,6 +9,7 @@ import {
   isOffscreenMessage,
   type BackgroundMessage,
   type CaptureErrorCode,
+  type MicProblem,
   type OffscreenResponse,
 } from "../shared/messages";
 import type { SttChoice } from "../stt/choices";
@@ -31,7 +32,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   const done = (response: OffscreenResponse) => sendResponse(response);
   if (message.type === "offscreen-start") {
     start(message.streamId, message.stt, message.withVideo === true).then(
-      () => done({ ok: true }),
+      (mic) => done({ ok: true, ...(mic && { mic }) }),
       (error: unknown) => done({ ok: false, error: describe(error) }),
     );
   } else {
@@ -40,7 +41,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   return true; // отговорът е асинхронен
 });
 
-async function start(streamId: string, stt: SttChoice, withVideo: boolean): Promise<void> {
+/** Връща проблема с микрофона, ако има такъв; звукът на срещата пак работи. */
+async function start(streamId: string, stt: SttChoice, withVideo: boolean): Promise<MicProblem | null> {
   await stop();
   const context = new AudioContext();
   const streams: MediaStream[] = [];
@@ -73,6 +75,7 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
   }
 
   // 2. Микрофонът (собственикът). Ако липсва, продължаваме само със събеседника.
+  let mic: MicProblem | null = null;
   try {
     const micStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
@@ -86,11 +89,12 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
       error instanceof DOMException && error.name === "NotAllowedError"
         ? "mic-permission-denied"
         : "mic-unavailable";
-    send({ type: "offscreen-error", code, detail: describe(error) });
+    mic = { code, detail: describe(error) };
   }
 
   // 3. Разпознаване на говор. Не чакаме зареждането на модела: звукът и нивата вече работят.
   transcription.start(stt, sources);
+  return mic;
 }
 
 async function stop(): Promise<void> {

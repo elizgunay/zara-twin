@@ -67,6 +67,7 @@ export class CopilotPanel {
       this.setLevel("microphone", 0);
       this.part("talk").hidden = true;
       this.part("stt").hidden = true;
+      this.part("mic").hidden = true;
     }
   }
 
@@ -96,6 +97,13 @@ export class CopilotPanel {
     const bar = this.part("talk-owner");
     bar.style.width = `${owner}%`;
     bar.classList.toggle("over", ownerShare > maxOwnerShare);
+  }
+
+  /** Отделно от setNotice: състоянието на разпознаването не бива да скрива проблем с микрофона. */
+  setMicProblem(text: string): void {
+    const mic = this.part("mic");
+    mic.textContent = text;
+    mic.hidden = false;
   }
 
   setNotice(tone: "info" | "error", text: string): void {
@@ -225,6 +233,7 @@ const TEMPLATE = /* html */ `
   <div class="meta" data-part="stt" hidden></div>
   <div class="consent">Уведомете участниците, че разговорът се транскрибира.</div>
   <div class="notice" data-part="notice" role="status" hidden></div>
+  <div class="notice error" data-part="mic" role="alert" hidden></div>
   <div class="levels" data-part="levels" hidden>
     <span>Събеседник</span><div class="meter"><div data-part="level-tab"></div></div>
     <span>Вие</span><div class="meter"><div data-part="level-microphone"></div></div>

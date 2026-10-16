@@ -6,6 +6,8 @@ describe("isContentMessage", () => {
     expect(isContentMessage({ type: "session-state", active: true })).toBe(true);
     expect(isContentMessage({ type: "audio-level", source: "tab", level: 0.3 })).toBe(true);
     expect(isContentMessage({ type: "capture-notice", tone: "error", text: "…" })).toBe(true);
+    expect(isContentMessage({ type: "mic-problem", text: "…" })).toBe(true);
+    expect(isContentMessage({ type: "mic-problem" })).toBe(false);
   });
 
   it("отказва грешни полета", () => {

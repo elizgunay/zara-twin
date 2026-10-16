@@ -20,6 +20,8 @@ export type ContentMessage =
   | { type: "session-state"; active: boolean }
   | { type: "audio-level"; source: AudioSourceKind; level: number }
   | { type: "capture-notice"; tone: "info" | "error"; text: string }
+  /** Проблем с микрофона: стои в панела, докато трае сесията, не се заменя от други съобщения. */
+  | { type: "mic-problem"; text: string }
   /** latencyMs: от края на изречението до текста; служи за диагностика в пилота. */
   | { type: "transcript-segment"; speaker: SpeakerRole; text: string; latencyMs?: number };
 
@@ -49,7 +51,9 @@ export type OffscreenMessage =
   | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean }
   | { type: "offscreen-stop" };
 
-export type OffscreenResponse = { ok: true } | { ok: false; error: string };
+/** Проблемът с микрофона идва с отговора: отделно съобщение пристига, преди сесията да е записана, и се губи. */
+export type MicProblem = { code: CaptureErrorCode; detail: string };
+export type OffscreenResponse = { ok: true; mic?: MicProblem } | { ok: false; error: string };
 
 const AUDIO_SOURCES: ReadonlySet<unknown> = new Set<AudioSourceKind>(["tab", "microphone"]);
 const SPEAKERS: ReadonlySet<unknown> = new Set<SpeakerRole>(["owner", "counterpart"]);
@@ -84,6 +88,8 @@ export function isContentMessage(value: unknown): value is ContentMessage {
       return AUDIO_SOURCES.has(value.source) && isLevel(value.level);
     case "capture-notice":
       return (value.tone === "info" || value.tone === "error") && typeof value.text === "string";
+    case "mic-problem":
+      return typeof value.text === "string";
     case "transcript-segment":
       return (
         SPEAKERS.has(value.speaker) &&
