@@ -60,12 +60,25 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if ((await getSessionTab()) === tabId) await stopSession();
 });
 
+/** Разрешението за прихващане (streamId) е валидно само няколко секунди и само за едно ползване. */
+const CAPTURE_ATTEMPTS = 2;
+
 async function startSession(tabId: number): Promise<void> {
   try {
-    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
+    // Редът е важен (както в официалния пример на Chrome): първо offscreen документът и
+    // настройките, а разрешението за прихващане най-накрая, точно преди да се ползва.
+    // Обратният ред даваше „AbortError: Error starting tab capture“: разрешението изтичаше,
+    // докато offscreen документът се зареждаше (видяно на Mac).
     await ensureOffscreen();
-    const start: OffscreenMessage = { type: "offscreen-start", streamId, stt: await sttChoice() };
-    const response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
+    const stt = await sttChoice();
+    let response: OffscreenResponse | undefined;
+    for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS; attempt++) {
+      const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
+      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt };
+      response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
+      // При изтекло разрешение още един опит с ново, иначе спираме.
+      if (response?.ok || !response?.error.includes("AbortError")) break;
+    }
     if (!response?.ok) throw new Error(response?.error ?? "Offscreen документът не отговори.");
 
     await chrome.storage.session.set({ [SESSION_KEY]: tabId });
