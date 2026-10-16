@@ -18,6 +18,9 @@ const EU_REGIONS = new Set([
   "europe-north1",
   "europe-central2",
   "europe-southwest1",
+  // Speechmatics: eu1 (за всички, партида), eu2 (само за Enterprise), eu (на живо, eu.rt.speechmatics.com)
+  "eu1",
+  "eu2",
   // Microsoft Azure
   "westeurope",
   "northeurope",
