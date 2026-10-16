@@ -19,6 +19,15 @@
         "--isolated"
       ],
       "port": 5179
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": [
+        "run",
+        "dashboard"
+      ],
+      "port": 5180
     }
   ]
 }

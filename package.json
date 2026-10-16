@@ -1,7 +1,7 @@
 {
   "name": "zara-twin",
   "private": true,
-  "description": "AI двойник на ръководителя: Live Copilot и автономен двойник",
+  "description": "AI Ð´Ð²Ð¾Ð¹Ð½Ð¸Ðº Ð½Ð° Ñ€ÑŠÐºÐ¾Ð²Ð¾Ð´Ð¸Ñ‚ÐµÐ»Ñ: Live Copilot Ð¸ Ð°Ð²Ñ‚Ð¾Ð½Ð¾Ð¼ÐµÐ½ Ð´Ð²Ð¾Ð¹Ð½Ð¸Ðº",
   "type": "module",
   "workspaces": [
     "packages/core",
@@ -9,12 +9,14 @@
     "packages/knowledge",
     "packages/hints",
     "apps/extension",
+    "apps/dashboard",
     "tools/stt-bench",
     "tools/strategy-doc"
   ],
   "scripts": {
-    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/stt-whisper --noEmit && tsc -p packages/knowledge --noEmit && tsc -p packages/hints --noEmit && tsc -p apps/extension --noEmit && tsc -p tools/stt-bench --noEmit",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/stt-whisper --noEmit && tsc -p packages/knowledge --noEmit && tsc -p packages/hints --noEmit && tsc -p apps/extension --noEmit && tsc -p tools/stt-bench --noEmit && tsc -p apps/dashboard --noEmit",
     "build:extension": "npm run build -w @zara-twin/extension",
+    "dashboard": "npm run dev -w @zara-twin/dashboard",
     "bench:stt": "tsx tools/stt-bench/src/bench.ts",
     "bench:sample": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/stt-bench/make-tts-sample.ps1",
     "test": "vitest run",
