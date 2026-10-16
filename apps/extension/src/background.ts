@@ -22,7 +22,19 @@ const SESSION_KEY = "captureTabId";
 const OFFSCREEN_URL = "offscreen.html";
 
 chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.id === undefined || parseMeetCode(tab.url ?? "") === null) return;
+  if (tab.id === undefined) return;
+  if (parseMeetCode(tab.url ?? "") === null) {
+    // На meet.google.com, но не в среща (напр. началната страница): казваме какво да се направи.
+    // На други сайтове няма content script и съобщението просто не стига никъде.
+    if (tab.url?.startsWith("https://meet.google.com/")) {
+      await notifyTab(tab.id, {
+        type: "capture-notice",
+        tone: "info",
+        text: "Първо влезте в среща в Google Meet, после натиснете иконата на Zara Copilot отново.",
+      });
+    }
+    return;
+  }
   const activeTab = await getSessionTab();
   if (activeTab !== null) await stopSession();
   if (activeTab !== tab.id) await startSession(tab.id);

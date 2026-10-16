@@ -163,6 +163,9 @@ export class CopilotPanel {
 const TEMPLATE = /* html */ `
 <style>
   :host { all: initial; }
+  /* „all: initial“ отменя и скриването чрез атрибута hidden (стилът на страницата побеждава
+     вградения в браузъра), затова скриваме хоста изрично. Без това панелът се виждаше винаги. */
+  :host([hidden]) { display: none !important; }
   [hidden] { display: none !important; }
   .panel {
     position: fixed; top: 16px; right: 16px; z-index: 2147483647;
