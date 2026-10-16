@@ -14,6 +14,26 @@ const SPEAKER: Record<AudioSourceKind, SpeakerRole> = { tab: "counterpart", micr
 const TEMP_KEY_TTL_SECONDS = 120;
 /** Облакът връща текста на парчета (дума или две). Без нов текст толкова време = край на изречението. */
 const SENTENCE_IDLE_MS = 900;
+/**
+ * Повторно свързване при прекъсване (интернет, рестарт на сървъра): паузи между опитите.
+ * Общо около минута; после се спира и се казва ясно, вместо да се опитва безкрайно.
+ */
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 20_000, 30_000];
+/** WebSocket.OPEN: числото, за да работи и с подменен WebSocket в тестовете. */
+const OPEN = 1;
+
+/** Подменими зависимости: в тестовете вместо истинския сървър. */
+export interface CloudDeps {
+  WebSocket: new (url: string) => WebSocket;
+  fetch: typeof fetch;
+  sleep: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_DEPS: CloudDeps = {
+  WebSocket: globalThis.WebSocket,
+  fetch: (...args) => globalThis.fetch(...args),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+};
 
 interface Session {
   socket: WebSocket;
@@ -46,10 +66,13 @@ export class CloudTranscription {
   /** Диагностика: изпратени парчета звук, потвърдени от сървъра (AudioAdded) и върнат текст. */
   private readonly traffic = throttledCounter("облак: трафик");
   private stopped = false;
+  /** Източниците, за които в момента тече повторно свързване. */
+  private readonly reconnecting = new Set<AudioSourceKind>();
 
   constructor(
     private readonly events: TranscriptionEvents,
     private readonly cloud: CloudStt,
+    private readonly deps: CloudDeps = DEFAULT_DEPS,
   ) {}
 
   start(sources: AudioSourceKind[]): void {
@@ -68,7 +91,7 @@ export class CloudTranscription {
 
   write(chunk: AudioChunk): void {
     const session = this.sessions.get(chunk.source);
-    if (this.stopped || !session?.ready || session.socket.readyState !== WebSocket.OPEN) return;
+    if (this.stopped || !session?.ready || session.socket.readyState !== OPEN) return;
     if (session.startedAt === 0) session.startedAt = Date.now() - (chunk.pcm.length / TARGET_SAMPLE_RATE) * 1000;
     session.socket.send(session.gain.process(chunk.pcm).buffer);
     session.sent++;
@@ -79,7 +102,7 @@ export class CloudTranscription {
     this.stopped = true;
     for (const session of this.sessions.values()) {
       clearTimeout(session.flushTimer);
-      if (session.socket.readyState === WebSocket.OPEN) {
+      if (session.socket.readyState === OPEN) {
         session.socket.send(JSON.stringify({ message: "EndOfStream", last_seq_no: session.sent }));
       }
       session.socket.close();
@@ -90,9 +113,11 @@ export class CloudTranscription {
   private async open(source: AudioSourceKind): Promise<void> {
     const jwt = await this.temporaryKey();
     if (this.stopped) return;
-    const socket = new WebSocket(`${SPEECHMATICS_REALTIME_URL}?jwt=${encodeURIComponent(jwt)}`);
+    const socket = new this.deps.WebSocket(`${SPEECHMATICS_REALTIME_URL}?jwt=${encodeURIComponent(jwt)}`);
     const session: Session = { socket, ready: false, startedAt: 0, sent: 0, sentence: "", sentenceEnd: 0, flushTimer: undefined, gain: new AutoGain() };
     this.sessions.set(source, session);
+    // След повторно свързване старата връзка може още да праща събития: те се пренебрегват.
+    const current = () => this.sessions.get(source) === session;
 
     await new Promise<void>((resolve, reject) => {
       socket.onopen = () => {
@@ -110,7 +135,7 @@ export class CloudTranscription {
         );
       };
       socket.onmessage = (event) => {
-        if (typeof event.data !== "string") return;
+        if (typeof event.data !== "string" || !current()) return;
         const message = JSON.parse(event.data) as RealtimeMessage;
         if (message.message === "RecognitionStarted") {
           session.ready = true;
@@ -131,8 +156,8 @@ export class CloudTranscription {
                 // презаредено или премахнато разширение сървърът държи още няколко минути.
                 new Error("облакът е зает (лимит 2 връзки, старите още не са затворени). Изчакайте 2–3 минути и включете Copilot отново")
               : new Error(`${message.type ?? "Error"}: ${message.reason ?? ""}`);
+          // След като връзката е тръгнала, сървърът я затваря след грешката: onclose свързва отново.
           if (!session.ready) reject(error);
-          else if (!this.stopped) this.events.onStatus("error", `Облачното разпознаване спря: ${error.message}`);
         } else if (message.message === "Warning" || message.message === "Info") {
           log("облак", message.message, source, message.type, message.reason);
         }
@@ -140,10 +165,41 @@ export class CloudTranscription {
       socket.onerror = () => reject(new Error("Няма връзка със сървъра на Speechmatics."));
       socket.onclose = (event) => {
         log("облак", "връзката е затворена", source, event.code, event.reason);
-        if (!session.ready) reject(new Error(`Връзката се затвори (${event.code} ${event.reason})`));
-        else if (!this.stopped) this.events.onStatus("error", "Връзката с облачното разпознаване прекъсна.");
+        if (!session.ready) {
+          reject(new Error(`Връзката се затвори (${event.code} ${event.reason})`));
+          return;
+        }
+        if (this.stopped || !current()) return;
+        this.flush(source, session);
+        void this.reconnect(source);
       };
     });
+  }
+
+  /** Свързва отново след прекъсване, с нарастващи паузи; накрая казва ясно, че е спряло. */
+  private async reconnect(source: AudioSourceKind): Promise<void> {
+    if (this.reconnecting.has(source)) return;
+    this.reconnecting.add(source);
+    this.events.onStatus("info", "Връзката с облака прекъсна. Свързвам отново…");
+    try {
+      for (const [attempt, delay] of RECONNECT_DELAYS_MS.entries()) {
+        await this.deps.sleep(delay);
+        if (this.stopped) return;
+        try {
+          await this.open(source);
+          log("облак", "свързано отново", source, "опит", attempt + 1);
+          this.events.onStatus("info", "Разпознаването на говор продължава (облак, ЕС).");
+          return;
+        } catch (error) {
+          log("облак", "повторното свързване не успя", source, "опит", attempt + 1, error);
+        }
+      }
+      if (!this.stopped) {
+        this.events.onStatus("error", "Облачното разпознаване спря: няма връзка. Проверете интернета и включете Copilot отново.");
+      }
+    } finally {
+      this.reconnecting.delete(source);
+    }
   }
 
   /** Добавя парче към изречението; изпраща го при точка, въпрос или удивителна, иначе след пауза. */
@@ -168,7 +224,7 @@ export class CloudTranscription {
 
   /** Временен ключ за WebSocket (браузърът не може да прати заглавка Authorization). */
   private async temporaryKey(): Promise<string> {
-    const response = await fetch(SPEECHMATICS_TEMP_KEY_URL, {
+    const response = await this.deps.fetch(SPEECHMATICS_TEMP_KEY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.cloud.apiKey}` },
       body: JSON.stringify({ ttl: TEMP_KEY_TTL_SECONDS }),
