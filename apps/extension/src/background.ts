@@ -12,6 +12,7 @@ import {
   type OffscreenResponse,
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
+import { SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
@@ -82,10 +83,11 @@ async function startSession(tabId: number): Promise<void> {
     // докато offscreen документът се зареждаше (видяно на Mac).
     await ensureOffscreen();
     const stt = await sttChoice();
+    const cloud = await readCloudStt();
     let response: OffscreenResponse | undefined;
     for (const { withVideo } of CAPTURE_ATTEMPTS) {
       const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo };
+      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo, ...(cloud && { cloud }) };
       response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
       log("background", "отговор от offscreen", { withVideo, response });
       if (response?.ok) break;
@@ -147,6 +149,15 @@ async function calendarBusy(start: number, end: number): Promise<CalendarBusyRes
 }
 
 /** Вариантът, избран от теста на компютъра; без тест: „auto“ (по видеокартата). */
+/** Облакът се ползва само при изричен избор в настройките и записан ключ. */
+async function readCloudStt(): Promise<CloudStt | null> {
+  const stored = await chrome.storage.local.get([STT_MODE_STORAGE_KEY, SPEECHMATICS_KEY_STORAGE_KEY]);
+  const mode: unknown = stored[STT_MODE_STORAGE_KEY];
+  const apiKey: unknown = stored[SPEECHMATICS_KEY_STORAGE_KEY];
+  if (mode !== "speechmatics" || typeof apiKey !== "string" || apiKey.trim() === "") return null;
+  return { provider: "speechmatics", apiKey: apiKey.trim() };
+}
+
 async function sttChoice(): Promise<SttChoice> {
   const stored: unknown = (await chrome.storage.local.get(STT_CHOICE_STORAGE_KEY))[STT_CHOICE_STORAGE_KEY];
   return isSttChoice(stored) ? stored : "auto";

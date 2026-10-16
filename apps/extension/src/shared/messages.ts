@@ -1,5 +1,6 @@
 import type { AudioSourceKind, SpeakerRole } from "@zara-twin/core";
 import { isSttChoice, type SttChoice } from "../stt/choices";
+import { isCloudStt, type CloudStt } from "../stt/cloud";
 
 /**
  * Съобщенията между частите на разширението, групирани по получател.
@@ -50,7 +51,7 @@ const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Към offscreen документа. */
 export type OffscreenMessage =
   /** withVideo: искаме и картината (като официалния пример на Chrome), когато само звук не тръгва. */
-  | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean }
+  | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean; cloud?: CloudStt }
   | { type: "offscreen-stop" }
   | { type: "offscreen-logs" };
 
@@ -141,7 +142,8 @@ export function isOffscreenMessage(value: unknown): value is OffscreenMessage {
         typeof value.streamId === "string" &&
         value.streamId.length > 0 &&
         isSttChoice(value.stt) &&
-        (value.withVideo === undefined || typeof value.withVideo === "boolean")
+        (value.withVideo === undefined || typeof value.withVideo === "boolean") &&
+        (value.cloud === undefined || isCloudStt(value.cloud))
       );
     case "offscreen-stop":
     case "offscreen-logs":

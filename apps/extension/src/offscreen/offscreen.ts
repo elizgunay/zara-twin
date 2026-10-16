@@ -14,6 +14,9 @@ import {
 } from "../shared/messages";
 import { log, logLines, throttledCounter } from "../shared/log";
 import type { SttChoice } from "../stt/choices";
+import type { CloudStt } from "../stt/cloud";
+import { CloudTranscription } from "./cloudTranscription";
+import type { TranscriptionEvents } from "./transcription";
 import { WorkerTranscription } from "./workerTranscription";
 
 // Offscreen документ: невидима страница на разширението, единственото място в MV3,
@@ -23,7 +26,7 @@ import { WorkerTranscription } from "./workerTranscription";
 interface CaptureSession {
   context: AudioContext;
   streams: MediaStream[];
-  transcription: WorkerTranscription;
+  transcription: WorkerTranscription | CloudTranscription;
 }
 
 let session: CaptureSession | null = null;
@@ -37,7 +40,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     return;
   }
   if (message.type === "offscreen-start") {
-    start(message.streamId, message.stt, message.withVideo === true).then(
+    start(message.streamId, message.stt, message.withVideo === true, message.cloud).then(
       (mic) => done({ ok: true, ...(mic && { mic }) }),
       (error: unknown) => done({ ok: false, error: describe(error) }),
     );
@@ -48,15 +51,17 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 });
 
 /** Връща проблема с микрофона, ако има такъв; звукът на срещата пак работи. */
-async function start(streamId: string, stt: SttChoice, withVideo: boolean): Promise<MicProblem | null> {
+async function start(streamId: string, stt: SttChoice, withVideo: boolean, cloud?: CloudStt): Promise<MicProblem | null> {
   await stop();
-  log("offscreen", "старт", { stt, withVideo });
+  log("offscreen", "старт", { stt, withVideo, облак: cloud?.provider ?? "не" });
   const context = new AudioContext();
   const streams: MediaStream[] = [];
-  const transcription = new WorkerTranscription({
+  const events: TranscriptionEvents = {
     onText: (speaker, text, latencyMs) => send({ type: "offscreen-transcript", speaker, text, latencyMs }),
     onStatus: (tone, text) => send({ type: "offscreen-status", tone, text }),
-  });
+  };
+  // Облакът само при изричен избор в настройките; иначе всичко остава на компютъра.
+  const transcription = cloud ? new CloudTranscription(events, cloud) : new WorkerTranscription(events);
   session = { context, streams, transcription };
   const sources: AudioSourceKind[] = ["tab"];
 
@@ -103,7 +108,8 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
   }
 
   // 3. Разпознаване на говор. Не чакаме зареждането на модела: звукът и нивата вече работят.
-  transcription.start(stt, sources);
+  if (transcription instanceof CloudTranscription) transcription.start(sources);
+  else transcription.start(stt, sources);
   log("offscreen", "разпознаването стартира за", sources);
   return mic;
 }

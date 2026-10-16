@@ -60,6 +60,9 @@ describe("isOffscreenMessage", () => {
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "cloud" })).toBe(false);
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", withVideo: true })).toBe(true);
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", withVideo: "yes" })).toBe(false);
+    const cloud = { provider: "speechmatics", apiKey: "x".repeat(32) };
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", cloud })).toBe(true);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", cloud: { provider: "azure", apiKey: "x".repeat(32) } })).toBe(false);
     expect(isOffscreenMessage({ type: "offscreen-stop" })).toBe(true);
   });
 

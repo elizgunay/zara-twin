@@ -35,6 +35,23 @@
       <p>Проверява дали компютърът може да разпознава български говор достатъчно бързо за подсказки на живо.</p>
       <div class="actions"><a href="selftest.html"><button class="primary" type="button">Отвори теста</button></a></div>
     </section>
+    <section style="margin-bottom:16px">
+      <h2>Разпознаване на говор</h2>
+      <p><strong>На компютъра</strong> (по подразбиране): звукът не напуска компютъра, но на слаб компютър текстът закъснява.</p>
+      <p><strong>Облак, Speechmatics (ЕС)</strong>: бързо на всеки компютър, но звукът от срещата се праща към сървър в ЕС. Уведомете участниците. Ползва безплатните минути от акаунта (двата потока, „Вие“ и „Събеседник“, се броят отделно).</p>
+      <fieldset style="border:0;padding:0;margin:0">
+        <label style="display:block;margin:6px 0"><input type="radio" name="stt-mode" value="local"> На компютъра</label>
+        <label style="display:block;margin:6px 0"><input type="radio" name="stt-mode" value="speechmatics"> Облак: Speechmatics (ЕС)</label>
+      </fieldset>
+      <label for="sm-key" style="display:block;margin-top:12px;color:var(--muted)">API ключ от Speechmatics (портал → API Keys)</label>
+      <input id="sm-key" type="password" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)">
+      <p style="margin-top:8px">Ключът се пази само в този браузър, на този компютър. Не се изпраща никъде освен до Speechmatics.</p>
+      <div class="actions">
+        <button id="stt-save" class="primary" type="button">Запази</button>
+        <button id="sm-test" class="secondary" type="button">Провери ключа</button>
+      </div>
+      <div id="stt-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
+    </section>
     <section>
       <h2>Google Calendar</h2>
       <p>Copilot проверява дали сте свободни, когато уговаряте среща. Вижда <strong>само заетите часове</strong>: без заглавия, участници или описания на събитията.</p>

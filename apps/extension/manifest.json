@@ -34,7 +34,8 @@
   ],
   "host_permissions": [
     "https://meet.google.com/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "https://mp.speechmatics.com/*"
   ],
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs2cP6TibPLEpK6LLs5DR4FXRDLDDgtk8xQS97ZTul7hOo84gzCWfeFBYamdpQZ7zJTv8gglbNGZFLCy8GCsUb2xa5bsuiugnBhPLv4/aVDfMVtZCewN8JHQ6JtMmRP1F4/dvoK53VW8PVlasg4FPA7JSO8h+X1FEuySUieQvw8HNj4iQCT3oFOjprpMusjMrxZsaSMTZsiunoDYSpDQCOHbU9kYbBnbnb906HifrwJHMuptHZsonZelBpV2V2RxE7lDcvVOTSYpcH66RfRoG2VG2g3R4nE/nbEJVubP5JDrcwN3+QZVMmcJ9P7lTVLCJ/oQTGypd5yhr3Y9MS66knQIDAQAB"
 }
