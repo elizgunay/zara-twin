@@ -63,7 +63,7 @@ export class Transcription {
     const model = await this.load(key);
     if (model === null || this.stopped) return;
     await this.open(model);
-    this.events.onStatus("info", "Разпознаването на говор е включено.");
+    this.events.onStatus("info", `Разпознаването на говор е включено (на компютъра: ${STT_CHOICES[this.key].label}).`);
     this.ready = true;
   }
 
