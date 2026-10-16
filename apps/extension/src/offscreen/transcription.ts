@@ -15,6 +15,8 @@ export interface TranscriptionEvents {
 }
 
 const SPEAKER: Record<AudioSourceKind, SpeakerRole> = { tab: "counterpart", microphone: "owner" };
+/** Диагностика за пилота: колко изказвания е чул моделът и какво е върнал. */
+const DIAGNOSTICS_MS = 3_000;
 /** Колко рядко да напомняме, че компютърът изостава. */
 const BACKLOG_NOTICE_MS = 30_000;
 
@@ -23,6 +25,10 @@ export class Transcription {
   private stopped = false;
   private dropped = 0;
   private lastBacklogNotice = 0;
+  private heard = 0;
+  private empty = 0;
+  private lastText = "";
+  private lastDiagnostics = 0;
 
   constructor(private readonly events: TranscriptionEvents) {}
 
@@ -32,7 +38,7 @@ export class Transcription {
     if (model === null || this.stopped) return;
 
     // Опашката с лимит: при бавен компютър пропускаме изречения, вместо да изоставаме с минути.
-    const provider = new WhisperLocalProvider(serialTranscriber(model, 3));
+    const provider = new WhisperLocalProvider(serialTranscriber(this.counted(model), 3));
     for (const source of sources) {
       const stream = await provider.openStream({
         speaker: SPEAKER[source],
@@ -57,6 +63,26 @@ export class Transcription {
   stop(): void {
     this.stopped = true;
     this.streams.clear();
+  }
+
+  /** Брои изказванията и празните резултати, за да се вижда къде се губи текстът. */
+  private counted(model: Transcriber): Transcriber {
+    return {
+      id: model.id,
+      transcribe: async (pcm) => {
+        const text = await model.transcribe(pcm);
+        this.heard++;
+        if (text.trim() === "") this.empty++;
+        else this.lastText = text.trim().slice(0, 60);
+        const now = Date.now();
+        if (!this.stopped && now - this.lastDiagnostics >= DIAGNOSTICS_MS) {
+          this.lastDiagnostics = now;
+          const last = this.lastText ? ` Последно: „${this.lastText}“` : "";
+          this.events.onStatus("info", `Разпознаването е включено. Чути изказвания: ${this.heard}, без текст: ${this.empty}.${last}`);
+        }
+        return text;
+      },
+    };
   }
 
   private async load(key: SttChoiceKey): Promise<Transcriber | null> {
