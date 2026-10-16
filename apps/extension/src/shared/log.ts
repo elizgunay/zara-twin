@@ -35,7 +35,8 @@ export function logLines(): string[] {
 /** Брояч, който пише в лога най-много веднъж на intervalMs (за парчетата звук: 10 в секунда). */
 export function throttledCounter(scope: string, intervalMs = 5_000) {
   const counts = new Map<string, number>();
-  let last = Date.now();
+  // 0: първото събитие се записва веднага, за да се вижда, че потокът изобщо е тръгнал.
+  let last = 0;
   return (key: string, extra?: () => unknown) => {
     counts.set(key, (counts.get(key) ?? 0) + 1);
     const now = Date.now();

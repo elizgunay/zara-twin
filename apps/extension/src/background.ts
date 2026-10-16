@@ -220,7 +220,7 @@ async function collectLogs(): Promise<LogsResponse> {
   const request: OffscreenMessage = { type: "offscreen-logs" };
   const offscreen = (await chrome.runtime.sendMessage(request).catch(() => undefined)) as OffscreenResponse | undefined;
   const fromOffscreen = offscreen?.ok ? (offscreen.logs ?? []) : ["(offscreen документът не е отворен)"];
-  const header = `Zara Copilot ${chrome.runtime.getManifest().version}, ${navigator.userAgent}`;
+  const header = `Zara Copilot ${chrome.runtime.getManifest().version}, ${navigator.userAgent}. Логовете са събрани в ${new Date().toISOString().slice(11, 19)}`;
   return { lines: [header, ...[...logLines().map((line) => `[bg] ${line}`), ...fromOffscreen].sort(byTime)] };
 }
 
