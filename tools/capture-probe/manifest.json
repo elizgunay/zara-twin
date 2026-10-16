@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Zara Capture Probe",
+  "description": "Диагностика: може ли Chrome да прихване звука на таб (без нищо друго от Zara Copilot).",
+  "version": "0.1.0",
+  "action": { "default_title": "Zara Capture Probe: тест на прихващането на този таб" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["tabCapture", "offscreen"]
+}
