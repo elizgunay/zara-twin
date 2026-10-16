@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Zara Capture Probe (изолация)",
+  "description": "Диагностика: същият тест, но с COOP/COEP като в Zara Copilot.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Zara Capture Probe: тест на прихващането на този таб"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "tabCapture",
+    "offscreen"
+  ],
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  }
+}

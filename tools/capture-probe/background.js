@@ -3,7 +3,7 @@
 // без content script. Ако тук работи, а в Zara Copilot не, причината е в разширението.
 
 chrome.action.onClicked.addListener(async (tab) => {
-  const lines = [`Chrome ${/Chrome\/([\d.]+)/.exec(navigator.userAgent)?.[1] ?? "?"}`, `Таб: ${tab.url}`];
+  const lines = [`Изолация: ${self.crossOriginIsolated ? "да" : "не"}`, `Chrome ${/Chrome\/([\d.]+)/.exec(navigator.userAgent)?.[1] ?? "?"}`, `Таб: ${tab.url}`];
   try {
     const existing = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
     if (existing.length === 0) {
