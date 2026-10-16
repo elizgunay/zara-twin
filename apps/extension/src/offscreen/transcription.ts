@@ -1,5 +1,11 @@
-import { TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole, type SttStream } from "@zara-twin/core";
-import { BacklogError, serialTranscriber, WhisperLocalProvider, type Transcriber } from "@zara-twin/stt-whisper";
+import { rmsLevel, TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole, type SttStream } from "@zara-twin/core";
+import {
+  BacklogError,
+  DEFAULT_SEGMENTER,
+  serialTranscriber,
+  WhisperLocalProvider,
+  type Transcriber,
+} from "@zara-twin/stt-whisper";
 import { createTransformersTranscriber } from "@zara-twin/stt-whisper/transformers";
 import { resolveAuto, STT_CHOICES, type SttChoice, type SttChoiceKey } from "../stt/choices";
 import { configureRuntime, detectGpu } from "../stt/runtime";
@@ -25,7 +31,11 @@ export class Transcription {
   private stopped = false;
   private dropped = 0;
   private lastBacklogNotice = 0;
+  private cut = 0;
   private heard = 0;
+  private pending = 0;
+  private peak: Record<AudioSourceKind, number> = { tab: 0, microphone: 0 };
+  private ready = false;
   private empty = 0;
   private lastText = "";
   private lastDiagnostics = 0;
@@ -38,7 +48,9 @@ export class Transcription {
     if (model === null || this.stopped) return;
 
     // Опашката с лимит: при бавен компютър пропускаме изречения, вместо да изоставаме с минути.
-    const provider = new WhisperLocalProvider(serialTranscriber(this.counted(model), 3));
+    const provider = new WhisperLocalProvider(serialTranscriber(this.counted(model), 3), {
+      onUtterance: () => this.cut++,
+    });
     for (const source of sources) {
       const stream = await provider.openStream({
         speaker: SPEAKER[source],
@@ -53,10 +65,33 @@ export class Transcription {
       this.streams.set(source, stream);
     }
     this.events.onStatus("info", "Разпознаването на говор е включено.");
+    this.ready = true;
   }
 
   write(chunk: AudioChunk): void {
-    if (!this.stopped) this.streams.get(chunk.source)?.write(chunk);
+    if (this.stopped) return;
+    this.peak[chunk.source] = Math.max(this.peak[chunk.source], rmsLevel(chunk.pcm));
+    this.streams.get(chunk.source)?.write(chunk);
+    this.reportDiagnostics();
+  }
+
+  /**
+   * Диагностика за пилота: най-силният звук за последните секунди спрямо прага за говор,
+   * колко изказвания са изрязани, колко чакат модела и какво е върнал.
+   */
+  private reportDiagnostics(): void {
+    const now = Date.now();
+    if (!this.ready || now - this.lastDiagnostics < DIAGNOSTICS_MS) return;
+    this.lastDiagnostics = now;
+    const level = (value: number) => value.toFixed(3).replace(".", ",");
+    const last = this.lastText ? ` Последно: „${this.lastText}“` : "";
+    this.events.onStatus(
+      "info",
+      `Вие ${level(this.peak.microphone)}, събеседник ${level(this.peak.tab)} ` +
+        `(говор над ${level(DEFAULT_SEGMENTER.minSpeechThreshold)}). ` +
+        `Изказвания: ${this.cut}, чакат: ${this.pending}, разпознати: ${this.heard}, без текст: ${this.empty}.${last}`,
+    );
+    this.peak = { tab: 0, microphone: 0 };
   }
 
   /** Без изчакване на опашката: при стоп текстът вече не е нужен. */
@@ -70,17 +105,16 @@ export class Transcription {
     return {
       id: model.id,
       transcribe: async (pcm) => {
-        const text = await model.transcribe(pcm);
-        this.heard++;
-        if (text.trim() === "") this.empty++;
-        else this.lastText = text.trim().slice(0, 60);
-        const now = Date.now();
-        if (!this.stopped && now - this.lastDiagnostics >= DIAGNOSTICS_MS) {
-          this.lastDiagnostics = now;
-          const last = this.lastText ? ` Последно: „${this.lastText}“` : "";
-          this.events.onStatus("info", `Разпознаването е включено. Чути изказвания: ${this.heard}, без текст: ${this.empty}.${last}`);
+        this.pending++;
+        try {
+          const text = await model.transcribe(pcm);
+          this.heard++;
+          if (text.trim() === "") this.empty++;
+          else this.lastText = text.trim().slice(0, 60);
+          return text;
+        } finally {
+          this.pending--;
         }
-        return text;
       },
     };
   }

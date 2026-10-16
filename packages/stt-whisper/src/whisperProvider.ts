@@ -15,7 +15,10 @@ export interface Transcriber {
   transcribe(audio: Float32Array): Promise<string>;
 }
 
-export type WhisperProviderOptions = Omit<SegmenterOptions, "sampleRate">;
+export type WhisperProviderOptions = Omit<SegmenterOptions, "sampleRate"> & {
+  /** Диагностика: извиква се за всяко изрязано изказване, преди да отиде към модела. */
+  onUtterance?: (durationMs: number) => void;
+};
 
 /**
  * Локален Whisper: звукът не напуска компютъра, затова регионът е „local“ (Р22).
@@ -69,6 +72,7 @@ export class WhisperLocalProvider implements SpeechToTextProvider {
       write: (chunk) => {
         if (closed) return;
         for (const u of segmenter.push(chunk.pcm)) {
+          this.options.onUtterance?.(u.endMs - u.startMs);
           enqueue(u.pcm, u.startMs, u.endMs, chunk.capturedAt - u.trailingSilenceMs);
         }
       },
