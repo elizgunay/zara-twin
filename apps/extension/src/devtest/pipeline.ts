@@ -25,7 +25,7 @@ void (async () => {
   // 1 s тишина преди и 2 s след, за да има паузи като в разговор.
   const pcm = new Int16Array(TARGET_SAMPLE_RATE + speech.length + 2 * TARGET_SAMPLE_RATE);
   pcm.set(speech, TARGET_SAMPLE_RATE);
-  show(`Запис: ${(speech.length / TARGET_SAMPLE_RATE).toFixed(1)} s, вариант ${choice}, сила ×${gain}`);
+  show(`Запис: ${(speech.length / TARGET_SAMPLE_RATE).toFixed(1)} s, вариант ${choice}, сила ×${gain}, изолация: ${self.crossOriginIsolated ? "да" : "не"}`);
 
   let ready = false;
   const transcription = new WorkerTranscription({

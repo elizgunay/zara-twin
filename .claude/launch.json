@@ -4,8 +4,21 @@
     {
       "name": "extension-selftest",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["tools/serve-extension.mjs", "5178"],
+      "runtimeArgs": [
+        "tools/serve-extension.mjs",
+        "5178"
+      ],
       "port": 5178
+    },
+    {
+      "name": "extension-isolated",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/serve-extension.mjs",
+        "5179",
+        "--isolated"
+      ],
+      "port": 5179
     }
   ]
 }

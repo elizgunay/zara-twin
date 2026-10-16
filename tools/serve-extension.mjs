@@ -8,6 +8,8 @@ import { extname, join, normalize, resolve } from "node:path";
 
 const root = resolve("apps/extension/dist");
 const port = Number(process.argv[2] ?? 5178);
+// --isolated: със заглавките COOP/COEP (многонишков WebAssembly), за сравнение на скоростта.
+const isolated = process.argv.includes("--isolated");
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -34,6 +36,7 @@ createServer((request, response) => {
   response.writeHead(200, {
     "Content-Type": types[extname(file)] ?? "application/octet-stream",
     "Cross-Origin-Resource-Policy": "same-origin",
+    ...(isolated && { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" }),
   });
   createReadStream(file).pipe(response);
 }).listen(port, "127.0.0.1", () => console.log(`http://localhost:${port}/selftest.html`));
