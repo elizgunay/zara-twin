@@ -29,7 +29,7 @@ interface AsrOutput {
 }
 type AsrPipeline = (
   audio: Float32Array,
-  options: { language: string; task: "transcribe" },
+  options: { language: string; task: "transcribe"; max_new_tokens: number },
 ) => Promise<AsrOutput | AsrOutput[]>;
 
 interface ProgressEvent {
@@ -60,7 +60,11 @@ export async function createTransformersTranscriber(
     id: `${options.model.split("/").pop()}@${precision}`,
     async transcribe(audio) {
       // Езикът е зададен изрично: иначе Whisper понякога „разпознава“ руски или сръбски.
-      const output = await asr(audio, { language: "bulgarian", task: "transcribe" });
+      // Таван на текста спрямо дължината на звука: при зацикляне (повтаря една дума)
+      // моделът иначе генерира до 448 токена и на слаба видеокарта това трае минути.
+      const seconds = audio.length / 16_000;
+      const maxNewTokens = Math.min(440, Math.ceil(seconds * 12) + 16);
+      const output = await asr(audio, { language: "bulgarian", task: "transcribe", max_new_tokens: maxNewTokens });
       return Array.isArray(output) ? output.map((part) => part.text).join(" ") : output.text;
     },
   };

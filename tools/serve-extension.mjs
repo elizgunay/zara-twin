@@ -1,5 +1,5 @@
-// Сервира apps/extension/dist локално, със същите заглавки за изолация (COOP/COEP),
-// които разширението получава от manifest.json. Служи за проверка на теста на
+// Сервира apps/extension/dist локално, без заглавки за изолация (COOP/COEP), както е и в
+// разширението (виж manifest.json: с тях Chrome отказва прихващането на таба). Служи за проверка на теста на
 // компютъра в обикновен браузър, без да се зарежда разширението.
 // Употреба: node tools/serve-extension.mjs [порт]
 import { createReadStream, statSync } from "node:fs";
@@ -33,8 +33,6 @@ createServer((request, response) => {
   }
   response.writeHead(200, {
     "Content-Type": types[extname(file)] ?? "application/octet-stream",
-    "Cross-Origin-Opener-Policy": "same-origin",
-    "Cross-Origin-Embedder-Policy": "require-corp",
     "Cross-Origin-Resource-Policy": "same-origin",
   });
   createReadStream(file).pipe(response);
