@@ -45,7 +45,8 @@ const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Към offscreen документа. */
 export type OffscreenMessage =
-  | { type: "offscreen-start"; streamId: string; stt: SttChoice }
+  /** withVideo: искаме и картината (като официалния пример на Chrome), когато само звук не тръгва. */
+  | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean }
   | { type: "offscreen-stop" };
 
 export type OffscreenResponse = { ok: true } | { ok: false; error: string };
@@ -123,7 +124,12 @@ export function isOffscreenMessage(value: unknown): value is OffscreenMessage {
   if (!isRecord(value)) return false;
   switch (value.type) {
     case "offscreen-start":
-      return typeof value.streamId === "string" && value.streamId.length > 0 && isSttChoice(value.stt);
+      return (
+        typeof value.streamId === "string" &&
+        value.streamId.length > 0 &&
+        isSttChoice(value.stt) &&
+        (value.withVideo === undefined || typeof value.withVideo === "boolean")
+      );
     case "offscreen-stop":
       return true;
     default:

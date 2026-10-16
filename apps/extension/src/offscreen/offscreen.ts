@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   if (!isOffscreenMessage(message)) return;
   const done = (response: OffscreenResponse) => sendResponse(response);
   if (message.type === "offscreen-start") {
-    start(message.streamId, message.stt).then(
+    start(message.streamId, message.stt, message.withVideo === true).then(
       () => done({ ok: true }),
       (error: unknown) => done({ ok: false, error: describe(error) }),
     );
@@ -40,7 +40,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   return true; // отговорът е асинхронен
 });
 
-async function start(streamId: string, stt: SttChoice): Promise<void> {
+async function start(streamId: string, stt: SttChoice, withVideo: boolean): Promise<void> {
   await stop();
   const context = new AudioContext();
   const streams: MediaStream[] = [];
@@ -55,9 +55,13 @@ async function start(streamId: string, stt: SttChoice): Promise<void> {
     await context.audioWorklet.addModule("pcm-worklet.js");
 
     // 1. Звукът на срещата (събеседникът). Без него няма смисъл да продължаваме.
+    const tab = { chromeMediaSource: "tab", chromeMediaSourceId: streamId };
     const tabStream = await navigator.mediaDevices.getUserMedia({
-      audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } },
-    } as MediaStreamConstraints);
+      audio: { mandatory: tab },
+      // Резервен вариант: някои версии на Chrome не стартират прихващане само на звук.
+      // Картината не се използва, затова е в минимално качество, за да не товари компютъра.
+      ...(withVideo && { video: { mandatory: { ...tab, maxWidth: 320, maxHeight: 180, maxFrameRate: 1 } } }),
+    } as unknown as MediaStreamConstraints);
     streams.push(tabStream);
     const tabSource = context.createMediaStreamSource(tabStream);
     // Прихващането заглушава таба. Пускаме звука обратно, иначе собственикът спира да чува събеседника.

@@ -56,6 +56,8 @@ describe("isOffscreenMessage", () => {
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto" })).toBe(true);
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "", stt: "auto" })).toBe(false);
     expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "cloud" })).toBe(false);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", withVideo: true })).toBe(true);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", withVideo: "yes" })).toBe(false);
     expect(isOffscreenMessage({ type: "offscreen-stop" })).toBe(true);
   });
 

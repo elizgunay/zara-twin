@@ -60,8 +60,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if ((await getSessionTab()) === tabId) await stopSession();
 });
 
-/** Разрешението за прихващане (streamId) е валидно само няколко секунди и само за едно ползване. */
-const CAPTURE_ATTEMPTS = 2;
+/**
+ * Опитите за прихващане: първо само звук, после звук + картина (както в официалния пример
+ * на Chrome). Всеки опит взима ново разрешение: streamId е за едно ползване и за няколко секунди.
+ */
+const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];
 
 async function startSession(tabId: number): Promise<void> {
   try {
@@ -72,14 +75,19 @@ async function startSession(tabId: number): Promise<void> {
     await ensureOffscreen();
     const stt = await sttChoice();
     let response: OffscreenResponse | undefined;
-    for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS; attempt++) {
+    for (const { withVideo } of CAPTURE_ATTEMPTS) {
       const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt };
+      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo };
       response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
-      // При изтекло разрешение още един опит с ново, иначе спираме.
-      if (response?.ok || !response?.error.includes("AbortError")) break;
+      if (response?.ok) break;
     }
-    if (!response?.ok) throw new Error(response?.error ?? "Offscreen документът не отговори.");
+    if (!response?.ok) {
+      // Подробности за диагностика: версията на Chrome и броят опити се виждат на снимката от клиента.
+      const chrome_ = /Chrome\/(\d+)/.exec(navigator.userAgent)?.[1] ?? "?";
+      throw new Error(
+        `(Chrome ${chrome_}, ${CAPTURE_ATTEMPTS.length} опита: само звук и звук + картина) ${response?.error ?? "Offscreen документът не отговори."}`,
+      );
+    }
 
     await chrome.storage.session.set({ [SESSION_KEY]: tabId });
     await chrome.action.setBadgeBackgroundColor({ tabId, color: "#d93025" });
