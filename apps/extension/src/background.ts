@@ -13,7 +13,7 @@ import {
   type OffscreenResponse,
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
-import { TranscriptStore } from "./transcripts/store";
+import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
@@ -234,6 +234,10 @@ async function saveTranscript(
   lines: { speaker: "owner" | "counterpart"; text: string; at: number }[],
 ): Promise<SaveTranscriptResponse> {
   try {
+    // Втора защита: без включено запазване в Опции нищо не се записва.
+    if ((await chrome.storage.local.get(SAVING_ENABLED_KEY))[SAVING_ENABLED_KEY] !== true) {
+      return { ok: false, error: "запазването е изключено (Опции → Запазени срещи)" };
+    }
     const saved = await transcripts.save({ meetingCode, startedAt, lines });
     // В лога влиза само броят редове, никога текстът.
     log("background", "запазена среща", meetingCode, saved.lines.length, "реда");

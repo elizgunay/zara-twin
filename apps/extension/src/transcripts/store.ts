@@ -28,6 +28,11 @@ export interface KeyValueStore {
 }
 
 export const MEETINGS_KEY = "savedMeetings";
+/**
+ * Запазването е изключено по подразбиране: докато Фаза 1 се тества, текстът от тестовите
+ * срещи не се пази. Включва се изрично в Опции (за Фаза 2).
+ */
+export const SAVING_ENABLED_KEY = "transcriptSavingEnabled";
 export const RETENTION_KEY = "transcriptRetentionDays";
 export const DEFAULT_RETENTION_DAYS = 30;
 export const RETENTION_CHOICES = [7, 30, 90] as const;

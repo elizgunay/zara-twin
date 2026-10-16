@@ -1,5 +1,5 @@
 import { getStoredToken, GOOGLE_CLIENT_ID, isConnected, signIn, signOut } from "../calendar/token";
-import { meetingToText, RETENTION_CHOICES, TranscriptStore, type SavedMeeting } from "../transcripts/store";
+import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
 import {
   isSttMode,
   SPEECHMATICS_KEY_STORAGE_KEY,
@@ -120,9 +120,19 @@ const store = new TranscriptStore(chrome.storage.local);
 const retention = document.querySelector<HTMLSelectElement>("#retention")!;
 const meetingsList = document.querySelector<HTMLUListElement>("#meetings")!;
 const meetingsStatus = document.querySelector<HTMLElement>("#meetings-status")!;
+const savingEnabled = document.querySelector<HTMLInputElement>("#saving-enabled")!;
+
+savingEnabled.addEventListener("change", async () => {
+  await chrome.storage.local.set({ [SAVING_ENABLED_KEY]: savingEnabled.checked });
+  meetingsStatus.textContent = savingEnabled.checked
+    ? "Бутонът „Запази“ ще се показва в панела от следващото включване на Copilot."
+    : "Бутонът „Запази“ е скрит. Нищо не се пази.";
+  meetingsStatus.className = "ok";
+});
 
 async function loadMeetings(): Promise<void> {
   retention.value = String(await store.retentionDays());
+  savingEnabled.checked = (await chrome.storage.local.get(SAVING_ENABLED_KEY))[SAVING_ENABLED_KEY] === true;
   const meetings = await store.list();
   meetingsList.replaceChildren(...meetings.map(meetingRow));
   meetingsStatus.textContent = meetings.length === 0 ? "Няма запазени срещи." : "";

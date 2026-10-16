@@ -11,6 +11,7 @@ import {
   type SaveTranscriptResponse,
   type TranscriptLine,
 } from "./shared/messages";
+import { SAVING_ENABLED_KEY } from "./transcripts/store";
 import { CopilotPanel } from "./ui/panel";
 
 // Content script: работи вътре в meet.google.com и само показва състоянието.
@@ -72,6 +73,9 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         // Meet сменя адреса без презареждане (SPA), затова срещата се чете наново.
         panel.setMeeting(adapter.currentMeeting());
         if (meeting.lines.length === 0) meeting.startedAt = Date.now();
+        void chrome.storage.local
+          .get(SAVING_ENABLED_KEY)
+          .then((stored) => panel.setSaveAvailable(stored[SAVING_ENABLED_KEY] === true), () => panel.setSaveAvailable(false));
         panel.setRecording(true);
         panel.show();
       } else {

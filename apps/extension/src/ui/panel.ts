@@ -113,6 +113,11 @@ export class CopilotPanel {
     bar.classList.toggle("over", ownerShare > maxOwnerShare);
   }
 
+  /** Бутонът „Запази“ се вижда само ако запазването е включено в Опции. */
+  setSaveAvailable(available: boolean): void {
+    this.part("save").hidden = !available;
+  }
+
   /** Отделно от setNotice: състоянието на разпознаването не бива да скрива проблем с микрофона. */
   setMicProblem(text: string): void {
     const mic = this.part("mic");
@@ -259,7 +264,7 @@ const TEMPLATE = /* html */ `
   <header>
     <h1>Zara Copilot</h1>
     <span class="rec" data-part="recording" hidden>Запис</span>
-    <button type="button" class="small" data-part="save" title="Запази текста от срещата на този компютър">Запази</button>
+    <button type="button" class="small" data-part="save" title="Запази текста от срещата на този компютър" hidden>Запази</button>
     <button type="button" class="small" data-part="logs" title="Копирай логовете за диагностика">Логове</button>
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
