@@ -9,8 +9,13 @@ import { rmsLevel } from "@zara-twin/core";
  */
 export interface SegmenterOptions {
   sampleRate: number;
-  /** RMS над този праг се смята за говор. */
+  /**
+   * RMS над този праг винаги е говор. При тих микрофон прагът пада автоматично до
+   * minSpeechThreshold: следим фона (шума в стаята) и говор е всичко 3 пъти над него.
+   */
   speechThreshold?: number;
+  /** Най-ниският праг при тих фон. Равен на speechThreshold = без автоматика. */
+  minSpeechThreshold?: number;
   /** По-кратки звуци (почукване, кашлица) се пропускат. */
   minSpeechMs?: number;
   /** Толкова тишина приключва изказването. */
@@ -33,6 +38,7 @@ export interface Utterance {
 
 export const DEFAULT_SEGMENTER = {
   speechThreshold: 0.012,
+  minSpeechThreshold: 0.003,
   minSpeechMs: 250,
   endSilenceMs: 600,
   maxUtteranceMs: 12_000,
@@ -41,7 +47,10 @@ export const DEFAULT_SEGMENTER = {
 
 export class UtteranceSegmenter {
   private readonly sampleRate: number;
-  private readonly threshold: number;
+  private readonly maxThreshold: number;
+  private readonly minThreshold: number;
+  /** Нивото на фона: пада веднага до по-тих звук, качва се бавно (около минута). */
+  private noiseFloor: number | null = null;
   private readonly minSpeech: number;
   private readonly endSilence: number;
   private readonly maxUtterance: number;
@@ -58,7 +67,8 @@ export class UtteranceSegmenter {
   constructor(options: SegmenterOptions) {
     const ms = (value: number) => Math.round((value / 1000) * options.sampleRate);
     this.sampleRate = options.sampleRate;
-    this.threshold = options.speechThreshold ?? DEFAULT_SEGMENTER.speechThreshold;
+    this.maxThreshold = options.speechThreshold ?? DEFAULT_SEGMENTER.speechThreshold;
+    this.minThreshold = Math.min(this.maxThreshold, options.minSpeechThreshold ?? DEFAULT_SEGMENTER.minSpeechThreshold);
     this.minSpeech = ms(options.minSpeechMs ?? DEFAULT_SEGMENTER.minSpeechMs);
     this.endSilence = ms(options.endSilenceMs ?? DEFAULT_SEGMENTER.endSilenceMs);
     this.maxUtterance = ms(options.maxUtteranceMs ?? DEFAULT_SEGMENTER.maxUtteranceMs);
@@ -68,7 +78,11 @@ export class UtteranceSegmenter {
   /** Подава следващото парче звук. Връща изказванията, които са приключили с него. */
   push(frame: Int16Array): Utterance[] {
     const done: Utterance[] = [];
-    const isSpeech = rmsLevel(frame) >= this.threshold;
+    const level = rmsLevel(frame);
+    this.noiseFloor =
+      this.noiseFloor === null || level < this.noiseFloor ? level : this.noiseFloor + (level - this.noiseFloor) * 0.002;
+    const threshold = Math.min(this.maxThreshold, Math.max(this.minThreshold, this.noiseFloor * 3));
+    const isSpeech = level >= threshold;
 
     if (this.current === null) {
       if (isSpeech) {

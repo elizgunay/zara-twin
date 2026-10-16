@@ -5,6 +5,7 @@ const RATE = 16_000;
 const FRAME = 1600; // 100 ms
 const speech = () => new Int16Array(FRAME).fill(3000); // RMS ≈ 0.09
 const silence = () => new Int16Array(FRAME);
+const level = (value: number) => () => new Int16Array(FRAME).fill(Math.round(value * 32768));
 
 function feed(segmenter: UtteranceSegmenter, pattern: string): Utterance[] {
   // „s“ = 100 ms говор, „.“ = 100 ms тишина
@@ -42,6 +43,25 @@ describe("UtteranceSegmenter", () => {
     const segmenter = new UtteranceSegmenter({ sampleRate: RATE });
     expect(feed(segmenter, "sssss..")).toEqual([]);
     expect(segmenter.flush()).toHaveLength(1);
+  });
+
+  it("чува тих микрофон, когато фонът е тих", () => {
+    const segmenter = new UtteranceSegmenter({ sampleRate: RATE });
+    const quiet = level(0.006); // под стария фиксиран праг 0,012
+    const frames = [...Array(5).fill(silence), ...Array(10).fill(quiet), ...Array(7).fill(silence)];
+    expect(frames.flatMap((make) => segmenter.push(make()))).toHaveLength(1);
+  });
+
+  it("не приема постоянен шум за говор", () => {
+    const segmenter = new UtteranceSegmenter({ sampleRate: RATE });
+    const hum = level(0.006);
+    expect(Array.from({ length: 100 }, () => segmenter.push(hum())).flat()).toEqual([]);
+  });
+
+  it("без автоматика при minSpeechThreshold = speechThreshold", () => {
+    const segmenter = new UtteranceSegmenter({ sampleRate: RATE, minSpeechThreshold: 0.012 });
+    const frames = [...Array(5).fill(silence), ...Array(10).fill(level(0.006)), ...Array(7).fill(silence)];
+    expect(frames.flatMap((make) => segmenter.push(make()))).toEqual([]);
   });
 
   it("разделя две изречения с пауза", () => {
