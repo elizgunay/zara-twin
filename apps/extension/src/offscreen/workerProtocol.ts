@@ -9,4 +9,5 @@ export type ToWorker =
 
 export type FromWorker =
   | { type: "text"; speaker: SpeakerRole; text: string; latencyMs: number | null }
-  | { type: "status"; tone: "info" | "error"; text: string };
+  | { type: "status"; tone: "info" | "error"; text: string }
+  | { type: "log"; line: string };

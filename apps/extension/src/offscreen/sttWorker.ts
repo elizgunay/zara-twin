@@ -1,5 +1,5 @@
 import { Transcription } from "./transcription";
-import { log, throttledCounter } from "../shared/log";
+import { forwardLogs, log, throttledCounter } from "../shared/log";
 import type { FromWorker, ToWorker } from "./workerProtocol";
 
 // Worker с разпознаването на говор. Моделът блокира нишката си за секунди;
@@ -11,6 +11,8 @@ const scope = self as unknown as {
   postMessage(message: FromWorker): void;
   close(): void;
 };
+
+forwardLogs((line) => scope.postMessage({ type: "log", line }));
 
 let transcription: Transcription | null = null;
 const received = throttledCounter("worker получени парчета звук");

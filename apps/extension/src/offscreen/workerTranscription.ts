@@ -1,7 +1,7 @@
 import type { AudioChunk, AudioSourceKind } from "@zara-twin/core";
 import type { SttChoice } from "../stt/choices";
 import type { TranscriptionEvents } from "./transcription";
-import { log } from "../shared/log";
+import { appendLogLine, log } from "../shared/log";
 import type { FromWorker, ToWorker } from "./workerProtocol";
 
 /** Същият интерфейс като Transcription, но разпознаването тече в отделна нишка. */
@@ -11,7 +11,8 @@ export class WorkerTranscription {
   constructor(events: TranscriptionEvents) {
     this.worker.onmessage = (event: MessageEvent<FromWorker>) => {
       const message = event.data;
-      if (message.type === "text") events.onText(message.speaker, message.text, message.latencyMs);
+      if (message.type === "log") appendLogLine(`[worker] ${message.line}`);
+      else if (message.type === "text") events.onText(message.speaker, message.text, message.latencyMs);
       else events.onStatus(message.tone, message.text);
     };
     this.worker.onerror = (event) => {

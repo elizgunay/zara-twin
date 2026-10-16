@@ -12,7 +12,7 @@ import {
   type MicProblem,
   type OffscreenResponse,
 } from "../shared/messages";
-import { log, throttledCounter } from "../shared/log";
+import { log, logLines, throttledCounter } from "../shared/log";
 import type { SttChoice } from "../stt/choices";
 import { WorkerTranscription } from "./workerTranscription";
 
@@ -32,6 +32,10 @@ const chunkLog = throttledCounter("offscreen парчета звук към work
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
   if (!isOffscreenMessage(message)) return;
   const done = (response: OffscreenResponse) => sendResponse(response);
+  if (message.type === "offscreen-logs") {
+    done({ ok: true, logs: logLines() });
+    return;
+  }
   if (message.type === "offscreen-start") {
     start(message.streamId, message.stt, message.withVideo === true).then(
       (mic) => done({ ok: true, ...(mic && { mic }) }),

@@ -14,6 +14,8 @@ const MAX_TRANSCRIPT_ROWS = 50;
 export interface PanelOptions {
   /** Затварянето на панела спира и прихващането на звука. */
   onClose?: () => void;
+  /** Бутонът „Логове“: връща редовете за диагностика. */
+  onLogs?: () => Promise<string[]>;
 }
 
 /**
@@ -40,6 +42,9 @@ export class CopilotPanel {
     this.part("close").addEventListener("click", () => {
       this.hide();
       options.onClose?.();
+    });
+    this.part("logs").addEventListener("click", () => {
+      void this.showLogs(options.onLogs);
     });
   }
 
@@ -104,6 +109,17 @@ export class CopilotPanel {
     const mic = this.part("mic");
     mic.textContent = text;
     mic.hidden = false;
+  }
+
+  /** Показва логовете за копиране и ги слага в клипборда, ако браузърът позволи. */
+  private async showLogs(load: PanelOptions["onLogs"]): Promise<void> {
+    const box = this.part("logs-box") as HTMLTextAreaElement;
+    const lines = load ? await load().catch((error: unknown) => [`Логовете не се заредиха: ${String(error)}`]) : [];
+    box.value = lines.join("\n");
+    box.hidden = false;
+    box.select();
+    const copied = await navigator.clipboard.writeText(box.value).then(() => true, () => false);
+    this.setNotice("info", copied ? "Логовете са копирани. Поставете ги в чата (Ctrl+V)." : "Маркирайте текста долу и го копирайте (Ctrl+C).");
   }
 
   setNotice(tone: "info" | "error", text: string): void {
@@ -221,12 +237,15 @@ const TEMPLATE = /* html */ `
   .transcript p { margin: 6px 0; }
   .transcript strong { color: #8ab4f8; font-weight: 600; }
   .empty { color: #9aa0a6; font-style: italic; }
+  button.small { font-size: 11px; padding: 2px 6px; background: #3c4352; }
+  .logs { margin: 8px 12px 0; height: 120px; resize: vertical; background: #11151c; color: #bdc1c6; border: 1px solid #3c4352; border-radius: 6px; font: 10px/1.3 Consolas, monospace; }
 </style>
 <section class="panel" role="complementary" aria-label="Zara Copilot">
   <header>
     <h1>Zara Copilot</h1>
     <span class="rec" data-part="recording" hidden>Запис</span>
     <span class="badge">Фаза 1.0</span>
+    <button type="button" class="small" data-part="logs" title="Копирай логовете за диагностика">Логове</button>
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
   <div class="meta" data-part="meeting">Няма активна среща</div>
@@ -242,6 +261,7 @@ const TEMPLATE = /* html */ `
     <div class="talk-head"><span title="Последните 3 минути">Говорене</span><span data-part="talk-text"></span></div>
     <div class="talk-bar"><div data-part="talk-owner"></div></div>
   </div>
+  <textarea class="logs" data-part="logs-box" readonly hidden></textarea>
   <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>
   <div class="transcript" data-part="transcript">
     <p class="empty" data-part="empty">Текстът от разговора ще се появи тук.</p>

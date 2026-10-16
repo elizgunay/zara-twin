@@ -2,7 +2,7 @@ import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker } fr
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
 import { method, pack } from "./pack";
-import { isContentMessage, type BackgroundMessage } from "./shared/messages";
+import { isContentMessage, type BackgroundMessage, type LogsResponse } from "./shared/messages";
 import { CopilotPanel } from "./ui/panel";
 
 // Content script: работи вътре в meet.google.com и само показва състоянието.
@@ -31,6 +31,11 @@ const panel = new CopilotPanel({
   onClose: () => {
     const message: BackgroundMessage = { type: "panel-closed" };
     chrome.runtime.sendMessage(message).catch(() => {});
+  },
+  onLogs: async () => {
+    const request: BackgroundMessage = { type: "logs-request" };
+    const response = (await chrome.runtime.sendMessage(request)) as LogsResponse | undefined;
+    return response?.lines ?? ["(няма отговор от разширението)"];
   },
 });
 panel.mount();

@@ -36,7 +36,9 @@ export type BackgroundMessage =
   | { type: "offscreen-transcript"; speaker: SpeakerRole; text: string; latencyMs: number | null }
   | { type: "offscreen-status"; tone: "info" | "error"; text: string }
   /** От content script-а: заетите интервали в календара (милисекунди от епохата). */
-  | { type: "calendar-busy"; start: number; end: number };
+  | { type: "calendar-busy"; start: number; end: number }
+  /** От панела: логовете от всички части (бутон „Логове“). */
+  | { type: "logs-request" };
 
 export type CalendarBusyResponse =
   | { ok: true; busy: { start: number; end: number }[] }
@@ -49,11 +51,14 @@ const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 export type OffscreenMessage =
   /** withVideo: искаме и картината (като официалния пример на Chrome), когато само звук не тръгва. */
   | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean }
-  | { type: "offscreen-stop" };
+  | { type: "offscreen-stop" }
+  | { type: "offscreen-logs" };
 
 /** Проблемът с микрофона идва с отговора: отделно съобщение пристига, преди сесията да е записана, и се губи. */
 export type MicProblem = { code: CaptureErrorCode; detail: string };
-export type OffscreenResponse = { ok: true; mic?: MicProblem } | { ok: false; error: string };
+export type OffscreenResponse = { ok: true; mic?: MicProblem; logs?: string[] } | { ok: false; error: string };
+
+export type LogsResponse = { lines: string[] };
 
 const AUDIO_SOURCES: ReadonlySet<unknown> = new Set<AudioSourceKind>(["tab", "microphone"]);
 const SPEAKERS: ReadonlySet<unknown> = new Set<SpeakerRole>(["owner", "counterpart"]);
@@ -114,6 +119,8 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       return SPEAKERS.has(value.speaker) && isSegmentText(value.text) && (value.latencyMs === null || isLatency(value.latencyMs));
     case "offscreen-status":
       return (value.tone === "info" || value.tone === "error") && typeof value.text === "string";
+    case "logs-request":
+      return true;
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&
@@ -137,6 +144,7 @@ export function isOffscreenMessage(value: unknown): value is OffscreenMessage {
         (value.withVideo === undefined || typeof value.withVideo === "boolean")
       );
     case "offscreen-stop":
+    case "offscreen-logs":
       return true;
     default:
       return false;

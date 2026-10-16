@@ -5,12 +5,13 @@ import {
   isBackgroundMessage,
   type BackgroundMessage,
   type CalendarBusyResponse,
+  type LogsResponse,
   type ContentMessage,
   type OffscreenMessage,
   type MicProblem,
   type OffscreenResponse,
 } from "./shared/messages";
-import { log } from "./shared/log";
+import { log, logLines } from "./shared/log";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
@@ -49,6 +50,11 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
     calendarBusy(message.start, message.end).then(sendResponse);
     return true; // отговорът е асинхронен
+  }
+  if (message.type === "logs-request") {
+    if (sender.tab === undefined) return;
+    collectLogs().then(sendResponse);
+    return true;
   }
   void handleMessage(message, sender);
 });
@@ -147,7 +153,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();
@@ -196,6 +202,20 @@ async function reportMic(tabId: number, mic: MicProblem): Promise<void> {
       text: `Микрофонът не е достъпен (${mic.detail}). Засега се чува само събеседникът.`,
     });
   }
+}
+
+/** Логовете на service worker-а и на offscreen документа (с worker-а), подредени по час. */
+async function collectLogs(): Promise<LogsResponse> {
+  const request: OffscreenMessage = { type: "offscreen-logs" };
+  const offscreen = (await chrome.runtime.sendMessage(request).catch(() => undefined)) as OffscreenResponse | undefined;
+  const fromOffscreen = offscreen?.ok ? (offscreen.logs ?? []) : ["(offscreen документът не е отворен)"];
+  const header = `Zara Copilot ${chrome.runtime.getManifest().version}, ${navigator.userAgent}`;
+  return { lines: [header, ...[...logLines().map((line) => `[bg] ${line}`), ...fromOffscreen].sort(byTime)] };
+}
+
+function byTime(a: string, b: string): number {
+  const time = (line: string) => /\d\d:\d\d:\d\d\.\d{3}/.exec(line)?.[0] ?? "";
+  return time(a).localeCompare(time(b));
 }
 
 async function ensureOffscreen(): Promise<void> {
