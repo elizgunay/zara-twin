@@ -8,8 +8,11 @@ declare class AudioWorkletProcessor {
   readonly port: MessagePort;
 }
 
+/** 100 ms звук. Отделна константа: след прехвърлянето chunk.length вече е 0. */
+const CHUNK_FRAMES = Math.round(sampleRate / 10);
+
 class PcmCollector extends AudioWorkletProcessor {
-  private buffer = new Float32Array(Math.round(sampleRate / 10));
+  private buffer = new Float32Array(CHUNK_FRAMES);
   private filled = 0;
 
   process(inputs: Float32Array[][]): boolean {
@@ -21,8 +24,10 @@ class PcmCollector extends AudioWorkletProcessor {
       this.buffer[this.filled++] = sum / channels!.length;
       if (this.filled === this.buffer.length) {
         const chunk = this.buffer;
+        // Прехвърляне без копие: след него chunk е празен (дължина 0), затова новият
+        // буфер е с CHUNK_FRAMES. С chunk.length тук звукът спираше след първите 100 ms.
         this.port.postMessage(chunk, [chunk.buffer]);
-        this.buffer = new Float32Array(chunk.length);
+        this.buffer = new Float32Array(CHUNK_FRAMES);
         this.filled = 0;
       }
     }
