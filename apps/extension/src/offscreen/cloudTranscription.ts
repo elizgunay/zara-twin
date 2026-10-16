@@ -125,7 +125,12 @@ export class CloudTranscription {
           this.collect(source, session, piece, message.metadata?.end_time ?? 0);
         } else if (message.message === "Error") {
           log("облак", "грешка от сървъра", source, message.type, message.reason);
-          const error = new Error(`${message.type ?? "Error"}: ${message.reason ?? ""}`);
+          const error =
+            message.type === "quota_exceeded"
+              ? // Безплатният акаунт: 2 едновременни връзки (вие + събеседникът). Връзки от
+                // презаредено или премахнато разширение сървърът държи още няколко минути.
+                new Error("облакът е зает (лимит 2 връзки, старите още не са затворени). Изчакайте 2–3 минути и включете Copilot отново")
+              : new Error(`${message.type ?? "Error"}: ${message.reason ?? ""}`);
           if (!session.ready) reject(error);
           else if (!this.stopped) this.events.onStatus("error", `Облачното разпознаване спря: ${error.message}`);
         } else if (message.message === "Warning" || message.message === "Info") {
