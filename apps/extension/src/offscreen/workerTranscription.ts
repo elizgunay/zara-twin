@@ -1,6 +1,7 @@
 import type { AudioChunk, AudioSourceKind } from "@zara-twin/core";
 import type { SttChoice } from "../stt/choices";
 import type { TranscriptionEvents } from "./transcription";
+import { log } from "../shared/log";
 import type { FromWorker, ToWorker } from "./workerProtocol";
 
 /** Същият интерфейс като Transcription, но разпознаването тече в отделна нишка. */
@@ -14,6 +15,7 @@ export class WorkerTranscription {
       else events.onStatus(message.tone, message.text);
     };
     this.worker.onerror = (event) => {
+      log("worker", "грешка", event.message, event.filename, event.lineno);
       events.onStatus("error", `Разпознаването на говор спря: ${event.message || "неизвестна грешка"}`);
     };
   }

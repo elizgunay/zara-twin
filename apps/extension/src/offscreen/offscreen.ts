@@ -12,6 +12,7 @@ import {
   type MicProblem,
   type OffscreenResponse,
 } from "../shared/messages";
+import { log, throttledCounter } from "../shared/log";
 import type { SttChoice } from "../stt/choices";
 import { WorkerTranscription } from "./workerTranscription";
 
@@ -26,6 +27,7 @@ interface CaptureSession {
 }
 
 let session: CaptureSession | null = null;
+const chunkLog = throttledCounter("offscreen парчета звук към worker-а");
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
   if (!isOffscreenMessage(message)) return;
@@ -44,6 +46,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
 /** Връща проблема с микрофона, ако има такъв; звукът на срещата пак работи. */
 async function start(streamId: string, stt: SttChoice, withVideo: boolean): Promise<MicProblem | null> {
   await stop();
+  log("offscreen", "старт", { stt, withVideo });
   const context = new AudioContext();
   const streams: MediaStream[] = [];
   const transcription = new WorkerTranscription({
@@ -65,6 +68,7 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
       ...(withVideo && { video: { mandatory: { ...tab, maxWidth: 320, maxHeight: 180, maxFrameRate: 1 } } }),
     } as unknown as MediaStreamConstraints);
     streams.push(tabStream);
+    log("offscreen", "звукът на таба е прихванат", tabStream.getAudioTracks()[0]?.getSettings(), "AudioContext", context.sampleRate, "Hz");
     const tabSource = context.createMediaStreamSource(tabStream);
     // Прихващането заглушава таба. Пускаме звука обратно, иначе собственикът спира да чува събеседника.
     tabSource.connect(context.destination);
@@ -81,6 +85,7 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
       audio: { echoCancellation: true, noiseSuppression: true },
     });
     streams.push(micStream);
+    log("offscreen", "микрофонът е включен", micStream.getAudioTracks()[0]?.label, micStream.getAudioTracks()[0]?.getSettings());
     // Микрофонът не се пуска към високоговорителите, за да няма ехо.
     collect(context, context.createMediaStreamSource(micStream), "microphone");
     sources.push("microphone");
@@ -90,15 +95,18 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean): Prom
         ? "mic-permission-denied"
         : "mic-unavailable";
     mic = { code, detail: describe(error) };
+    log("offscreen", "микрофонът не тръгна", mic);
   }
 
   // 3. Разпознаване на говор. Не чакаме зареждането на модела: звукът и нивата вече работят.
   transcription.start(stt, sources);
+  log("offscreen", "разпознаването стартира за", sources);
   return mic;
 }
 
 async function stop(): Promise<void> {
   if (session === null) return;
+  log("offscreen", "стоп");
   const { context, streams, transcription } = session;
   session = null;
   transcription.stop();
@@ -121,6 +129,7 @@ function collect(context: AudioContext, source: MediaStreamAudioSourceNode, kind
 }
 
 function handleChunk(chunk: AudioChunk): void {
+  chunkLog(chunk.source, () => ({ samples: chunk.pcm.length, level: rmsLevel(chunk.pcm).toFixed(4) }));
   send({ type: "offscreen-level", source: chunk.source, level: rmsLevel(chunk.pcm) });
   session?.transcription.write(chunk);
 }

@@ -8,6 +8,7 @@ import {
 } from "@zara-twin/stt-whisper";
 import { createTransformersTranscriber } from "@zara-twin/stt-whisper/transformers";
 import { resolveAuto, STT_CHOICES, type SttChoice, type SttChoiceKey } from "../stt/choices";
+import { log } from "../shared/log";
 import { configureRuntime, detectGpu } from "../stt/runtime";
 
 /**
@@ -43,13 +44,18 @@ export class Transcription {
   constructor(private readonly events: TranscriptionEvents) {}
 
   async start(choice: SttChoice, sources: AudioSourceKind[]): Promise<void> {
-    const key = choice === "auto" ? resolveAuto(await detectGpu()) : choice;
+    const gpu = await detectGpu();
+    const key = choice === "auto" ? resolveAuto(gpu) : choice;
+    log("разпознаване", "избор", { choice, key, gpu });
     const model = await this.load(key);
     if (model === null || this.stopped) return;
 
     // Опашката с лимит: при бавен компютър пропускаме изречения, вместо да изоставаме с минути.
     const provider = new WhisperLocalProvider(serialTranscriber(this.counted(model), 3), {
-      onUtterance: () => this.cut++,
+      onUtterance: (ms) => {
+        this.cut++;
+        log("разпознаване", "изрязано изказване", ms, "ms; чакат модела:", this.pending);
+      },
     });
     for (const source of sources) {
       const stream = await provider.openStream({
@@ -63,6 +69,7 @@ export class Transcription {
         onError: (error) => this.handleError(error),
       });
       this.streams.set(source, stream);
+      log("разпознаване", "поток отворен за", source);
     }
     this.events.onStatus("info", "Разпознаването на говор е включено.");
     this.ready = true;
@@ -106,12 +113,18 @@ export class Transcription {
       id: model.id,
       transcribe: async (pcm) => {
         this.pending++;
+        const began = performance.now();
+        log("разпознаване", "моделът започва", (pcm.length / TARGET_SAMPLE_RATE).toFixed(1), "s звук");
         try {
           const text = await model.transcribe(pcm);
+          log("разпознаване", "моделът върна за", Math.round(performance.now() - began), "ms:", JSON.stringify(text.trim().slice(0, 40)));
           this.heard++;
           if (text.trim() === "") this.empty++;
           else this.lastText = text.trim().slice(0, 60);
           return text;
+        } catch (error) {
+          log("разпознаване", "моделът даде грешка", error);
+          throw error;
         } finally {
           this.pending--;
         }
@@ -123,11 +136,15 @@ export class Transcription {
     const { label, options } = STT_CHOICES[key];
     configureRuntime();
     this.events.onStatus("info", `Зареждане на разпознаването на говор (${label})…`);
+    log("разпознаване", "зареждане", key, options);
+    const began = performance.now();
     try {
       const model = await createTransformersTranscriber(options);
       await model.transcribe(new Float32Array(TARGET_SAMPLE_RATE)); // първото пускане е по-бавно
+      log("разпознаване", "моделът е готов за", Math.round(performance.now() - began), "ms");
       return model;
     } catch (error) {
+      log("разпознаване", "зареждането се провали", key, error);
       if (this.stopped) return null;
       // Видеокартата не тръгна (драйвер, памет): опитваме с процесора, вместо да спрем изцяло.
       if (key !== "cpu-small") {
@@ -140,6 +157,7 @@ export class Transcription {
   }
 
   private handleError(error: Error): void {
+    log("разпознаване", "грешка", error.name, error.message);
     if (this.stopped) return;
     if (error instanceof BacklogError) {
       this.dropped++;

@@ -1,4 +1,5 @@
 import { Transcription } from "./transcription";
+import { log, throttledCounter } from "../shared/log";
 import type { FromWorker, ToWorker } from "./workerProtocol";
 
 // Worker с разпознаването на говор. Моделът блокира нишката си за секунди;
@@ -12,11 +13,13 @@ const scope = self as unknown as {
 };
 
 let transcription: Transcription | null = null;
+const received = throttledCounter("worker получени парчета звук");
 
 scope.onmessage = (event) => {
   const message = event.data;
   switch (message.type) {
     case "start":
+      log("worker", "старт", message.choice, message.sources);
       transcription = new Transcription({
         onText: (speaker, text, latencyMs) => scope.postMessage({ type: "text", speaker, text, latencyMs }),
         onStatus: (tone, text) => scope.postMessage({ type: "status", tone, text }),
@@ -24,9 +27,11 @@ scope.onmessage = (event) => {
       void transcription.start(message.choice, message.sources);
       break;
     case "chunk":
+      received(message.chunk.source, () => ({ готов: transcription !== null }));
       transcription?.write(message.chunk);
       break;
     case "stop":
+      log("worker", "стоп");
       transcription?.stop();
       transcription = null;
       scope.close();

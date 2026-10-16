@@ -10,6 +10,7 @@ import {
   type MicProblem,
   type OffscreenResponse,
 } from "./shared/messages";
+import { log } from "./shared/log";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
@@ -80,6 +81,7 @@ async function startSession(tabId: number): Promise<void> {
       const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
       const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo };
       response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
+      log("background", "отговор от offscreen", { withVideo, response });
       if (response?.ok) break;
     }
     if (!response?.ok) {
