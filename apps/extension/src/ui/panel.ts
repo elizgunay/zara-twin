@@ -51,7 +51,7 @@ export class CopilotPanel {
   mount(): void {
     // Панел от предишна версия (разширението е презаредено без F5 на таба) вече не отговаря:
     // махаме го, за да няма два панела един върху друг.
-    for (const old of this.doc.querySelectorAll("zara-copilot-panel")) if (old !== this.host) old.remove();
+    for (const old of Array.from(this.doc.querySelectorAll("zara-copilot-panel"))) if (old !== this.host) old.remove();
     if (!this.host.isConnected) this.doc.documentElement.append(this.host);
   }
 

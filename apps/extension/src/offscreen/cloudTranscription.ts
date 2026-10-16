@@ -1,6 +1,6 @@
 import { assertEuRegion, TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole } from "@zara-twin/core";
 import { pack } from "../pack";
-import { log } from "../shared/log";
+import { log, throttledCounter } from "../shared/log";
 import {
   SPEECHMATICS_REALTIME_URL,
   SPEECHMATICS_REGION,
@@ -41,6 +41,8 @@ interface RealtimeMessage {
  */
 export class CloudTranscription {
   private readonly sessions = new Map<AudioSourceKind, Session>();
+  /** Диагностика: изпратени парчета звук, потвърдени от сървъра (AudioAdded) и върнат текст. */
+  private readonly traffic = throttledCounter("облак: трафик");
   private stopped = false;
 
   constructor(
@@ -68,6 +70,7 @@ export class CloudTranscription {
     if (session.startedAt === 0) session.startedAt = Date.now() - (chunk.pcm.length / TARGET_SAMPLE_RATE) * 1000;
     session.socket.send(chunk.pcm.slice().buffer);
     session.sent++;
+    this.traffic(`изпратени-${chunk.source}`);
   }
 
   stop(): void {
@@ -111,7 +114,10 @@ export class CloudTranscription {
           session.ready = true;
           log("облак", "връзката е готова за", source);
           resolve();
+        } else if (message.message === "AudioAdded") {
+          this.traffic(`приети-${source}`);
         } else if (message.message === "AddTranscript") {
+          this.traffic(`текст-${source}`);
           const piece = message.metadata?.transcript.replace(/\s+/g, " ").trim() ?? "";
           if (!piece || this.stopped) return;
           this.collect(source, session, piece, message.metadata?.end_time ?? 0);
@@ -120,8 +126,8 @@ export class CloudTranscription {
           const error = new Error(`${message.type ?? "Error"}: ${message.reason ?? ""}`);
           if (!session.ready) reject(error);
           else if (!this.stopped) this.events.onStatus("error", `Облачното разпознаване спря: ${error.message}`);
-        } else if (message.message === "Warning") {
-          log("облак", "предупреждение", source, message.type, message.reason);
+        } else if (message.message === "Warning" || message.message === "Info") {
+          log("облак", message.message, source, message.type, message.reason);
         }
       };
       socket.onerror = () => reject(new Error("Няма връзка със сървъра на Speechmatics."));
@@ -149,6 +155,7 @@ export class CloudTranscription {
     session.sentence = "";
     if (!text || /^[,.!?;:]+$/.test(text) || this.stopped) return;
     const spokenAt = session.startedAt + session.sentenceEnd * 1000;
+    log("облак", "изречение от", source, `${text.length} знака`);
     this.events.onText(SPEAKER[source], text, session.startedAt ? Math.max(0, Date.now() - spokenAt) : null);
   }
 
