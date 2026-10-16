@@ -11,6 +11,9 @@ export function configureRuntime(): void {
   env.allowLocalModels = false;
   // Работи и в страница, и в worker: и двата са в корена на разширението.
   env.backends.onnx.wasm!.wasmPaths = new URL("ort/", self.location.href).href;
+  // Разширението вече не е cross-origin isolated (без COOP/COEP): с тях Chrome отказва
+  // прихващането на таба („AbortError: Error starting tab capture“, tools/capture-probe*).
+  // Затова WebAssembly върви с една нишка; WebGPU не зависи от това.
   env.backends.onnx.wasm!.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
   // Вграденият „proxy“ режим на ONNX Runtime не работи в нашата сборка (не намира своя worker).
   // Затова по време на среща цялото разпознаване е в собствен worker (stt-worker.ts).
