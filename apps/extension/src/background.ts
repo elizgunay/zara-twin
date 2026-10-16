@@ -101,7 +101,7 @@ async function startSession(tabId: number): Promise<void> {
     await chrome.storage.session.set({ [SESSION_KEY]: tabId });
     await chrome.action.setBadgeBackgroundColor({ tabId, color: "#d93025" });
     await chrome.action.setBadgeText({ tabId, text: "REC" });
-    await notifyTab(tabId, { type: "session-state", active: true });
+    await showPanel(tabId);
     if (response.mic) await reportMic(tabId, response.mic);
   } catch (error) {
     await closeOffscreen();
@@ -242,7 +242,27 @@ async function getSessionTab(): Promise<number | null> {
   return typeof value === "number" ? value : null;
 }
 
-async function notifyTab(tabId: number, message: ContentMessage): Promise<void> {
+async function notifyTab(tabId: number, message: ContentMessage): Promise<boolean> {
   // Табът може да е затворен или да е отворен преди инсталацията (без content script).
-  await chrome.tabs.sendMessage(tabId, message).catch(() => {});
+  return chrome.tabs.sendMessage(tabId, message).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Показва панела. Ако табът на Meet е отворен отпреди инсталацията или презареждането
+ * на разширението, в него няма работещ content script: добавяме го и опитваме пак.
+ */
+async function showPanel(tabId: number): Promise<void> {
+  const state: ContentMessage = { type: "session-state", active: true };
+  if (await notifyTab(tabId, state)) return;
+  log("background", "няма content script в таба, добавям го");
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+  } catch (error) {
+    log("background", "content script не се добави", error);
+    return;
+  }
+  if (!(await notifyTab(tabId, state))) log("background", "панелът пак не отговаря");
 }
