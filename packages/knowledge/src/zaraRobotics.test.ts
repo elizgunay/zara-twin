@@ -10,13 +10,14 @@ const ids = (text: string) => finder.find(text).products.map((p) => p.id);
 const families = (text: string) => finder.find(text).families.map((f) => f.id);
 
 describe("пакетът на Zara Robotics", () => {
-  it("е валиден и има 15 модела", () => {
-    expect(pack.products).toHaveLength(15);
+  it("е валиден и има 16 модела (15 Keenon + GreetingBot Mini)", () => {
+    expect(pack.products).toHaveLength(16);
   });
 
   it("всеки модел има източник и поне една група характеристики", () => {
     for (const product of pack.products) {
-      expect(product.sourceUrl).toMatch(/^https:\/\/zararobotics\.com\/robots\//);
+      // GreetingBot Mini няма страница в каталога: източникът е началната страница.
+      expect(product.sourceUrl).toMatch(/^https:\/\/zararobotics\.com\/(robots\/|$)/);
       expect(Object.keys(product.specs).length).toBeGreaterThan(0);
     }
   });
@@ -76,7 +77,12 @@ describe("productCard", () => {
   it("показва най-важното за почистващ робот", () => {
     expect(productCard(byId("kleenbot-c40s"))).toEqual({
       title: "Keenon Kleenbot C40S",
-      lines: ["Ефективност: до 1 100 м²/час", "Минимален проход: 65 см", "Живот — почистване: ~5 часа", "Режими: Метене / Прахосмучене / Миене / Търкане"],
+      lines: [
+        "Ефективност: до 1 100 м²/час",
+        "Минимален проход: 65 см",
+        "Живот на батерията: 5 ч търкане, 6 ч прахосмучене, 10 ч мокро почистване, 15 ч метене",
+        "Режими: Метене / Прахосмучене / Мокро почистване / Търкане / Извличане на вода",
+      ],
       sourceUrl: "https://zararobotics.com/robots/kleenbot-c40s",
     });
   });

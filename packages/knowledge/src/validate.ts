@@ -18,6 +18,7 @@ export function validatePack(value: unknown): KnowledgePack {
   if (!Array.isArray(pack.products) || pack.products.length === 0) problems.push("Няма продукти.");
   if (!Array.isArray(pack.families)) problems.push("Липсва списък с продуктови серии.");
   if (!Array.isArray(pack.missing)) problems.push("Липсва списъкът „missing“ (може да е празен).");
+  if (pack.pricing !== undefined && pack.pricing !== "owner") problems.push("„pricing“ може да е само „owner“.");
 
   const familyIds = new Set((pack.families ?? []).map((f) => f.id));
   const seenIds = new Set<string>();

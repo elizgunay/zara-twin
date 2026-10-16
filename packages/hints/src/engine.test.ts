@@ -39,14 +39,27 @@ describe("HintEngine", () => {
   });
 
   it("при въпрос за цена казва „няма данни“, вместо да гадае", () => {
-    const { engine } = engineAt();
+    const { pricing: _ownerPrices, ...withoutOwnerPrices } = pack;
+    const engine = new HintEngine(withoutOwnerPrices, { now: () => 0 });
     const hints = say(engine, "Добре, а колко струва T10?");
     expect(hints.map((h) => h.key)).toEqual(["product:dinerbot-t10", "no-data:price"]);
+    expect(say(engine, "Ще ни направите ли отстъпка?").map((h) => h.key)).toEqual(["no-data:discount"]);
   });
 
-  it("разпознава въпроси за отстъпка и наем", () => {
+  it("когато цените ги казва собственикът, не го съветва да мълчи", () => {
     const { engine } = engineAt();
-    expect(say(engine, "Ще ни направите ли отстъпка?").map((h) => h.key)).toEqual(["no-data:discount"]);
+    expect(say(engine, "Добре, а колко струва T10?").map((h) => h.key)).toEqual(["product:dinerbot-t10"]);
+    expect(say(engine, "Ще ни направите ли отстъпка?")).toEqual([]);
+  });
+
+  it("серия с един модел показва директно картата му", () => {
+    const { engine } = engineAt();
+    const [hint] = say(engine, "Имате ли робот за посрещане на гости?");
+    expect(hint).toMatchObject({ key: "product:orionstar-greetingbot-mini", title: "OrionStar GreetingBot Mini" });
+  });
+
+  it("разпознава въпроси за наем", () => {
+    const { engine } = engineAt();
     const [lease] = say(engine, "Може ли на лизинг или под наем?");
     expect(lease).toMatchObject({ key: "policy:purchase" });
     expect(lease!.lines[0]).toMatch(/само за покупка/);

@@ -61,6 +61,14 @@ export class HintEngine {
 
     for (const family of mentions.families) {
       const products = this.finder.productsOf(family);
+      // Серия с един модел: директно картата му, вместо списък от един ред.
+      if (products.length === 1) {
+        const [only] = products;
+        if (!mentions.products.includes(only!)) {
+          candidates.push({ key: `product:${only!.id}`, kind: "product", ...productCard(only!) });
+        }
+        continue;
+      }
       candidates.push({
         key: `family:${family.id}`,
         kind: "family",
@@ -76,8 +84,10 @@ export class HintEngine {
   private noDataHints(text: string): Hint[] {
     const hints: Hint[] = [];
     const missing = (prefix: string) => this.pack.missing.some((item) => item.startsWith(prefix));
+    // Цените и отстъпките ги казва собственикът: не му казваме да мълчи.
+    const ownerPrices = this.pack.pricing === "owner";
 
-    if (PRICE_QUESTION.test(text) && missing("Цени")) {
+    if (!ownerPrices && PRICE_QUESTION.test(text) && missing("Цени")) {
       hints.push({
         key: "no-data:price",
         kind: "no-data",
@@ -85,7 +95,7 @@ export class HintEngine {
         lines: ["Не давайте цифра на момента.", "Предложете писмена оферта след срещата."],
       });
     }
-    if (DISCOUNT_QUESTION.test(text) && missing("Граници на отстъпките")) {
+    if (!ownerPrices && DISCOUNT_QUESTION.test(text) && missing("Граници на отстъпките")) {
       hints.push({
         key: "no-data:discount",
         kind: "no-data",

@@ -16,6 +16,11 @@ export interface KnowledgePack {
   faq: FaqEntry[];
   /** Какво още не знаем. Copilot-ът казва „няма данни“, вместо да гадае. */
   missing: string[];
+  /**
+   * „owner“: цените и отстъпките ги казва собственикът сам. Тогава Copilot-ът не го
+   * съветва „не давайте цифра“ при въпрос за цена, а само показва продукта.
+   */
+  pricing?: "owner";
   source: { description: string; retrievedAt: string };
 }
 
