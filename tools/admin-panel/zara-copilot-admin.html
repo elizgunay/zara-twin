@@ -1,9 +1,10 @@
 <title>Пулт на Zara Copilot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
-/* Пулт: обобщение отгоре, после фази, тестове (графика + таблица + въвеждане) и задачи. Цветовете следват Word документите на проекта (тъмносиньо + синьо). */
+/* Пулт: обобщение отгоре, фази, тестове (графика + таблица + въвеждане), задачи, решения и бележки на екипа. Цветовете следват Word документите на проекта (тъмносиньо + синьо). */
 :root {
   --bg: #f4f6fa;
   --surface: #ffffff;
@@ -38,7 +39,7 @@
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
-.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 20px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px; display: grid; gap: 20px; }
 h1, h2, h3 { margin: 0; text-wrap: balance; color: var(--navy); }
 h1 { font-size: 1.6rem; font-weight: 700; }
 h2 { font-size: 1.1rem; font-weight: 600; }
@@ -115,6 +116,21 @@ button:disabled { opacity: .5; cursor: default; }
 .who { font-size: .74rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; }
 .who.claude { background: var(--accent-soft); color: var(--navy); }
 .empty { color: var(--muted); font-size: .9rem; padding: 8px 0; }
+.row-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-form input[type="text"] { flex: 1 1 220px; width: auto; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+button.ghost { background: transparent; color: var(--accent); }
+button.small { padding: 4px 10px; font-size: .8rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { background: transparent; color: var(--muted); border-color: var(--line); padding: 4px 12px; font-size: .82rem; }
+.filters button[aria-pressed="true"] { background: var(--accent-soft); color: var(--navy); border-color: var(--accent); }
+td.code { font-family: var(--font-mono); white-space: nowrap; color: var(--navy); font-weight: 500; }
+.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.note-item { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; }
+.note-item .meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+.note-item .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+textarea.plain { font-family: var(--font-body); font-size: .92rem; min-height: 84px; }
 @media (prefers-reduced-motion: no-preference) { .bar { transition: width .4s ease; } }
 </style>
 
@@ -124,7 +140,7 @@ button:disabled { opacity: .5; cursor: default; }
       <span class="eyebrow">AI двойник на ръководителя · Zara Robotics</span>
       <h1>Пулт на Zara Copilot</h1>
     </div>
-    <span class="chip phase">Сега: Фаза 1 · Copilot в срещите</span>
+    <span class="chip phase" id="now-chip">Сега: Фаза 1 · тестове в реални срещи</span>
   </header>
 
   <section class="tiles" aria-label="Обобщение">
@@ -136,14 +152,7 @@ button:disabled { opacity: .5; cursor: default; }
 
   <section class="panel" aria-labelledby="phases-h">
     <div class="panel-head"><h2 id="phases-h">Фази</h2><span class="muted" style="font-size:.85rem">Подробно: docs/strategy в проекта</span></div>
-    <ol class="phases">
-      <li class="phase"><span class="n">0</span><span class="t">Визия и план</span><span class="chip good">Готово</span></li>
-      <li class="phase now"><span class="n">1</span><span class="t">Copilot в срещите</span><span class="chip warn">Почти готово</span><span class="d">Чака теста при шефа</span></li>
-      <li class="phase"><span class="n">2</span><span class="t">Памет</span><span class="chip idle">Предстои</span><span class="d">Помни важното, с одобрение</span></li>
-      <li class="phase"><span class="n">3</span><span class="t">Двойник в текст</span><span class="chip idle">Предстои</span><span class="d">Насрочва срещи, прости въпроси</span></li>
-      <li class="phase"><span class="n">4</span><span class="t">Двойник с глас</span><span class="chip idle">Предстои</span><span class="d">Телефон и срещи с гласа на шефа</span></li>
-      <li class="phase"><span class="n">5</span><span class="t">Продукт за клиенти</span><span class="chip idle">Предстои</span><span class="d">Продажба на други фирми</span></li>
-    </ol>
+    <ol class="phases" id="phases"><li class="empty">Фазите се зареждат…</li></ol>
   </section>
 
   <section class="panel" aria-labelledby="tests-h">
@@ -180,6 +189,42 @@ button:disabled { opacity: .5; cursor: default; }
     <section class="panel" aria-labelledby="tasks-h">
       <div class="panel-head"><h2 id="tasks-h">Задачи</h2><span class="muted" id="tasks-count" style="font-size:.85rem"></span></div>
       <ul class="tasks" id="tasks"><li class="empty">Задачите се зареждат…</li></ul>
+      <form class="row-form" id="task-form" novalidate>
+        <label for="task-title" class="visually-hidden">Нова задача</label>
+        <input type="text" id="task-title" maxlength="160" placeholder="Нова задача" autocomplete="off">
+        <select id="task-owner" aria-label="Кой"><option>Вие</option><option>Claude</option><option>Шефът</option></select>
+        <button type="submit" id="task-add" class="small">Добави</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="dec-h">
+      <div class="panel-head">
+        <h2 id="dec-h">Решения</h2>
+        <div class="filters" role="group" aria-label="Филтър">
+          <button type="button" id="dec-all" aria-pressed="true">Всички</button>
+          <button type="button" id="dec-open" aria-pressed="false">Чакат одобрение</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table style="min-width:520px">
+          <thead><tr><th>№</th><th>Решение</th><th>Статус</th></tr></thead>
+          <tbody id="decisions"><tr><td colspan="3" class="empty">Решенията се зареждат…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="notes-h">
+      <div class="panel-head"><h2 id="notes-h">Бележки на екипа</h2><span class="muted" id="notes-count" style="font-size:.85rem"></span></div>
+      <form id="note-form" novalidate style="gap:8px">
+        <label for="note-text">Нова бележка
+          <textarea id="note-text" class="plain" maxlength="2000" placeholder="напр. Шефът иска тест в срещата с хотела в четвъртък"></textarea>
+        </label>
+        <button type="submit" id="note-add" class="small" disabled>Добави бележка</button>
+        <div class="status" id="note-status" role="status"></div>
+      </form>
+      <ul class="notes" id="notes"><li class="empty">Бележките се зареждат…</li></ul>
     </section>
   </div>
 </div>
@@ -388,26 +433,142 @@ button:disabled { opacity: .5; cursor: default; }
     $("tasks-count").textContent = `${open} отворени от ${docs.length}`;
   }
 
+  // ---------- Фази ----------
+  const STATUS_CHIP = { done: ["good", "Готово"], now: ["warn", "В ход"], next: ["idle", "Предстои"] };
+  function renderPhases(docs) {
+    const list = $("phases");
+    list.replaceChildren();
+    if (!docs.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Още няма фази в базата."; list.append(li); return; }
+    for (const doc of docs) {
+      const ph = doc.data();
+      const li = document.createElement("li"); li.className = "phase" + (ph.status === "now" ? " now" : "");
+      const n = document.createElement("span"); n.className = "n"; n.textContent = ph.number ?? "";
+      const t = document.createElement("span"); t.className = "t"; t.textContent = ph.title || "";
+      const [cls, word] = STATUS_CHIP[ph.status] || STATUS_CHIP.next;
+      const c = document.createElement("span"); c.className = "chip " + cls; c.textContent = ph.progress ? word + " · " + ph.progress : word;
+      li.append(n, t, c);
+      if (ph.note) { const d = document.createElement("span"); d.className = "d"; d.textContent = ph.note; li.append(d); }
+      list.append(li);
+      if (ph.status === "now") $("now-chip").textContent = "Сега: Фаза " + ph.number + " · " + ph.title;
+    }
+  }
+
+  // ---------- Решения ----------
+  let decisions = [];
+  let decFilter = "all";
+  const decChip = (status) => (/Одобрено|Изпълнено/.test(status) ? "good" : /Предложение|потвърждение/.test(status) ? "warn" : "idle");
+  function renderDecisions() {
+    const body = $("decisions");
+    body.replaceChildren();
+    const rows = decisions.filter((d) => decFilter === "all" || decChip(d.status) === "warn");
+    if (!rows.length) { const tr = body.insertRow(); const td = tr.insertCell(); td.colSpan = 3; td.className = "empty"; td.textContent = decisions.length ? "Няма решения, които чакат одобрение." : "Още няма решения в базата."; return; }
+    for (const d of rows) {
+      const tr = body.insertRow();
+      const code = tr.insertCell(); code.className = "code"; code.textContent = d.code;
+      const text = tr.insertCell(); text.textContent = d.text;
+      const st = tr.insertCell(); const c = document.createElement("span"); c.className = "chip " + decChip(d.status); c.textContent = d.status; st.append(c);
+    }
+  }
+  for (const [id, value] of [["dec-all", "all"], ["dec-open", "open"]]) {
+    $(id).addEventListener("click", () => {
+      decFilter = value;
+      $("dec-all").setAttribute("aria-pressed", String(value === "all"));
+      $("dec-open").setAttribute("aria-pressed", String(value === "open"));
+      renderDecisions();
+    });
+  }
+
+  // ---------- Бележки ----------
+  let userApi = null;
+  let myId = null;
+  async function renderNotes(docs) {
+    const list = $("notes");
+    $("notes-count").textContent = docs.length ? String(docs.length) : "";
+    const ids = [...new Set(docs.map((d) => d.data().authorId).filter(Boolean))];
+    let profiles = {};
+    try { profiles = userApi && ids.length ? await userApi.profiles(ids) : {}; } catch { profiles = {}; }
+    list.replaceChildren();
+    if (!docs.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Още няма бележки. Напишете първата отгоре."; list.append(li); return; }
+    for (const doc of docs) {
+      const n = doc.data();
+      const li = document.createElement("li"); li.className = "note-item";
+      const meta = document.createElement("div"); meta.className = "meta";
+      const who = document.createElement("span"); who.textContent = ((profiles[n.authorId] && profiles[n.authorId].name) || "Някой") + " · " + fmtDate(n.createdAt);
+      meta.append(who);
+      if (myId && n.authorId === myId && canWrite) {
+        const del = document.createElement("button"); del.type = "button"; del.className = "ghost small"; del.textContent = "Изтрий";
+        del.addEventListener("click", async () => { del.disabled = true; try { await db.doc("notes/" + doc.id).delete(); } catch { del.disabled = false; } });
+        meta.append(del);
+      }
+      const body = document.createElement("div"); body.className = "body"; body.textContent = n.text || "";
+      li.append(meta, body); list.append(li);
+    }
+  }
+  $("note-text").addEventListener("input", () => { $("note-add").disabled = !db || !canWrite || !$("note-text").value.trim(); });
+  $("note-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = $("note-text").value.trim();
+    if (!text || !db) return;
+    $("note-add").disabled = true;
+    try {
+      await db.collection("notes").add({ text, authorId: myId, createdAt: new Date().toISOString() });
+      $("note-text").value = ""; $("note-status").className = "status ok"; $("note-status").textContent = "Бележката е добавена.";
+    } catch {
+      $("note-status").className = "status err"; $("note-status").textContent = "Бележката не се запази. Опитайте отново след малко.";
+      $("note-add").disabled = false;
+    }
+  });
+
+  // ---------- Нова задача ----------
+  let taskCount = 0;
+  $("task-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = $("task-title").value.trim();
+    if (!title || !db || !canWrite) return;
+    $("task-add").disabled = true;
+    try {
+      await db.collection("tasks").add({ title, owner: $("task-owner").value, done: false, order: 100 + taskCount });
+      $("task-title").value = "";
+    } catch { /* текстът остава в полето за нов опит */ }
+    $("task-add").disabled = false;
+  });
+
   // ---------- Данни ----------
   (async () => {
     const claude = window.claude;
     db = claude ? await claude.use("db") : null;
     if (!db) {
-      $("tasks").innerHTML = '<li class="empty">Данните не са достъпни в този изглед. Отворете страницата в claude.ai, влезли в профила си.</li>';
+      const off = '<li class="empty">Данните не са достъпни в този изглед. Отворете страницата в claude.ai, влезли в профила си.</li>';
+      $("tasks").innerHTML = off; $("phases").innerHTML = off; $("notes").innerHTML = off;
+      $("decisions").innerHTML = '<tr><td colspan="3" class="empty">Данните не са достъпни в този изглед.</td></tr>';
       $("f-status").textContent = "Запазването не е достъпно в този изглед.";
       return;
     }
     const user = await claude.use("user");
+    userApi = user;
+    try { myId = user ? await user.id() : null; } catch { myId = null; }
     const can = user ? await user.can("data.write") : null;
     canWrite = can !== false;
-    if (!canWrite) $("f-status").textContent = "Имате права само за преглед.";
+    if (!canWrite) { $("f-status").textContent = "Имате права само за преглед."; $("task-form").hidden = true; $("note-form").hidden = true; }
     db.collection("tests").orderBy("addedAt", "desc").onSnapshot(
       (snap) => { tests = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderTests(); },
       () => { $("rows").innerHTML = '<tr><td colspan="6" class="empty">Резултатите не се заредиха. Презаредете страницата.</td></tr>'; },
     );
     db.collection("tasks").orderBy("order").onSnapshot(
-      (snap) => renderTasks(snap.docs),
+      (snap) => { taskCount = snap.docs.length; renderTasks(snap.docs); },
       () => { $("tasks").innerHTML = '<li class="empty">Задачите не се заредиха. Презаредете страницата.</li>'; },
+    );
+    db.collection("phases").orderBy("order").onSnapshot(
+      (snap) => renderPhases(snap.docs),
+      () => { $("phases").innerHTML = '<li class="empty">Фазите не се заредиха. Презаредете страницата.</li>'; },
+    );
+    db.collection("decisions").orderBy("order").onSnapshot(
+      (snap) => { decisions = snap.docs.map((d) => d.data()); renderDecisions(); },
+      () => { $("decisions").innerHTML = '<tr><td colspan="3" class="empty">Решенията не се заредиха. Презаредете страницата.</td></tr>'; },
+    );
+    db.collection("notes").orderBy("createdAt", "desc").onSnapshot(
+      (snap) => { void renderNotes(snap.docs); },
+      () => { $("notes").innerHTML = '<li class="empty">Бележките не се заредиха. Презаредете страницата.</li>'; },
     );
     refreshPreview();
   })();
