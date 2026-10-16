@@ -3,7 +3,14 @@ import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker } fr
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
 import { method, pack } from "./pack";
-import { isContentMessage, type BackgroundMessage, type LogsResponse } from "./shared/messages";
+import {
+  isContentMessage,
+  MAX_SAVED_LINES,
+  type BackgroundMessage,
+  type LogsResponse,
+  type SaveTranscriptResponse,
+  type TranscriptLine,
+} from "./shared/messages";
 import { CopilotPanel } from "./ui/panel";
 
 // Content script: работи вътре в meet.google.com и само показва състоянието.
@@ -25,6 +32,9 @@ function freshAssistants() {
     talk: new TalkRatioTracker({ rules: talkRules }),
     talkShownAt: 0,
     echo: new EchoFilter(),
+    /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
+    lines: [] as TranscriptLine[],
+    startedAt: Date.now(),
   };
 }
 
@@ -39,6 +49,18 @@ const panel = new CopilotPanel({
     const response = (await chrome.runtime.sendMessage(request)) as LogsResponse | undefined;
     return response?.lines ?? ["(няма отговор от разширението)"];
   },
+  onSave: async () => {
+    const code = adapter.currentMeeting()?.id;
+    if (!code) return { tone: "error", text: "Няма активна среща за запазване." };
+    if (meeting.lines.length === 0) return { tone: "info", text: "Още няма текст от разговора за запазване." };
+    const request: BackgroundMessage = { type: "save-transcript", meetingCode: code, startedAt: meeting.startedAt, lines: meeting.lines };
+    const response = (await chrome.runtime.sendMessage(request).catch(() => undefined)) as SaveTranscriptResponse | undefined;
+    if (!response?.ok) return { tone: "error", text: `Текстът не се запази: ${response?.error ?? "няма отговор от разширението"}` };
+    return {
+      tone: "info",
+      text: `Запазени ${response.count} реда на този компютър. Изтриват се след ${response.retentionDays} дни (Опции → Запазени срещи). Натиснете отново в края на срещата за целия текст.`,
+    };
+  },
 });
 panel.mount();
 
@@ -49,6 +71,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       if (message.active) {
         // Meet сменя адреса без презареждане (SPA), затова срещата се чете наново.
         panel.setMeeting(adapter.currentMeeting());
+        if (meeting.lines.length === 0) meeting.startedAt = Date.now();
         panel.setRecording(true);
         panel.show();
       } else {
@@ -80,6 +103,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       // Без слушалки едно изречение идва и от микрофона, и от таба: показваме го веднъж.
       if (meeting.echo.isEcho(message.speaker, message.text, Date.now())) break;
       panel.appendSegment(message);
+      if (meeting.lines.length < MAX_SAVED_LINES) meeting.lines.push({ speaker: message.speaker, text: message.text, at: Date.now() });
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       for (const hint of [...meeting.hints.onSegment(message), ...meeting.objections.onSegment(message)]) {
         panel.showHint(hint);

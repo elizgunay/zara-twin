@@ -16,6 +16,8 @@ export interface PanelOptions {
   onClose?: () => void;
   /** Бутонът „Логове“: връща редовете за диагностика. */
   onLogs?: () => Promise<string[]>;
+  /** Бутонът „Запази“: запазва текста от срещата и връща съобщение за потребителя. */
+  onSave?: () => Promise<{ tone: "info" | "error"; text: string }>;
 }
 
 /**
@@ -42,6 +44,10 @@ export class CopilotPanel {
     this.part("close").addEventListener("click", () => {
       this.hide();
       options.onClose?.();
+    });
+    this.part("save").addEventListener("click", () => {
+      if (!options.onSave) return;
+      void options.onSave().then((result) => this.setNotice(result.tone, result.text));
     });
     this.part("logs").addEventListener("click", () => {
       void this.showLogs(options.onLogs);
@@ -207,7 +213,8 @@ const TEMPLATE = /* html */ `
     font: 13px/1.45 "Segoe UI", Roboto, Arial, sans-serif;
   }
   header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #3c4352; }
-  header h1 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; }
+  header h1 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  header > * { white-space: nowrap; }
   .badge { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #3c4352; color: #bdc1c6; }
   .rec { font-size: 11px; font-weight: 600; color: #f28b82; display: flex; align-items: center; gap: 4px; }
   .rec::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f28b82; animation: pulse 1.6s infinite; }
@@ -252,7 +259,7 @@ const TEMPLATE = /* html */ `
   <header>
     <h1>Zara Copilot</h1>
     <span class="rec" data-part="recording" hidden>Запис</span>
-    <span class="badge">Фаза 1.0</span>
+    <button type="button" class="small" data-part="save" title="Запази текста от срещата на този компютър">Запази</button>
     <button type="button" class="small" data-part="logs" title="Копирай логовете за диагностика">Логове</button>
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>

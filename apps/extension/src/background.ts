@@ -6,12 +6,14 @@ import {
   type BackgroundMessage,
   type CalendarBusyResponse,
   type LogsResponse,
+  type SaveTranscriptResponse,
   type ContentMessage,
   type OffscreenMessage,
   type MicProblem,
   type OffscreenResponse,
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
+import { TranscriptStore } from "./transcripts/store";
 import { SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
@@ -51,6 +53,12 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
     calendarBusy(message.start, message.end).then(sendResponse);
     return true; // отговорът е асинхронен
+  }
+  if (message.type === "save-transcript") {
+    // Само от таб с активна среща в Meet.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    saveTranscript(message.meetingCode, message.startedAt, message.lines).then(sendResponse);
+    return true;
   }
   if (message.type === "logs-request") {
     if (sender.tab === undefined) return;
@@ -164,7 +172,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();
@@ -212,6 +220,26 @@ async function reportMic(tabId: number, mic: MicProblem): Promise<void> {
       type: "mic-problem",
       text: `Микрофонът не е достъпен (${mic.detail}). Засега се чува само събеседникът.`,
     });
+  }
+}
+
+/** Запазените срещи: само на този компютър, със срок за автоматично изтриване. */
+const transcripts = new TranscriptStore(chrome.storage.local);
+// Изтриване на изтеклите записи при всяко събуждане на service worker-а.
+void transcripts.prune().catch(() => {});
+
+async function saveTranscript(
+  meetingCode: string,
+  startedAt: number,
+  lines: { speaker: "owner" | "counterpart"; text: string; at: number }[],
+): Promise<SaveTranscriptResponse> {
+  try {
+    const saved = await transcripts.save({ meetingCode, startedAt, lines });
+    // В лога влиза само броят редове, никога текстът.
+    log("background", "запазена среща", meetingCode, saved.lines.length, "реда");
+    return { ok: true, count: saved.lines.length, retentionDays: await transcripts.retentionDays() };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

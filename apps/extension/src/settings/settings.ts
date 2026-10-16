@@ -1,4 +1,5 @@
 import { getStoredToken, GOOGLE_CLIENT_ID, isConnected, signIn, signOut } from "../calendar/token";
+import { meetingToText, RETENTION_CHOICES, TranscriptStore, type SavedMeeting } from "../transcripts/store";
 import {
   isSttMode,
   SPEECHMATICS_KEY_STORAGE_KEY,
@@ -113,3 +114,64 @@ document.querySelector("#sm-test")!.addEventListener("click", async () => {
 });
 
 void loadStt();
+
+// Запазени срещи: списък, изтегляне като текст, изтриване, срок.
+const store = new TranscriptStore(chrome.storage.local);
+const retention = document.querySelector<HTMLSelectElement>("#retention")!;
+const meetingsList = document.querySelector<HTMLUListElement>("#meetings")!;
+const meetingsStatus = document.querySelector<HTMLElement>("#meetings-status")!;
+
+async function loadMeetings(): Promise<void> {
+  retention.value = String(await store.retentionDays());
+  const meetings = await store.list();
+  meetingsList.replaceChildren(...meetings.map(meetingRow));
+  meetingsStatus.textContent = meetings.length === 0 ? "Няма запазени срещи." : "";
+  meetingsStatus.className = "";
+}
+
+function meetingRow(meeting: SavedMeeting): HTMLLIElement {
+  const row = document.createElement("li");
+  row.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)";
+  const label = document.createElement("span");
+  label.style.flex = "1";
+  // Само дата, код и брой редове: самият текст не се показва тук.
+  label.textContent = `${new Date(meeting.startedAt).toLocaleString("bg-BG")} · ${meeting.meetingCode} · ${meeting.lines.length} реда`;
+  const download = button("Изтегли", "primary", () => {
+    const blob = new Blob([meetingToText(meeting)], { type: "text/plain;charset=utf-8" });
+    const link = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `среща-${meeting.meetingCode}-${new Date(meeting.startedAt).toISOString().slice(0, 10)}.txt`,
+    });
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+  const remove = button("Изтрий", "secondary", async () => {
+    await store.remove(meeting.id);
+    await loadMeetings();
+  });
+  row.append(label, download, remove);
+  return row;
+}
+
+function button(text: string, kind: "primary" | "secondary", onClick: () => void | Promise<void>): HTMLButtonElement {
+  const element = Object.assign(document.createElement("button"), { type: "button", textContent: text, className: kind });
+  element.addEventListener("click", () => void onClick());
+  return element;
+}
+
+retention.addEventListener("change", async () => {
+  const days = Number(retention.value);
+  if (!(RETENTION_CHOICES as readonly number[]).includes(days)) return;
+  await store.setRetentionDays(days);
+  await loadMeetings();
+  meetingsStatus.textContent = `Срокът е ${days} дни. По-старите записи са изтрити.`;
+  meetingsStatus.className = "ok";
+});
+
+document.querySelector("#delete-all")!.addEventListener("click", async () => {
+  if (!confirm("Да се изтрият ли всички запазени срещи? Това не може да се върне.")) return;
+  await store.removeAll();
+  await loadMeetings();
+});
+
+void loadMeetings();

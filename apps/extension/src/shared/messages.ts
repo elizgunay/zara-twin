@@ -39,7 +39,20 @@ export type BackgroundMessage =
   /** От content script-а: заетите интервали в календара (милисекунди от епохата). */
   | { type: "calendar-busy"; start: number; end: number }
   /** От панела: логовете от всички части (бутон „Логове“). */
-  | { type: "logs-request" };
+  | { type: "logs-request" }
+  /** От панела: запазване на текста от срещата (бутон „Запази“), само на този компютър. */
+  | { type: "save-transcript"; meetingCode: string; startedAt: number; lines: TranscriptLine[] };
+
+export interface TranscriptLine {
+  speaker: SpeakerRole;
+  text: string;
+  at: number;
+}
+
+export type SaveTranscriptResponse = { ok: true; count: number; retentionDays: number } | { ok: false; error: string };
+
+/** Най-много толкова реда в едно запазване (около 8 часа разговор). */
+export const MAX_SAVED_LINES = 5_000;
 
 export type CalendarBusyResponse =
   | { ok: true; busy: { start: number; end: number }[] }
@@ -122,6 +135,19 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       return (value.tone === "info" || value.tone === "error") && typeof value.text === "string";
     case "logs-request":
       return true;
+    case "save-transcript":
+      return (
+        typeof value.meetingCode === "string" &&
+        value.meetingCode.length > 0 &&
+        value.meetingCode.length <= 64 &&
+        Number.isFinite(value.startedAt) &&
+        Array.isArray(value.lines) &&
+        value.lines.length <= MAX_SAVED_LINES &&
+        value.lines.every(
+          (line: unknown) =>
+            isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at),
+        )
+      );
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&

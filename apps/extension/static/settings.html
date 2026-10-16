@@ -52,6 +52,19 @@
       </div>
       <div id="stt-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
     </section>
+    <section style="margin-bottom:16px">
+      <h2>Запазени срещи</h2>
+      <p>Текстът от срещата се пази само когато натиснете <strong>„Запази“</strong> в панела, само на този компютър и без звук. Изтрива се автоматично след избрания срок.</p>
+      <label for="retention" style="color:var(--muted)">Пази текстовете:</label>
+      <select id="retention" style="font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)">
+        <option value="7">7 дни</option>
+        <option value="30">30 дни</option>
+        <option value="90">90 дни</option>
+      </select>
+      <ul id="meetings" style="list-style:none;padding:0;margin:16px 0 0"></ul>
+      <div class="actions"><button id="delete-all" class="secondary" type="button">Изтрий всички</button></div>
+      <div id="meetings-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
+    </section>
     <section>
       <h2>Google Calendar</h2>
       <p>Copilot проверява дали сте свободни, когато уговаряте среща. Вижда <strong>само заетите часове</strong>: без заглавия, участници или описания на събитията.</p>

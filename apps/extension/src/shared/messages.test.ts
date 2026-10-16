@@ -47,6 +47,13 @@ describe("isBackgroundMessage", () => {
     expect(isContentMessage({ type: "transcript-segment", speaker: "owner", text: "х", latencyMs: Number.NaN })).toBe(false);
   });
 
+  it("проверява запазването на текста", () => {
+    const line = { speaker: "owner", text: "Добър ден", at: 1 };
+    expect(isBackgroundMessage({ type: "save-transcript", meetingCode: "abc-defg-hij", startedAt: 0, lines: [line] })).toBe(true);
+    expect(isBackgroundMessage({ type: "save-transcript", meetingCode: "", startedAt: 0, lines: [] })).toBe(false);
+    expect(isBackgroundMessage({ type: "save-transcript", meetingCode: "x", startedAt: 0, lines: [{ ...line, speaker: "boss" }] })).toBe(false);
+  });
+
   it("отказва непознати кодове и типове", () => {
     expect(isBackgroundMessage({ type: "offscreen-error", code: "boom", detail: "" })).toBe(false);
     expect(isBackgroundMessage({ type: "offscreen-start", streamId: "x" })).toBe(false);
