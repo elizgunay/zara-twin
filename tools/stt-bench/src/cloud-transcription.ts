@@ -11,7 +11,10 @@ const key = /^\s*SPEECHMATICS_API_KEY\s*=\s*(.+?)\s*$/m.exec(readFileSync(".env"
 if (!key) throw new Error("В .env липсва SPEECHMATICS_API_KEY.");
 
 const wav = decodeWav(new Uint8Array(readFileSync("apps/extension/static/selftest/sample.wav")));
-const pcm = downsampleToInt16(wav.samples, wav.sampleRate);
+// --gain 0.06 = сила като тихия микрофон от пилота (RMS около 0,005).
+const gainIndex = process.argv.indexOf("--gain");
+const gain = gainIndex > 0 ? Number(process.argv[gainIndex + 1]) : 1;
+const pcm = downsampleToInt16(wav.samples.map((v) => v * gain), wav.sampleRate);
 const began = Date.now();
 const at = () => `${((Date.now() - began) / 1000).toFixed(1)} s`;
 

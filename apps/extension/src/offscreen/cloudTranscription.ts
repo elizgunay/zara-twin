@@ -1,4 +1,4 @@
-import { assertEuRegion, TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole } from "@zara-twin/core";
+import { assertEuRegion, AutoGain, TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole } from "@zara-twin/core";
 import { pack } from "../pack";
 import { log, throttledCounter } from "../shared/log";
 import {
@@ -26,6 +26,8 @@ interface Session {
   /** Краят на последната дума в звука (секунди от началото): за закъснението. */
   sentenceEnd: number;
   flushTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Тих микрофон се усилва, иначе облакът го приема за шум. */
+  gain: AutoGain;
 }
 
 interface RealtimeMessage {
@@ -68,9 +70,9 @@ export class CloudTranscription {
     const session = this.sessions.get(chunk.source);
     if (this.stopped || !session?.ready || session.socket.readyState !== WebSocket.OPEN) return;
     if (session.startedAt === 0) session.startedAt = Date.now() - (chunk.pcm.length / TARGET_SAMPLE_RATE) * 1000;
-    session.socket.send(chunk.pcm.slice().buffer);
+    session.socket.send(session.gain.process(chunk.pcm).buffer);
     session.sent++;
-    this.traffic(`изпратени-${chunk.source}`);
+    this.traffic(`изпратени-${chunk.source}`, () => ({ усилване: session.gain.gain.toFixed(1) }));
   }
 
   stop(): void {
@@ -89,7 +91,7 @@ export class CloudTranscription {
     const jwt = await this.temporaryKey();
     if (this.stopped) return;
     const socket = new WebSocket(`${SPEECHMATICS_REALTIME_URL}?jwt=${encodeURIComponent(jwt)}`);
-    const session: Session = { socket, ready: false, startedAt: 0, sent: 0, sentence: "", sentenceEnd: 0, flushTimer: undefined };
+    const session: Session = { socket, ready: false, startedAt: 0, sent: 0, sentence: "", sentenceEnd: 0, flushTimer: undefined, gain: new AutoGain() };
     this.sessions.set(source, session);
 
     await new Promise<void>((resolve, reject) => {
