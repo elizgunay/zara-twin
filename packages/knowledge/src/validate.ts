@@ -41,6 +41,17 @@ export function validatePack(value: unknown): KnowledgePack {
   for (const fact of [...(pack.policies ?? []), ...(pack.faq ?? [])]) {
     if (!isUrl(fact.sourceUrl)) problems.push(`Факт без източник: „${"topic" in fact ? fact.topic : fact.question}“.`);
   }
+  const answerIds = new Set<string>();
+  for (const answer of pack.answers ?? []) {
+    const where = `Отговор „${answer.id}“`;
+    if (!answer.id || answerIds.has(answer.id)) problems.push(`${where}: липсва или се повтаря id.`);
+    answerIds.add(answer.id);
+    if (!isText(answer.label)) problems.push(`${where}: липсва заглавие.`);
+    if (!answer.triggers?.length || answer.triggers.some((t) => t !== t.toLowerCase())) problems.push(`${where}: фразите трябва да са с малки букви.`);
+    // Като при възраженията: по време на разговор се чете само кратко.
+    if (!answer.say?.length || answer.say.length > 2 || answer.say.some((s) => s.length > 140)) problems.push(`${where}: трябват 1–2 изречения до 140 знака.`);
+    if (!isUrl(answer.sourceUrl)) problems.push(`${where}: липсва източник (https://…).`);
+  }
 
   if (problems.length > 0) {
     throw new Error(`Невалиден пакет със знания:\n- ${problems.join("\n- ")}`);

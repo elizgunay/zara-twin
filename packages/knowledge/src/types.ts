@@ -14,6 +14,8 @@ export interface KnowledgePack {
   products: Product[];
   policies: SourcedFact[];
   faq: FaqEntry[];
+  /** Готови отговори на чести въпроси на клиента: показват се като изречения за казване. */
+  answers?: Answer[];
   /** Какво още не знаем. Copilot-ът казва „няма данни“, вместо да гадае. */
   missing: string[];
   /**
@@ -55,6 +57,21 @@ export interface Product {
 export interface SourcedFact {
   topic: string;
   text: string;
+  sourceUrl: string;
+}
+
+/**
+ * Въпрос на клиента → готово изречение за отговор. Само от фактите на бизнеса (политики,
+ * FAQ, продукти); за липсващо („срок за доставка“) отговорът обещава конкретен срок, без цифри.
+ */
+export interface Answer {
+  id: string;
+  /** Заглавие на картата, напр. „Гаранция“. */
+  label: string;
+  /** Думи и фрази на клиента, по които се разпознава. Малки букви; окончанията се допускат. */
+  triggers: string[];
+  /** 1–2 изречения за казване дословно (до 140 знака). */
+  say: string[];
   sourceUrl: string;
 }
 

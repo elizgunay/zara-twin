@@ -319,6 +319,8 @@ const TEMPLATE = /* html */ `
   .hint.no-data, .hint.calendar { border-left-color: #fdd663; }
   .hint.calendar-free { border-left-color: #81c995; }
   .hint.objection { border-left-color: #c58af9; background: #2d2638; }
+  .hint.answer { border-left-color: #81c995; background: #1f3329; }
+  .hint.answer .say { color: #c8ecd3; }
   .hint.calendar-busy { border-left-color: #f28b82; background: #3a2526; }
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }

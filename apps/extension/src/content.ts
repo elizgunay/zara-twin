@@ -1,5 +1,5 @@
 import { EchoFilter } from "@zara-twin/core";
-import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
+import { AnswerDetector, HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
 import { TEST_MODE_KEY } from "./meetings/log";
 import { MeetingRecorder } from "./meetings/report";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
@@ -34,6 +34,7 @@ function freshAssistants() {
   return {
     hints: new HintEngine(pack),
     objections: new ObjectionDetector(method, pack),
+    answers: new AnswerDetector(pack),
     schedule: new ScheduleAssistant(calendar),
     talk: new TalkRatioTracker({ rules: talkRules }),
     talkShownAt: 0,
@@ -178,7 +179,11 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       // Възраженията и роботите се търсят в цялото изречение („трябва да си“ + „помисля“).
       const sentence = { ...message, text: line.text };
-      for (const hint of [...meeting.hints.onSegment(sentence), ...meeting.objections.onSegment(sentence)]) {
+      for (const hint of [
+        ...meeting.objections.onSegment(sentence),
+        ...meeting.answers.onSegment(sentence),
+        ...meeting.hints.onSegment(sentence),
+      ]) {
         showHint(hint);
       }
       // Уговорката има свой прозорец от последните реплики: подава се само новото парче.

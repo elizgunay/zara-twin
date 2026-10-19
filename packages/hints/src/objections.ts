@@ -76,7 +76,7 @@ export class ObjectionDetector {
   }
 }
 
-function triggerPattern(trigger: string): RegExp {
+export function triggerPattern(trigger: string): RegExp {
   const escaped = trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
   // До 3 букви окончание: „скъпо“ хваща и „скъпоо“, „съдружник“ и „съдружника“.
   return new RegExp(`${B}${escaped}\\p{L}{0,3}(?![\\p{L}\\p{N}])`, "iu");

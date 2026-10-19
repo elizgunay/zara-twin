@@ -9,7 +9,7 @@ import { MentionFinder, productCard, type KnowledgePack } from "@zara-twin/knowl
 export interface Hint {
   /** Ключ за повторения: една и съща подсказка не се показва отново в рамките на cooldown. */
   key: string;
-  kind: "product" | "family" | "no-data" | "objection" | "talk" | "calendar" | "calendar-free" | "calendar-busy";
+  kind: "product" | "family" | "no-data" | "objection" | "answer" | "talk" | "calendar" | "calendar-free" | "calendar-busy";
   title: string;
   lines: string[];
   /** Готови изречения за казване дословно (при възражения). Показват се с едър шрифт над lines. */
@@ -107,7 +107,9 @@ export class HintEngine {
         lines: [],
       });
     }
-    if (LEASING_QUESTION.test(text)) {
+    // Ако пакетът има готов отговор за наем, той се показва от AnswerDetector (като изречение за казване).
+    const hasRentAnswer = (this.pack.answers ?? []).some((a) => a.id === "rent");
+    if (!hasRentAnswer && LEASING_QUESTION.test(text)) {
       const policy = this.pack.policies.find((p) => p.topic.startsWith("Покупка или наем"));
       if (policy) {
         hints.push({

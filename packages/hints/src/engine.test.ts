@@ -58,11 +58,16 @@ describe("HintEngine", () => {
     expect(hint).toMatchObject({ key: "product:orionstar-greetingbot-mini", title: "OrionStar GreetingBot Mini" });
   });
 
-  it("разпознава въпроси за наем", () => {
-    const { engine } = engineAt();
+  it("наем без готов отговор в пакета: показва политиката", () => {
+    const engine = new HintEngine({ ...pack, answers: [] });
     const [lease] = say(engine, "Може ли на лизинг или под наем?");
     expect(lease).toMatchObject({ key: "policy:purchase" });
     expect(lease!.lines[0]).toMatch(/само за покупка/);
+  });
+
+  it("наем с готов отговор в пакета: оставя го на AnswerDetector (без двойна карта)", () => {
+    const { engine } = engineAt();
+    expect(say(engine, "Може ли на лизинг или под наем?").map((h) => h.key)).not.toContain("policy:purchase");
   });
 
   it("мълчи, когато няма за какво да помогне", () => {
