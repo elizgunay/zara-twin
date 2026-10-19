@@ -48,6 +48,15 @@ describe("ObjectionDetector", () => {
     expect(client(d, "Нека помислим.")).toEqual([]);
   });
 
+  it("при повторено „скъпо“ и „не сега“ също дава по-настоятелни реплики", () => {
+    const { d, advance } = detector();
+    client(d, "Скъпо е.");
+    client(d, "Не сега, догодина.");
+    advance(30_000);
+    expect(client(d, "Все пак е скъпо.")).toEqual(["objection:price:again"]);
+    expect(client(d, "Наистина не бързаме.")).toEqual(["objection:timing:again"]);
+  });
+
   it("взима условията от профила на бизнеса (метод + профил)", () => {
     const { d } = detector();
     const [hint] = d.onSegment({ speaker: "counterpart", text: "А ако се повреди?" });
@@ -77,11 +86,11 @@ describe("ObjectionDetector", () => {
 
   it("не повтаря същото възражение 3 минути", () => {
     const { d, advance } = detector();
-    expect(client(d, "скъпо е")).toHaveLength(1);
+    expect(client(d, "трябва да питам съдружника")).toHaveLength(1);
     advance(60_000);
-    expect(client(d, "наистина е скъпо")).toHaveLength(0);
+    expect(client(d, "ще говоря със съдружника")).toHaveLength(0);
     advance(121_000);
-    expect(client(d, "пак казвам, скъпо е")).toHaveLength(1);
+    expect(client(d, "пак казвам, трябва да питам")).toHaveLength(1);
   });
 
   it("мълчи при обикновен разговор", () => {
