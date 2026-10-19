@@ -3,10 +3,9 @@ import {
   chooseOrg,
   CLOUD_SYNC_KEY,
   cloudStatus,
-  sendCode,
+  signIn as cloudSignIn,
   signOut as cloudSignOut,
   uploadReports,
-  verifyCode,
   type SyncResult,
 } from "../cloud/cloud";
 import { MeetingLog, REPORTS_KEY } from "../meetings/log";
@@ -288,12 +287,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 void loadReports();
 
-// Табло: вход с код от имейла, избор на фирма, изпращане на дневника.
+// Табло: вход с имейл и парола, избор на фирма, изпращане на дневника.
 const cloudOut = document.querySelector<HTMLElement>("#cloud-signed-out")!;
 const cloudIn = document.querySelector<HTMLElement>("#cloud-signed-in")!;
 const cloudEmail = document.querySelector<HTMLInputElement>("#cloud-email")!;
-const cloudCode = document.querySelector<HTMLInputElement>("#cloud-code")!;
-const cloudCodeRow = document.querySelector<HTMLElement>("#cloud-code-row")!;
+const cloudPassword = document.querySelector<HTMLInputElement>("#cloud-password")!;
 const cloudOrg = document.querySelector<HTMLSelectElement>("#cloud-org")!;
 const cloudStatusEl = document.querySelector<HTMLElement>("#cloud-status")!;
 
@@ -356,20 +354,17 @@ async function loadCloud(): Promise<void> {
   }
 }
 
-cloudAction("#cloud-send", async () => {
+cloudAction("#cloud-signin", async () => {
   if (!cloudEmail.value.includes("@")) throw new Error("Въведете имейл.");
-  await sendCode(cloudEmail.value);
-  cloudCodeRow.hidden = false;
-  cloudCode.focus();
-  showCloud(`Изпратихме код на ${cloudEmail.value.trim()}. Въведете го тук.`, "ok");
-});
-
-cloudAction("#cloud-verify", async () => {
-  await verifyCode(cloudEmail.value, cloudCode.value);
-  cloudCode.value = "";
-  cloudCodeRow.hidden = true;
+  await cloudSignIn(cloudEmail.value, cloudPassword.value);
+  // Паролата не остава в полето и не се пази: пази се само сесията от Supabase.
+  cloudPassword.value = "";
   showCloud("Влязохте. Новите срещи ще отиват и в таблото.", "ok");
   await loadCloud();
+});
+
+cloudPassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") document.querySelector<HTMLButtonElement>("#cloud-signin")!.click();
 });
 
 cloudAction("#cloud-sync", async () => {

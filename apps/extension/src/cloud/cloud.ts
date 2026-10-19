@@ -1,9 +1,9 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { MeetingReport } from "../meetings/report";
-import { cleanCode, projectOrigin, REPORT_CONFLICT, reportToRow } from "./rows";
+import { projectOrigin, REPORT_CONFLICT, reportToRow } from "./rows";
 
 /**
- * Връзка с таблото (Supabase, Франкфурт, Р22). Влиза се с код от имейла, без парола.
+ * Връзка с таблото (Supabase, Франкфурт, Р22). Влиза се с имейл и парола.
  * Сесията се пази в паметта на разширението на този компютър. Правилата в базата (RLS)
  * решават какво може: всеки пише само своите срещи и само във фирма, в която членува.
  */
@@ -54,16 +54,10 @@ function db(): SupabaseClient {
   return client;
 }
 
-/** Праща код за вход на имейла. Поканените от таблото влизат с имейла от поканата. */
-export async function sendCode(email: string): Promise<void> {
-  const { error } = await db().auth.signInWithOtp({ email: email.trim().toLowerCase() });
-  if (error) throw new Error(humanError(error.message));
-}
-
-export async function verifyCode(email: string, code: string): Promise<void> {
-  const token = cleanCode(code);
-  if (!token) throw new Error("Кодът е от цифри, например 123456.");
-  const { error } = await db().auth.verifyOtp({ email: email.trim().toLowerCase(), token, type: "email" });
+/** Вход с имейл и парола: акаунта създава собственикът в Supabase (без имейли и без Brevo). */
+export async function signIn(email: string, password: string): Promise<void> {
+  if (!password) throw new Error("Въведете парола.");
+  const { error } = await db().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
   if (error) throw new Error(humanError(error.message));
   // Приема чакащите покани и избира фирмата, ако е само една.
   await db().rpc("accept_invitations");
@@ -118,7 +112,8 @@ export async function uploadReports(reports: MeetingReport[]): Promise<SyncResul
 
 function humanError(message: string): string {
   if (/row-level security|permission denied/i.test(message)) return "Нямате права: проверете дали сте поканени във фирмата.";
-  if (/Token has expired|invalid/i.test(message)) return "Кодът е грешен или изтекъл. Поискайте нов.";
+  if (/invalid login credentials/i.test(message)) return "Грешен имейл или парола.";
+  if (/email not confirmed/i.test(message)) return "Акаунтът не е потвърден: в Supabase създайте го с отметка „Auto confirm“.";
   if (/rate limit|too many/i.test(message)) return "Твърде много опити. Изчакайте минута.";
   if (/Failed to fetch|NetworkError/i.test(message)) return "Няма връзка с таблото. Проверете интернета.";
   return message;

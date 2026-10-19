@@ -209,7 +209,7 @@ export function settingsScreen(ctx: Context): HTMLElement {
     const role = h("select", { id: "invite-role" },
       ...(["seller", "catalog_editor", "support", "owner"] as Role[]).map((r) => h("option", { value: r }, ROLE_LABEL[r]))) as HTMLSelectElement;
     root.append(section("Хора и роли",
-      h("p", { class: "muted" }, "Поканеният влиза с връзка по имейл на същия адрес. Редакторът на каталога и поддръжката не виждат срещите и паметта."),
+      h("p", { class: "muted" }, "Поканата важи за имейла. Създайте акаунт със същия имейл и парола в Supabase (Authentication → Users → Add user, с „Auto confirm“) и дайте паролата на колегата. Продавачът вижда само своите срещи; редакторът на каталога и поддръжката не виждат срещите и паметта."),
       people,
       h("div", { class: "row wrap" },
         h("label", { for: "invite-email" }, "Имейл", email),

@@ -52,9 +52,3 @@ export function projectOrigin(url: string): string {
     return "";
   }
 }
-
-/** Кодът от имейла: само цифри (Supabase праща 6, а някои проекти 8). */
-export function cleanCode(code: string): string | null {
-  const digits = code.replace(/\s+/g, "");
-  return /^\d{6,10}$/.test(digits) ? digits : null;
-}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MeetingRecorder } from "../meetings/report";
-import { cleanCode, projectOrigin, reportToRow } from "./rows";
+import { projectOrigin, reportToRow } from "./rows";
 
 describe("reportToRow", () => {
   it("превръща обобщението в ред за таблото, без текст от разговора", () => {
@@ -29,12 +29,5 @@ describe("помощници", () => {
     expect(projectOrigin("https://abc.supabase.co/rest/v1/")).toBe("https://abc.supabase.co");
     expect(projectOrigin("http://abc.supabase.co")).toBe("");
     expect(projectOrigin("")).toBe("");
-  });
-
-  it("кодът от имейла е само цифри", () => {
-    expect(cleanCode(" 123 456 ")).toBe("123456");
-    expect(cleanCode("12345678")).toBe("12345678");
-    expect(cleanCode("12a456")).toBeNull();
-    expect(cleanCode("123")).toBeNull();
   });
 });

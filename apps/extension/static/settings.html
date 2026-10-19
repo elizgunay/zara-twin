@@ -61,14 +61,11 @@
       <h2>Табло</h2>
       <p>Когато влезете, обобщенията на срещите отиват и в таблото на фирмата (Supabase, Франкфурт, ЕС). Там собственикът вижда срещите на целия екип, а всеки продавач само своите. <strong>Текстът на разговора не се праща.</strong></p>
       <div id="cloud-signed-out">
-        <label for="cloud-email" style="display:block;color:var(--muted)">Имейл (същият, с който сте поканени в таблото)</label>
-        <input id="cloud-email" type="email" autocomplete="email" class="field">
-        <div class="actions"><button id="cloud-send" class="primary" type="button">Изпрати код</button></div>
-        <div id="cloud-code-row" hidden>
-          <label for="cloud-code" style="display:block;color:var(--muted);margin-top:12px">Кодът от имейла</label>
-          <input id="cloud-code" inputmode="numeric" autocomplete="one-time-code" class="field" style="max-width:200px">
-          <div class="actions"><button id="cloud-verify" class="primary" type="button">Влез</button></div>
-        </div>
+        <label for="cloud-email" style="display:block;color:var(--muted)">Имейл (същият като в таблото)</label>
+        <input id="cloud-email" type="email" autocomplete="username" class="field">
+        <label for="cloud-password" style="display:block;color:var(--muted);margin-top:12px">Парола (дава я собственикът)</label>
+        <input id="cloud-password" type="password" autocomplete="current-password" class="field">
+        <div class="actions"><button id="cloud-signin" class="primary" type="button">Влез</button></div>
       </div>
       <div id="cloud-signed-in" hidden>
         <p id="cloud-who" style="color:var(--text)"></p>

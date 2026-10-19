@@ -4,7 +4,7 @@ import { action, h, humanError } from "./dom";
 import { ROLE_LABEL, SCREEN_LABEL, screenFromHash, screensFor, type Membership, type Screen } from "./model";
 import { catalogScreen, meetingsScreen, memoryScreen, proposalsScreen, settingsScreen, startScreen, type Context } from "./screens";
 
-// Табло на Zara Copilot: вход с връзка по имейл → избор на фирма → екраните според ролята.
+// Табло на Zara Copilot: вход с имейл и парола → избор на фирма → екраните според ролята.
 
 const app = document.getElementById("app")!;
 let session: Session | null = null;
@@ -24,18 +24,23 @@ function notConfigured(): void {
     h("section", { class: "panel" }, h("p", {}, "В .env липсват SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY (Publishable key). Виж docs/setup/supabase.md."))));
 }
 
-function loginScreen(sent = ""): void {
-  const email = h("input", { type: "email", id: "login-email", autocomplete: "email", placeholder: "вашият имейл", required: true }) as HTMLInputElement;
+function loginScreen(): void {
+  const email = h("input", { type: "email", id: "login-email", autocomplete: "username", placeholder: "вашият имейл", required: true }) as HTMLInputElement;
+  const password = h("input", { type: "password", id: "login-password", autocomplete: "current-password", required: true }) as HTMLInputElement;
+  const submit = async () => {
+    if (!email.value.includes("@")) throw new Error("Въведете имейл.");
+    if (!password.value) throw new Error("Въведете парола.");
+    await api.signIn(email.value, password.value);
+  };
+  const button = action("Вход", submit);
+  // Enter в полето за парола натиска „Вход“.
+  password.addEventListener("keydown", (e) => { if ((e as KeyboardEvent).key === "Enter") button.querySelector("button")?.click(); });
   show(shell("Вход",
     h("section", { class: "panel narrow" },
-      h("p", { class: "muted" }, "Без парола: изпращаме ви връзка за вход на имейла. Влизат само поканени хора и създателят на фирмата."),
+      h("p", { class: "muted" }, "Акаунтът ви се създава от собственика. Ако нямате парола или сте я забравили, обърнете се към него."),
       h("label", { for: "login-email" }, "Имейл", email),
-      action("Изпрати връзка за вход", async () => {
-        if (!email.value.includes("@")) throw new Error("Въведете имейл.");
-        await api.sendLoginLink(email.value);
-        loginScreen(email.value);
-      }),
-      sent ? h("p", { class: "status ok" }, `Изпратихме връзка на ${sent}. Отворете имейла на този компютър и натиснете връзката.`) : null,
+      h("label", { for: "login-password" }, "Парола", password),
+      button,
     )));
 }
 
@@ -103,7 +108,7 @@ window.addEventListener("hashchange", () => { if (session) render(); });
 if (!api.configured || !api.supabase) {
   notConfigured();
 } else {
-  // Връзката от имейла връща потребителя тук; Supabase сам разчита сесията от адреса.
+  // Сесията се пази в браузъра: при следващо отваряне потребителят е вече влязъл.
   api.supabase.auth.onAuthStateChange((_event, next) => {
     const changedUser = next?.user.id !== session?.user.id;
     session = next;

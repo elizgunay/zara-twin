@@ -48,12 +48,13 @@ function check<T>(result: { data: T; error: { message: string } | null }): T {
   return result.data;
 }
 
-export async function sendLoginLink(email: string): Promise<void> {
-  const { error } = await db().auth.signInWithOtp({
-    email: email.trim().toLowerCase(),
-    options: { emailRedirectTo: location.origin + location.pathname },
-  });
-  if (error) throw new Error(error.message);
+/**
+ * Вход с имейл и парола. Акаунтите създава собственикът в Supabase (Authentication → Users →
+ * Add user), затова не трябва услуга за изпращане на имейли. Сам никой не се регистрира.
+ */
+export async function signIn(email: string, password: string): Promise<void> {
+  const { error } = await db().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+  if (error) throw new Error(/invalid login credentials/i.test(error.message) ? "Грешен имейл или парола." : error.message);
 }
 
 export async function signOut(): Promise<void> {
