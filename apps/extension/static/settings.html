@@ -24,12 +24,38 @@
     .ok { color: var(--ok); } .err { color: var(--err); }
     details { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px; }
     summary { cursor: pointer; color: var(--muted); }
+    .reports { list-style: none; padding: 0; margin: 8px 0 0; }
+    .reports > li { border-top: 1px solid var(--line); padding: 10px 0; }
+    .reports details { margin: 0; border: 0; padding: 0; }
+    .reports summary { color: var(--text); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; list-style: none; }
+    .reports summary::-webkit-details-marker { display: none; }
+    .reports summary::before { content: "▸"; color: var(--muted); }
+    .reports details[open] summary::before { content: "▾"; }
+    .score { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 3.2em; }
+    .score.low { color: var(--err); } .score.mid { color: #b06000; } .score.high { color: var(--ok); }
+    .when { flex: 1; }
+    .tagline { color: var(--muted); font-size: 13px; width: 100%; padding-left: 1.2em; }
+    .body { padding: 8px 0 0 1.2em; display: grid; gap: 6px; }
+    .body ul { margin: 0; padding-left: 18px; }
+    .body p { margin: 0; color: var(--text); }
+    .body .label { color: var(--muted); font-size: 13px; }
+    .summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0 8px; font-size: 14px; }
+    .summary strong { font-variant-numeric: tabular-nums; }
+    @media (prefers-color-scheme: dark) { .score.mid { color: #fdd663; } }
     code { font-size: 13px; word-break: break-all; background: var(--bg); padding: 2px 6px; border-radius: 6px; }
   </style>
 </head>
 <body>
   <main>
     <h1>Zara Copilot: настройки</h1>
+    <section style="margin-bottom:16px" id="reports-section">
+      <h2>Срещи</h2>
+      <p>Обобщение на всяка среща: кой колко говори, възраженията, роботите и дали има уговорен ден и час. <strong>Без текста на разговора.</strong> Пази се само на този компютър, 90 дни. Срещите с бутон „Тест“ в панела не се записват.</p>
+      <div id="reports-summary" class="summary"></div>
+      <ul id="reports" class="reports"></ul>
+      <div class="actions"><button id="reports-delete-all" class="secondary" type="button">Изтрий дневника</button></div>
+      <div id="reports-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
+    </section>
     <section style="margin-bottom:16px">
       <h2>Тест на компютъра</h2>
       <p>Проверява дали компютърът може да разпознава български говор достатъчно бързо за подсказки на живо.</p>

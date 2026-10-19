@@ -1,5 +1,7 @@
 import { EchoFilter } from "@zara-twin/core";
-import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker } from "@zara-twin/hints";
+import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
+import { MeetingLog, TEST_MODE_KEY } from "./meetings/log";
+import { MeetingRecorder } from "./meetings/report";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
 import { method, pack } from "./pack";
@@ -36,10 +38,38 @@ function freshAssistants() {
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
+    /** Обобщението за дневника; създава се, когато е ясен кодът на срещата. */
+    recorder: null as MeetingRecorder | null,
   };
 }
 
 let meeting = freshAssistants();
+let testMode = false;
+let reportTimer: ReturnType<typeof setInterval> | undefined;
+/** Обобщението се обновява всяка минута: ако табът се затвори внезапно, остава почти пълно. */
+const REPORT_EVERY_MS = 60_000;
+
+function showHint(hint: Hint): void {
+  panel.showHint(hint);
+  meeting.recorder?.onHint(hint, Date.now());
+}
+
+/** Праща обобщението към дневника. Празни и много кратки срещи (проба на звука) не се записват. */
+function saveReport(): void {
+  const recorder = meeting.recorder;
+  if (!recorder || testMode) return;
+  const now = Date.now();
+  const report = recorder.report(meeting.talk.session(), now);
+  const talked = report.ownerMs + report.counterpartMs;
+  if (now - report.startedAt < 60_000 || (talked < 10_000 && report.hints === 0)) return;
+  const message: BackgroundMessage = { type: "save-report", report };
+  chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+function stopReports(): void {
+  clearInterval(reportTimer);
+  reportTimer = undefined;
+}
 const panel = new CopilotPanel({
   onClose: () => {
     const message: BackgroundMessage = { type: "panel-closed" };
@@ -62,6 +92,14 @@ const panel = new CopilotPanel({
       text: `Запазени ${response.count} реда на този компютър. Изтриват се след ${response.retentionDays} дни (Опции → Запазени срещи). Натиснете отново в края на срещата за целия текст.`,
     };
   },
+  onTestMode: (on) => {
+    testMode = on;
+    void chrome.storage.local.set({ [TEST_MODE_KEY]: on });
+    // Включен тест по средата на срещата: махаме вече записаното обобщение на тази среща.
+    const id = meeting.recorder?.report(meeting.talk.session(), Date.now()).id;
+    if (on && id) void new MeetingLog(chrome.storage.local).remove(id).catch(() => {});
+    if (!on) saveReport();
+  },
 });
 panel.mount();
 
@@ -71,14 +109,24 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     case "session-state":
       if (message.active) {
         // Meet сменя адреса без презареждане (SPA), затова срещата се чете наново.
-        panel.setMeeting(adapter.currentMeeting());
+        const info = adapter.currentMeeting();
+        panel.setMeeting(info);
         if (meeting.lines.length === 0) meeting.startedAt = Date.now();
-        void chrome.storage.local
-          .get(SAVING_ENABLED_KEY)
-          .then((stored) => panel.setSaveAvailable(stored[SAVING_ENABLED_KEY] === true), () => panel.setSaveAvailable(false));
+        if (!meeting.recorder && info) meeting.recorder = new MeetingRecorder(info.id, meeting.startedAt);
+        void chrome.storage.local.get([SAVING_ENABLED_KEY, TEST_MODE_KEY]).then(
+          (stored) => {
+            panel.setSaveAvailable(stored[SAVING_ENABLED_KEY] === true);
+            testMode = stored[TEST_MODE_KEY] === true;
+            panel.setTestMode(testMode);
+          },
+          () => panel.setSaveAvailable(false),
+        );
+        if (reportTimer === undefined) reportTimer = setInterval(saveReport, REPORT_EVERY_MS);
         panel.setRecording(true);
         panel.show();
       } else {
+        stopReports();
+        saveReport();
         panel.setRecording(false);
         panel.clearHints();
         meeting = freshAssistants();
@@ -88,7 +136,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     case "audio-level": {
       panel.setLevel(message.source, message.level);
       const now = Date.now();
-      for (const hint of meeting.talk.onLevel(message.source, message.level, now)) panel.showHint(hint);
+      for (const hint of meeting.talk.onLevel(message.source, message.level, now)) showHint(hint);
       if (now - meeting.talkShownAt >= TALK_REFRESH_MS) {
         meeting.talkShownAt = now;
         panel.setTalkShare(meeting.talk.window(now).ownerShare, talkRules.maxOwnerShare);
@@ -110,9 +158,14 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       if (meeting.lines.length < MAX_SAVED_LINES) meeting.lines.push({ speaker: message.speaker, text: message.text, at: Date.now() });
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       for (const hint of [...meeting.hints.onSegment(message), ...meeting.objections.onSegment(message)]) {
-        panel.showHint(hint);
+        showHint(hint);
       }
-      void meeting.schedule.onSegment(message).then((found) => found.forEach((hint) => panel.showHint(hint)));
+      void meeting.schedule.onSegment(message).then((found) => found.forEach(showHint));
       break;
   }
+});
+
+// Табът се затваря или презарежда по време на срещата: последно обновяване на дневника.
+window.addEventListener("pagehide", () => {
+  if (reportTimer !== undefined) saveReport();
 });

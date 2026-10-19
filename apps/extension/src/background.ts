@@ -14,6 +14,8 @@ import {
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
+import { MeetingLog, TEST_MODE_KEY } from "./meetings/log";
+import type { MeetingReport } from "./meetings/report";
 import { SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
@@ -58,6 +60,12 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     // Само от таб с активна среща в Meet.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
     saveTranscript(message.meetingCode, message.startedAt, message.lines).then(sendResponse);
+    return true;
+  }
+  if (message.type === "save-report") {
+    // Само от таба на същата среща в Meet.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") !== message.report.meetingCode) return;
+    saveReport(message.report).then(sendResponse);
     return true;
   }
   if (message.type === "logs-request") {
@@ -172,7 +180,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();
@@ -221,6 +229,22 @@ async function reportMic(tabId: number, mic: MicProblem): Promise<void> {
       text: `Микрофонът не е достъпен (${mic.detail}). Засега се чува само събеседникът.`,
     });
   }
+}
+
+/** Дневникът на срещите: обобщения без текст, на този компютър, 90 дни. */
+const meetingLog = new MeetingLog(chrome.storage.local);
+/** Записите вървят един след друг: иначе две почти едновременни обновявания се презаписват. */
+let reportQueue: Promise<unknown> = Promise.resolve();
+
+function saveReport(report: MeetingReport): Promise<{ ok: boolean }> {
+  const run = reportQueue.then(async () => {
+    // Втора защита: тестова среща не се записва, дори панелът да е пратил обобщение.
+    if ((await chrome.storage.local.get(TEST_MODE_KEY))[TEST_MODE_KEY] === true) return { ok: false };
+    await meetingLog.save(report);
+    return { ok: true };
+  });
+  reportQueue = run.catch(() => {});
+  return run.catch(() => ({ ok: false }));
 }
 
 /** Запазените срещи: само на този компютър, със срок за автоматично изтриване. */

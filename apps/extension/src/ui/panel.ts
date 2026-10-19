@@ -18,6 +18,8 @@ export interface PanelOptions {
   onLogs?: () => Promise<string[]>;
   /** Бутонът „Запази“: запазва текста от срещата и връща съобщение за потребителя. */
   onSave?: () => Promise<{ tone: "info" | "error"; text: string }>;
+  /** Бутонът „Тест“: включва и изключва тестовия режим (срещата не се записва в дневника). */
+  onTestMode?: (on: boolean) => void;
 }
 
 /**
@@ -52,6 +54,17 @@ export class CopilotPanel {
     this.part("logs").addEventListener("click", () => {
       void this.showLogs(options.onLogs);
     });
+    this.part("test").addEventListener("click", () => {
+      const on = this.part("test").getAttribute("aria-pressed") !== "true";
+      this.setTestMode(on);
+      options.onTestMode?.(on);
+    });
+  }
+
+  /** Тестова среща: обобщението не влиза в дневника. */
+  setTestMode(on: boolean): void {
+    this.part("test").setAttribute("aria-pressed", String(on));
+    this.part("test-note").hidden = !on;
   }
 
   mount(): void {
@@ -269,18 +282,22 @@ const TEMPLATE = /* html */ `
   .transcript strong { color: #8ab4f8; font-weight: 600; }
   .empty { color: #9aa0a6; font-style: italic; }
   button.small { font-size: 11px; padding: 2px 6px; background: #3c4352; }
+  button.test[aria-pressed="true"] { background: #fdd663; color: #202124; font-weight: 600; }
+  .test-note { color: #fdd663; }
   .logs { margin: 8px 12px 0; height: 120px; resize: vertical; background: #11151c; color: #bdc1c6; border: 1px solid #3c4352; border-radius: 6px; font: 10px/1.3 Consolas, monospace; }
 </style>
 <section class="panel" role="complementary" aria-label="Zara Copilot">
   <header>
     <h1>Zara Copilot</h1>
     <span class="rec" data-part="recording" hidden>Запис</span>
+    <button type="button" class="small test" data-part="test" aria-pressed="false" title="Тестова среща: обобщението не се записва в дневника">Тест</button>
     <button type="button" class="small" data-part="save" title="Запази текста от срещата на този компютър" hidden>Запази</button>
     <button type="button" class="small" data-part="logs" title="Копирай логовете за диагностика">Логове</button>
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
   <div class="meta" data-part="meeting">Няма активна среща</div>
   <div class="meta" data-part="stt" hidden></div>
+  <div class="meta test-note" data-part="test-note" hidden>Тестова среща: не се записва в дневника.</div>
   <div class="consent">Уведомете участниците, че разговорът се транскрибира.</div>
   <div class="notice" data-part="notice" role="status" hidden></div>
   <div class="notice error" data-part="mic" role="alert" hidden></div>

@@ -1,4 +1,6 @@
 import { getStoredToken, GOOGLE_CLIENT_ID, isConnected, signIn, signOut } from "../calendar/token";
+import { MeetingLog, REPORTS_KEY } from "../meetings/log";
+import { formatDuration, formatOffset, type MeetingReport } from "../meetings/report";
 import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
 import {
   isSttMode,
@@ -185,3 +187,93 @@ document.querySelector("#delete-all")!.addEventListener("click", async () => {
 });
 
 void loadMeetings();
+
+// Дневник на срещите: обобщенията, най-новите първи; всяка се разгъва за подробности.
+const meetingLog = new MeetingLog(chrome.storage.local);
+const reportsList = document.querySelector<HTMLUListElement>("#reports")!;
+const reportsSummary = document.querySelector<HTMLElement>("#reports-summary")!;
+const reportsStatus = document.querySelector<HTMLElement>("#reports-status")!;
+
+function el(tag: string, className: string, text = ""): HTMLElement {
+  return Object.assign(document.createElement(tag), { className, textContent: text });
+}
+
+async function loadReports(): Promise<void> {
+  const reports = await meetingLog.list();
+  reportsList.replaceChildren(...reports.map(reportRow));
+  reportsStatus.textContent = reports.length === 0 ? "Още няма срещи в дневника." : "";
+  reportsStatus.className = "";
+  // Общо за последните 30 дни: колко срещи, средна оценка и колко завършват с уговорен час.
+  const recent = reports.filter((r) => r.startedAt >= Date.now() - 30 * 24 * 60 * 60 * 1000);
+  if (recent.length === 0) return reportsSummary.replaceChildren();
+  const average = recent.reduce((sum, r) => sum + r.score, 0) / recent.length;
+  const withStep = recent.filter((r) => r.nextStep).length;
+  const think = recent.filter((r) => r.objections.some((o) => o.id === "think")).length;
+  const stat = (label: string, value: string) => {
+    const item = el("span", "");
+    item.append(`${label}: `, el("strong", "", value));
+    return item;
+  };
+  reportsSummary.replaceChildren(
+    stat("Срещи (30 дни)", String(recent.length)),
+    stat("Средна оценка", `${average.toFixed(1).replace(".", ",")}/10`),
+    stat("С уговорен час", `${withStep} от ${recent.length}`),
+    stat("„Ще си помисля“", `${think} ${think === 1 ? "среща" : "срещи"}`),
+  );
+}
+
+function reportRow(report: MeetingReport): HTMLLIElement {
+  const row = document.createElement("li");
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const tone = report.score <= 4 ? "low" : report.score <= 7 ? "mid" : "high";
+  const when = `${new Date(report.startedAt).toLocaleString("bg-BG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · ${formatDuration(report.endedAt - report.startedAt)}`;
+  const objections = [...new Set(report.objections.map((o) => o.label))];
+  summary.append(
+    el("span", `score ${tone}`, `${report.score}/10`),
+    el("span", "when", when),
+    el("span", "tagline", [report.nextStep ? `✓ ${report.nextStep.label}` : "✕ без уговорен час", ...objections].join(" · ")),
+  );
+
+  const body = el("div", "body");
+  const notes = document.createElement("ul");
+  for (const note of report.notes) notes.append(el("li", "", note));
+  body.append(notes);
+  if (report.objections.length > 0) {
+    body.append(el("p", "label", "Възражения"));
+    const list = document.createElement("ul");
+    for (const o of report.objections) list.append(el("li", "", `${formatOffset(o.atMs)} ${o.label}${o.again ? " (пак)" : ""}`));
+    body.append(list);
+  }
+  if (report.products.length > 0) body.append(el("p", "label", "Роботи"), el("p", "", report.products.join(", ")));
+  const total = report.ownerMs + report.counterpartMs;
+  if (total > 0) {
+    const owner = Math.round((report.ownerMs / total) * 100);
+    body.append(el("p", "label", "Говорене"), el("p", "", `Вие ${owner}% · Клиент ${100 - owner}%`));
+  }
+  body.append(el("p", "label", `Среща ${report.meetingCode} · ${report.hints} подсказки`));
+  const actions = el("div", "actions");
+  actions.append(
+    button("Изтрий", "secondary", async () => {
+      await meetingLog.remove(report.id);
+      await loadReports();
+    }),
+  );
+  body.append(actions);
+  details.append(summary, body);
+  row.append(details);
+  return row;
+}
+
+document.querySelector("#reports-delete-all")!.addEventListener("click", async () => {
+  if (!confirm("Да се изтрие ли целият дневник на срещите? Това не може да се върне.")) return;
+  await meetingLog.removeAll();
+  await loadReports();
+});
+
+// Обновява списъка, ако среща приключи, докато страницата е отворена.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && REPORTS_KEY in changes) void loadReports();
+});
+
+void loadReports();

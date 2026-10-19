@@ -1,4 +1,5 @@
 import type { AudioSourceKind, SpeakerRole } from "@zara-twin/core";
+import { isMeetingReport, type MeetingReport } from "../meetings/report";
 import { isSttChoice, type SttChoice } from "../stt/choices";
 import { isCloudStt, type CloudStt } from "../stt/cloud";
 
@@ -41,7 +42,9 @@ export type BackgroundMessage =
   /** От панела: логовете от всички части (бутон „Логове“). */
   | { type: "logs-request" }
   /** От панела: запазване на текста от срещата (бутон „Запази“), само на този компютър. */
-  | { type: "save-transcript"; meetingCode: string; startedAt: number; lines: TranscriptLine[] };
+  | { type: "save-transcript"; meetingCode: string; startedAt: number; lines: TranscriptLine[] }
+  /** От панела: обобщението на срещата (без текст), по време на срещата и в края ѝ. */
+  | { type: "save-report"; report: MeetingReport };
 
 export interface TranscriptLine {
   speaker: SpeakerRole;
@@ -148,6 +151,8 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
             isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at),
         )
       );
+    case "save-report":
+      return isMeetingReport(value.report);
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&
