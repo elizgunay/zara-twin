@@ -62,6 +62,12 @@
   .msg.client { justify-self: start; background: var(--client); border: 1px solid var(--client-line); border-top-left-radius: 4px; }
   .msg.me { justify-self: end; background: var(--accent-soft); border-top-right-radius: 4px; }
   .objection { font-size: .78rem; font-weight: 600; color: var(--objection); }
+  /* Подсказката от Copilot: вдясно, при „Вие“, като картата в панела по време на среща. */
+  .copilot { justify-self: end; max-width: 88%; min-width: 0; padding: 10px 14px; border-radius: 10px; display: grid; gap: 4px;
+    background: var(--surface-2); border-left: 3px solid var(--objection); overflow-wrap: anywhere; }
+  .copilot .who { font-size: .74rem; letter-spacing: .04em; color: var(--objection); font-weight: 600; }
+  .copilot .say-main { font-weight: 600; font-size: 1rem; }
+  .copilot .say-alt { color: var(--muted); font-size: .92rem; }
   .fb { justify-self: end; max-width: 88%; border-radius: 10px; padding: 10px 14px; display: grid; gap: 4px; font-size: .9rem; border-left: 3px solid; }
   .fb.good { background: var(--good-soft); border-color: var(--good); }
   .fb.ok { background: var(--ok-soft); border-color: var(--ok); }
@@ -83,7 +89,7 @@
   details summary { cursor: pointer; color: var(--accent); font-size: .88rem; }
   .quote { font-size: .9rem; padding-left: 10px; border-left: 3px solid var(--line); }
   .empty { color: var(--muted); font-size: .92rem; }
-  @media (max-width: 480px) { .msg, .fb { max-width: 100%; } }
+  @media (max-width: 480px) { .msg, .fb, .copilot { max-width: 100%; } }
 </style>
 
 <div class="wrap">
@@ -120,7 +126,18 @@ const objectionLabel = Object.fromEntries(DATA.objections.map((o) => [o.id, o.la
 
 const view = document.getElementById("view");
 let sample = null, db = null, user = null, myId = null;
-let choice = { scenario: "restaurant", level: "normal" };
+let choice = { scenario: "restaurant", level: "normal", hints: "on" };
+const HINT_MODES = { on: { label: "С подсказки (като в Copilot)" }, off: { label: "Без подсказки (проверка)" } };
+const objectionById = Object.fromEntries(DATA.objections.map((o) => [o.id, o]));
+
+/** Подсказката за „Вие“, както я показва Copilot: при повторено възражение по-настоятелните реплики. */
+function copilotHint(objectionId) {
+  const o = objectionById[objectionId];
+  if (!o) return null;
+  const before = session.log.filter((m) => m.role === "client" && m.objection === objectionId).length;
+  const again = before > 0 && o.escalate.length > 0;
+  return { title: again ? `${o.label} – пак` : o.label, lines: again ? o.escalate : o.say };
+}
 let session = null;
 let timerId = null;
 
@@ -176,7 +193,7 @@ ${JSON.stringify(DATA)}`;
 
 // --- сесия ---
 function startSession() {
-  session = { scenario: choice.scenario, level: choice.level, turns: [], log: [], startedAt: null, busy: false, ended: false, summary: null, error: "" };
+  session = { scenario: choice.scenario, level: choice.level, hints: choice.hints === "on", turns: [], log: [], startedAt: null, busy: false, ended: false, summary: null, error: "" };
   renderTrain();
   ask(`${rules()}\n\nЗапочни разговора: поздрави и кажи накратко защо се интересуваш от роботи.`);
 }
@@ -194,7 +211,8 @@ async function ask(userText) {
     if (last && last.role === "me" && reply.feedback && VERDICT[reply.feedback.verdict]) {
       last.fb = { verdict: reply.feedback.verdict, why: clip(reply.feedback.why, 140), better: clip(reply.feedback.better, 180) };
     }
-    session.log.push({ role: "client", text: reply.client, objection: objectionLabel[reply.objection] ? reply.objection : null });
+    const objection = objectionLabel[reply.objection] ? reply.objection : null;
+    session.log.push({ role: "client", text: reply.client, objection, hint: objection ? copilotHint(objection) : null });
     if (!session.startedAt) { session.startedAt = Date.now(); startTimer(); }
     if (reply.done) await finish(reply.summary);
   } catch (e) {
@@ -270,7 +288,7 @@ async function saveRun() {
   }
   const counts = { good: 0, ok: 0, bad: 0 };
   exchanges.forEach((x) => { if (x.verdict) counts[x.verdict]++; });
-  const run = { at: Date.now(), scenario: session.scenario, level: session.level, score: session.summary.score, strong: session.summary.strong, practice: session.summary.practice, counts, exchanges };
+  const run = { at: Date.now(), scenario: session.scenario, level: session.level, hints: session.hints, score: session.summary.score, strong: session.summary.strong, practice: session.summary.practice, counts, exchanges };
   try {
     const ref = db.doc(`runs/${myId}`);
     const snap = await ref.get();
@@ -314,6 +332,7 @@ function setupView() {
     h("p", {}, "Claude играе клиента и ще ви каже „трябва да си помисля“, „скъпо е“ и други възражения. След всеки ваш отговор получавате оценка и готово изречение за следващия път."),
     chipGroup("Клиент", SCENARIOS, "scenario"),
     chipGroup("Трудност", LEVELS, "level"),
+    chipGroup("Подсказки за вас", HINT_MODES, "hints"),
     h("p", { class: "note" }, "Не пишете истински имена на клиенти или фирми: разговорът минава през Claude."),
     h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: startSession }, "Започни (5 мин)")));
 }
@@ -322,7 +341,8 @@ function sessionView() {
   const s = session;
   const left = s.startedAt ? DURATION_MS - (Date.now() - s.startedAt) : DURATION_MS;
   const bar = h("div", { class: "bar row spread" },
-    h("div", { class: "row" }, h("span", { class: "tag" }, SCENARIOS[s.scenario].label), h("span", { class: "tag" }, LEVELS[s.level].label)),
+    h("div", { class: "row" }, h("span", { class: "tag" }, SCENARIOS[s.scenario].label), h("span", { class: "tag" }, LEVELS[s.level].label),
+      h("span", { class: "tag" }, s.hints ? "с подсказки" : "без подсказки")),
     h("div", { class: "row" },
       h("span", { id: "timer", class: left <= 30000 ? "timer late" : "timer", "aria-label": "Оставащо време" }, s.ended ? "край" : fmtTime(left)),
       s.ended ? null : h("button", { type: "button", class: "ghost", disabled: s.busy || !s.startedAt, onclick: endNow }, "Приключи")));
@@ -334,6 +354,10 @@ function sessionView() {
         h("span", { class: "who" }, "Клиент"),
         m.objection ? h("span", { class: "objection" }, objectionLabel[m.objection]) : null,
         h("p", {}, m.text)));
+      // Подсказката за вас, както ще я видите в панела на Copilot в истинската среща.
+      if (s.hints && m.hint) chat.append(h("div", { class: "copilot", role: "note", "aria-label": "Подсказка от Copilot" },
+        h("span", { class: "who" }, `Copilot · ${m.hint.title}`),
+        ...m.hint.lines.map((line, i) => h("p", { class: i === 0 ? "say-main" : "say-alt" }, `„${line}“`))));
     } else {
       chat.append(h("div", { class: "msg me" }, h("span", { class: "who" }, "Вие"), h("p", {}, m.text)));
       if (m.fb) chat.append(h("div", { class: `fb ${m.fb.verdict}` },
@@ -377,7 +401,7 @@ function runItem(run) {
   const bad = (run.exchanges || []).filter((x) => x.verdict && x.verdict !== "good");
   return h("li", {},
     h("div", { class: "row spread" },
-      h("span", {}, `${fmtDate(run.at)} · ${SCENARIOS[run.scenario]?.label ?? ""} · ${LEVELS[run.level]?.label ?? ""}`),
+      h("span", {}, `${fmtDate(run.at)} · ${SCENARIOS[run.scenario]?.label ?? ""} · ${LEVELS[run.level]?.label ?? ""}${run.hints === false ? " · без подсказки" : ""}`),
       run.score ? h("span", { class: "timer" }, `${run.score}/10`) : null),
     h("div", { class: "counts" }, h("span", { class: "c-good" }, `✓ ${c.good ?? 0}`), h("span", { class: "c-ok" }, `~ ${c.ok ?? 0}`), h("span", { class: "c-bad" }, `✕ ${c.bad ?? 0}`)),
     run.practice ? h("p", { class: "muted" }, `Упражнете: ${run.practice}`) : null,
