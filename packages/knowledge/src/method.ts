@@ -30,6 +30,8 @@ export interface Objection {
   triggers: string[];
   /** 1–2 готови изречения, които продавачът казва дословно. Първото е основното. */
   say: string[];
+  /** 1–2 по-настоятелни реплики, ако клиентът повтори същото възражение в същата среща. */
+  escalate?: string[];
   /** 0–1 кратко напомняне (факт от профила), показва се дребно под репликите. */
   tips?: Tip[];
 }
@@ -56,7 +58,8 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (objection.triggers?.some((t) => t !== t.toLowerCase())) problems.push(`„${objection.id}“: фразите трябва да са с малки букви.`);
     // По време на разговор се чете само кратко: 1–2 реплики и най-много едно напомняне.
     if (!objection.say?.length || objection.say.length > 2) problems.push(`„${objection.id}“: трябват 1–2 реплики (повече не се четат по време на разговор).`);
-    if (objection.say?.some((line) => line.length > 140)) problems.push(`„${objection.id}“: репликата е твърде дълга (до 140 знака).`);
+    if (objection.escalate !== undefined && (objection.escalate.length === 0 || objection.escalate.length > 2)) problems.push(`„${objection.id}“: трябват 1–2 настоятелни реплики.`);
+    if ([...(objection.say ?? []), ...(objection.escalate ?? [])].some((line) => line.length > 140)) problems.push(`„${objection.id}“: репликата е твърде дълга (до 140 знака).`);
     if ((objection.tips?.length ?? 0) > 1) problems.push(`„${objection.id}“: най-много едно напомняне.`);
   }
   const talk = pack.talkRatio;

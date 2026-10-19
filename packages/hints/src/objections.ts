@@ -15,10 +15,12 @@ export interface ObjectionOptions {
 }
 
 const B = "(?<![\\p{L}\\p{N}])";
+const ESCALATE_GAP_MS = 20_000;
 
 export class ObjectionDetector {
   private readonly matchers: { objection: Objection; patterns: RegExp[] }[];
   private readonly shownAt = new Map<string, number>();
+  private readonly escalated = new Set<string>();
   private readonly cooldownMs: number;
   private readonly now: () => number;
 
@@ -44,7 +46,16 @@ export class ObjectionDetector {
       const key = `objection:${objection.id}`;
       const now = this.now();
       const last = this.shownAt.get(key);
-      if (last !== undefined && now - last < this.cooldownMs) continue;
+      if (last !== undefined && now - last < this.cooldownMs) {
+        // Клиентът повтаря същото: веднъж на среща показваме по-настоятелните реплики.
+        // Пауза от 20 s, за да не се брои едно и също изречение, разделено на две части.
+        if (objection.escalate && !this.escalated.has(objection.id) && now - last >= ESCALATE_GAP_MS) {
+          this.escalated.add(objection.id);
+          this.shownAt.set(key, now);
+          hints.push({ key: `${key}:again`, kind: "objection", title: `${objection.label} – пак`, say: objection.escalate, lines: [] });
+        }
+        continue;
+      }
       this.shownAt.set(key, now);
       hints.push({
         key,

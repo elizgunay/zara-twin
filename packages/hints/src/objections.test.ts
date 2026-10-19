@@ -29,9 +29,23 @@ describe("ObjectionDetector", () => {
     for (const text of variants) {
       const [hint] = detector().d.onSegment({ speaker: "counterpart", text });
       expect(hint, text).toMatchObject({ key: "objection:think" });
-      expect(hint!.say![0]).toMatch(/^Разбира се\. Какво точно/);
+      expect(hint!.say![0]).toMatch(/нещо конкретно го спира/);
       expect(hint!.say).toHaveLength(2);
     }
+  });
+
+  it("при повторено „ще помисля“ дава по-настоятелни реплики, веднъж на среща", () => {
+    const { d, advance } = detector();
+    expect(client(d, "Трябва да си помисля.")).toEqual(["objection:think"]);
+    advance(5_000);
+    // Същото изречение, разделено на части: още не е повторение.
+    expect(client(d, "Ще ви се обадим.")).toEqual([]);
+    advance(30_000);
+    const [again] = d.onSegment({ speaker: "counterpart", text: "Пак казвам, ще го обмислим." });
+    expect(again).toMatchObject({ key: "objection:think:again" });
+    expect(again!.say![0]).toMatch(/да“ днес/);
+    advance(30_000);
+    expect(client(d, "Нека помислим.")).toEqual([]);
   });
 
   it("взима условията от профила на бизнеса (метод + профил)", () => {
