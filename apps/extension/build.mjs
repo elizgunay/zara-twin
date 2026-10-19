@@ -30,6 +30,9 @@ const options = {
     __GOOGLE_CLIENT_ID__: JSON.stringify(process.env.GOOGLE_OAUTH_CLIENT_ID ?? ""),
     __SUPABASE_URL__: JSON.stringify(process.env.SUPABASE_URL ?? ""),
     __SUPABASE_KEY__: JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY ?? ""),
+    // Облакът по подразбиране, без въвеждане на ключа. Ключът влиза в dist/ (не е в git):
+    // давайте изградената папка само на доверени хора.
+    __SPEECHMATICS_KEY__: JSON.stringify(process.env.SPEECHMATICS_API_KEY ?? ""),
   },
   outdir,
   bundle: true,

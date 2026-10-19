@@ -17,7 +17,8 @@ import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { MeetingLog, TEST_MODE_KEY } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
 import { uploadReports } from "./cloud/cloud";
-import { SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
+import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
+import { resolveCloudStt, SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
@@ -169,10 +170,7 @@ async function calendarBusy(start: number, end: number): Promise<CalendarBusyRes
 /** Облакът се ползва само при изричен избор в настройките и записан ключ. */
 async function readCloudStt(): Promise<CloudStt | null> {
   const stored = await chrome.storage.local.get([STT_MODE_STORAGE_KEY, SPEECHMATICS_KEY_STORAGE_KEY]);
-  const mode: unknown = stored[STT_MODE_STORAGE_KEY];
-  const apiKey: unknown = stored[SPEECHMATICS_KEY_STORAGE_KEY];
-  if (mode !== "speechmatics" || typeof apiKey !== "string" || apiKey.trim() === "") return null;
-  return { provider: "speechmatics", apiKey: apiKey.trim() };
+  return resolveCloudStt(stored[STT_MODE_STORAGE_KEY], stored[SPEECHMATICS_KEY_STORAGE_KEY], BUILT_IN_SPEECHMATICS_KEY);
 }
 
 async function sttChoice(): Promise<SttChoice> {

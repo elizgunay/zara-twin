@@ -11,7 +11,10 @@ import {
 import { MeetingLog, REPORTS_KEY } from "../meetings/log";
 import { formatDuration, formatOffset, type MeetingReport } from "../meetings/report";
 import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
+import { BUILT_IN_SPEECHMATICS_KEY } from "../stt/builtInKey";
 import {
+  effectiveKey,
+  effectiveMode,
   isSttMode,
   SPEECHMATICS_KEY_STORAGE_KEY,
   SPEECHMATICS_TEMP_KEY_URL,
@@ -84,12 +87,16 @@ function selectedMode(): SttMode {
 
 async function loadStt(): Promise<void> {
   const stored = await chrome.storage.local.get([STT_MODE_STORAGE_KEY, SPEECHMATICS_KEY_STORAGE_KEY]);
-  const mode: unknown = stored[STT_MODE_STORAGE_KEY];
-  const current = isSttMode(mode) ? mode : "local";
-  for (const input of modeInputs) input.checked = input.value === current;
   const key: unknown = stored[SPEECHMATICS_KEY_STORAGE_KEY];
-  // Ключът не се показва обратно: полето само подсказва, че има записан.
-  keyInput.placeholder = typeof key === "string" && key ? "Записан ключ (въведете нов, за да го смените)" : "Поставете ключа тук";
+  const current = effectiveMode(stored[STT_MODE_STORAGE_KEY], effectiveKey(key, BUILT_IN_SPEECHMATICS_KEY));
+  for (const input of modeInputs) input.checked = input.value === current;
+  // Ключът не се показва обратно: полето само подсказва откъде е.
+  const hasStored = typeof key === "string" && key.trim() !== "";
+  keyInput.placeholder = hasStored
+    ? "Записан ключ (въведете нов, за да го смените)"
+    : BUILT_IN_SPEECHMATICS_KEY
+      ? "Вграден ключ: не е нужно да въвеждате нищо"
+      : "Поставете ключа тук";
   showStt(current === "speechmatics" ? "Избрано: облак (Speechmatics, ЕС)." : "Избрано: на компютъра.");
 }
 
@@ -97,7 +104,7 @@ document.querySelector("#stt-save")!.addEventListener("click", async () => {
   const mode = selectedMode();
   const key = keyInput.value.trim();
   const stored = (await chrome.storage.local.get(SPEECHMATICS_KEY_STORAGE_KEY))[SPEECHMATICS_KEY_STORAGE_KEY];
-  if (mode === "speechmatics" && !key && !stored) {
+  if (mode === "speechmatics" && !key && !stored && !BUILT_IN_SPEECHMATICS_KEY) {
     showStt("За облака е нужен API ключ от Speechmatics.", "err");
     return;
   }
@@ -108,7 +115,8 @@ document.querySelector("#stt-save")!.addEventListener("click", async () => {
 });
 
 document.querySelector("#sm-test")!.addEventListener("click", async () => {
-  const key = keyInput.value.trim() || (await chrome.storage.local.get(SPEECHMATICS_KEY_STORAGE_KEY))[SPEECHMATICS_KEY_STORAGE_KEY];
+  const key =
+    keyInput.value.trim() || effectiveKey((await chrome.storage.local.get(SPEECHMATICS_KEY_STORAGE_KEY))[SPEECHMATICS_KEY_STORAGE_KEY], BUILT_IN_SPEECHMATICS_KEY);
   if (typeof key !== "string" || !key) {
     showStt("Няма ключ за проверка.", "err");
     return;
