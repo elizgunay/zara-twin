@@ -10,6 +10,7 @@
     "generate-key": "node scripts/generate-key.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
     "@zara-twin/core": "0.1.0",
     "@zara-twin/hints": "0.1.0",
     "@zara-twin/knowledge": "0.1.0",

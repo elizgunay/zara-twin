@@ -41,6 +41,29 @@ describe("база на таблото (Supabase)", () => {
     await db.close();
   }, 60_000);
 
+  it("дневник на срещите (0002): всеки продавач вижда своите, собственикът всички", async () => {
+    const db = new PGlite();
+    await db.exec(SUPABASE_STUB);
+    await db.exec(read("../migrations/0001_dashboard.sql"));
+    await db.exec(read("../migrations/0002_meeting_reports.sql"));
+    // 0001 продължава да минава след 0002.
+    const first = await db.exec(read("./0001_isolation.sql"));
+    expect((first.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ИЗОЛАЦИЯТА РАБОТИ");
+    const results = await db.exec(read("./0002_reports.sql"));
+    expect((results.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ДНЕВНИКЪТ Е ЗАЩИТЕН");
+    await db.close();
+  }, 60_000);
+
+  it("продавач, който чете чужди срещи, спира проверката на 0002", async () => {
+    const db = new PGlite();
+    await db.exec(SUPABASE_STUB);
+    await db.exec(read("../migrations/0001_dashboard.sql"));
+    await db.exec(read("../migrations/0002_meeting_reports.sql"));
+    await db.exec("drop policy reports_read on public.meeting_reports; create policy leak on public.meeting_reports for select to authenticated using (public.is_member(org_id));");
+    await expect(db.exec(read("./0002_reports.sql"))).rejects.toThrow(/ГРЕШКА: продавач 2 вижда срещи на продавач 1/);
+    await db.close();
+  }, 60_000);
+
   it("нарушение на правилата спира проверката с грешка", async () => {
     const db = new PGlite();
     await db.exec(SUPABASE_STUB);

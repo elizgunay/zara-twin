@@ -7,6 +7,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
+
+// Таблото (Supabase, Франкфурт): само публичният Publishable key. Secret key заобикаля правилата
+// за достъп и никога не влиза в разширение, което се дава на други хора.
+if (process.env.SUPABASE_PUBLISHABLE_KEY?.startsWith("sb_secret_")) {
+  throw new Error("В .env е сложен Secret key. Разширението приема само Publishable key (sb_publishable_…).");
+}
 const outdir = join(root, "dist");
 const watch = process.argv.includes("--watch");
 
@@ -22,6 +28,8 @@ const options = {
   define: {
     // Client ID не е тайна (вижда се в адреса за вход), но е различен за всяка инсталация.
     __GOOGLE_CLIENT_ID__: JSON.stringify(process.env.GOOGLE_OAUTH_CLIENT_ID ?? ""),
+    __SUPABASE_URL__: JSON.stringify(process.env.SUPABASE_URL ?? ""),
+    __SUPABASE_KEY__: JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY ?? ""),
   },
   outdir,
   bundle: true,

@@ -1,4 +1,14 @@
 import { getStoredToken, GOOGLE_CLIENT_ID, isConnected, signIn, signOut } from "../calendar/token";
+import {
+  chooseOrg,
+  CLOUD_SYNC_KEY,
+  cloudStatus,
+  sendCode,
+  signOut as cloudSignOut,
+  uploadReports,
+  verifyCode,
+  type SyncResult,
+} from "../cloud/cloud";
 import { MeetingLog, REPORTS_KEY } from "../meetings/log";
 import { formatDuration, formatOffset, type MeetingReport } from "../meetings/report";
 import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
@@ -277,3 +287,110 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 void loadReports();
+
+// Табло: вход с код от имейла, избор на фирма, изпращане на дневника.
+const cloudOut = document.querySelector<HTMLElement>("#cloud-signed-out")!;
+const cloudIn = document.querySelector<HTMLElement>("#cloud-signed-in")!;
+const cloudEmail = document.querySelector<HTMLInputElement>("#cloud-email")!;
+const cloudCode = document.querySelector<HTMLInputElement>("#cloud-code")!;
+const cloudCodeRow = document.querySelector<HTMLElement>("#cloud-code-row")!;
+const cloudOrg = document.querySelector<HTMLSelectElement>("#cloud-org")!;
+const cloudStatusEl = document.querySelector<HTMLElement>("#cloud-status")!;
+
+function showCloud(text: string, tone: "ok" | "err" | "" = "") {
+  cloudStatusEl.textContent = text;
+  cloudStatusEl.className = tone;
+}
+
+/** Бутон, който се изключва, докато действието тече, и показва грешката под раздела. */
+function cloudAction(selector: string, run: () => Promise<void>): void {
+  const element = document.querySelector<HTMLButtonElement>(selector)!;
+  element.addEventListener("click", async () => {
+    element.disabled = true;
+    try {
+      await run();
+    } catch (error) {
+      showCloud(error instanceof Error ? error.message : String(error), "err");
+    } finally {
+      element.disabled = false;
+    }
+  });
+}
+
+async function loadCloud(): Promise<void> {
+  const state = await cloudStatus().catch((error: unknown) => {
+    showCloud(error instanceof Error ? error.message : String(error), "err");
+    return null;
+  });
+  if (!state) return;
+  if (!state.configured) {
+    cloudOut.hidden = true;
+    cloudIn.hidden = true;
+    showCloud("Таблото не е настроено в това разширение (липсват SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY при изграждането).", "err");
+    return;
+  }
+  cloudOut.hidden = state.email !== null;
+  cloudIn.hidden = state.email === null;
+  if (state.email === null) return;
+
+  document.querySelector("#cloud-who")!.textContent = `Влезли сте като ${state.email}.`;
+  document.querySelector<HTMLElement>("#cloud-org-row")!.hidden = state.orgs.length < 2;
+  cloudOrg.replaceChildren(
+    ...state.orgs.map((o) => Object.assign(document.createElement("option"), { value: o.id, textContent: o.name, selected: o.id === state.orgId })),
+  );
+  if (state.orgs.length === 0) {
+    showCloud("Не сте във фирма. Помолете собственика да ви покани от таблото (Настройки → Хора) с този имейл.", "err");
+  } else if (!state.orgId) {
+    showCloud("Изберете фирма.", "err");
+  }
+  const last: unknown = (await chrome.storage.local.get(CLOUD_SYNC_KEY))[CLOUD_SYNC_KEY];
+  const lastEl = document.querySelector<HTMLElement>("#cloud-last")!;
+  if (last && typeof last === "object") {
+    const sync = last as SyncResult;
+    const when = new Date(sync.at).toLocaleString("bg-BG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    lastEl.textContent = sync.ok ? `Последно изпращане: ${when}, успешно.` : `Последно изпращане: ${when}, неуспешно: ${sync.error ?? ""}`;
+    lastEl.className = sync.ok ? "" : "err";
+  } else {
+    lastEl.textContent = "Още няма изпратени срещи. Новите срещи ще се изпращат сами.";
+    lastEl.className = "";
+  }
+}
+
+cloudAction("#cloud-send", async () => {
+  if (!cloudEmail.value.includes("@")) throw new Error("Въведете имейл.");
+  await sendCode(cloudEmail.value);
+  cloudCodeRow.hidden = false;
+  cloudCode.focus();
+  showCloud(`Изпратихме код на ${cloudEmail.value.trim()}. Въведете го тук.`, "ok");
+});
+
+cloudAction("#cloud-verify", async () => {
+  await verifyCode(cloudEmail.value, cloudCode.value);
+  cloudCode.value = "";
+  cloudCodeRow.hidden = true;
+  showCloud("Влязохте. Новите срещи ще отиват и в таблото.", "ok");
+  await loadCloud();
+});
+
+cloudAction("#cloud-sync", async () => {
+  const reports = await meetingLog.list();
+  if (reports.length === 0) return showCloud("Дневникът е празен: няма какво да се изпрати.");
+  const result = await uploadReports(reports);
+  if (!result) throw new Error("Първо влезте и изберете фирма.");
+  if (!result.ok) throw new Error(result.error ?? "Неуспешно изпращане.");
+  showCloud(`Изпратени ${result.count} срещи.`, "ok");
+  await loadCloud();
+});
+
+cloudAction("#cloud-signout", async () => {
+  await cloudSignOut();
+  showCloud("Излязохте. Срещите остават само в дневника на компютъра.");
+  await loadCloud();
+});
+
+cloudOrg.addEventListener("change", async () => {
+  await chooseOrg(cloudOrg.value);
+  showCloud("Фирмата е избрана.", "ok");
+});
+
+void loadCloud();

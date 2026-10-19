@@ -207,7 +207,7 @@ export function settingsScreen(ctx: Context): HTMLElement {
     const people = h("div", { class: "stack" });
     const email = h("input", { type: "email", id: "invite-email", placeholder: "колега@zararobotics.com", autocomplete: "off" }) as HTMLInputElement;
     const role = h("select", { id: "invite-role" },
-      ...(["catalog_editor", "support", "owner"] as Role[]).map((r) => h("option", { value: r }, ROLE_LABEL[r]))) as HTMLSelectElement;
+      ...(["seller", "catalog_editor", "support", "owner"] as Role[]).map((r) => h("option", { value: r }, ROLE_LABEL[r]))) as HTMLSelectElement;
     root.append(section("Хора и роли",
       h("p", { class: "muted" }, "Поканеният влиза с връзка по имейл на същия адрес. Редакторът на каталога и поддръжката не виждат срещите и паметта."),
       people,

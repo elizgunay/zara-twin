@@ -42,6 +42,7 @@
     .summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0 8px; font-size: 14px; }
     .summary strong { font-variant-numeric: tabular-nums; }
     @media (prefers-color-scheme: dark) { .score.mid { color: #fdd663; } }
+    .field { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
     code { font-size: 13px; word-break: break-all; background: var(--bg); padding: 2px 6px; border-radius: 6px; }
   </style>
 </head>
@@ -55,6 +56,33 @@
       <ul id="reports" class="reports"></ul>
       <div class="actions"><button id="reports-delete-all" class="secondary" type="button">Изтрий дневника</button></div>
       <div id="reports-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
+    </section>
+    <section style="margin-bottom:16px" id="cloud-section">
+      <h2>Табло</h2>
+      <p>Когато влезете, обобщенията на срещите отиват и в таблото на фирмата (Supabase, Франкфурт, ЕС). Там собственикът вижда срещите на целия екип, а всеки продавач само своите. <strong>Текстът на разговора не се праща.</strong></p>
+      <div id="cloud-signed-out">
+        <label for="cloud-email" style="display:block;color:var(--muted)">Имейл (същият, с който сте поканени в таблото)</label>
+        <input id="cloud-email" type="email" autocomplete="email" class="field">
+        <div class="actions"><button id="cloud-send" class="primary" type="button">Изпрати код</button></div>
+        <div id="cloud-code-row" hidden>
+          <label for="cloud-code" style="display:block;color:var(--muted);margin-top:12px">Кодът от имейла</label>
+          <input id="cloud-code" inputmode="numeric" autocomplete="one-time-code" class="field" style="max-width:200px">
+          <div class="actions"><button id="cloud-verify" class="primary" type="button">Влез</button></div>
+        </div>
+      </div>
+      <div id="cloud-signed-in" hidden>
+        <p id="cloud-who" style="color:var(--text)"></p>
+        <div id="cloud-org-row" hidden>
+          <label for="cloud-org" style="color:var(--muted)">Фирма:</label>
+          <select id="cloud-org" class="field" style="width:auto"></select>
+        </div>
+        <p id="cloud-last"></p>
+        <div class="actions">
+          <button id="cloud-sync" class="primary" type="button">Изпрати всички срещи от дневника</button>
+          <button id="cloud-signout" class="secondary" type="button">Изход</button>
+        </div>
+      </div>
+      <div id="cloud-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
     </section>
     <section style="margin-bottom:16px">
       <h2>Тест на компютъра</h2>

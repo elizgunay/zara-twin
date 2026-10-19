@@ -1,6 +1,6 @@
 // Чиста логика на таблото, без мрежа и без DOM: лесна за тестване.
 
-export type Role = "owner" | "catalog_editor" | "support";
+export type Role = "owner" | "catalog_editor" | "support" | "seller";
 export type Screen = "start" | "proposals" | "meetings" | "memory" | "catalog" | "settings";
 
 export interface Membership {
@@ -33,6 +33,8 @@ export function projectOrigin(url: string): string {
 export function screensFor(role: Role): Screen[] {
   if (role === "owner") return ["start", "proposals", "meetings", "memory", "catalog", "settings"];
   if (role === "catalog_editor") return ["catalog"];
+  // Продавачът ползва Copilot; екранът със собствените му срещи идва в следващата стъпка.
+  if (role === "seller") return ["catalog"];
   return ["settings"];
 }
 
@@ -49,6 +51,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   owner: "Собственик",
   catalog_editor: "Редактор на каталога",
   support: "Поддръжка",
+  seller: "Продавач",
 };
 
 /** „#/memory“ → „memory“; непознат или забранен екран → първият позволен. */
