@@ -3,6 +3,7 @@ import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
 import * as api from "./api";
 import { action, confirmAction, empty, h, humanError } from "./dom";
 import { daysLeft, formatDateTime, groupMemories, isEmail, ROLE_LABEL, type Membership, type Role } from "./model";
+import { duration, filterReports, objectionCounts, offset, scoreTone, sellerLabels, stats, weeklyScores, type ReportRow } from "./reports";
 
 // Екраните на таблото. Всеки връща елемент и сам зарежда данните си; refresh() го рисува отново.
 
@@ -33,18 +34,23 @@ export function startScreen(ctx: Context): HTMLElement {
   const root = h("div", { class: "stack" });
   void loading(root, async () => {
     await api.purgeExpired();
-    const [n, meetings] = await Promise.all([api.counts(ctx.org.orgId), api.listMeetings(ctx.org.orgId, 5)]);
-    const tile = (label: string, value: number, hint: string, href: string) =>
-      h("a", { class: "tile", href }, h("span", { class: "eyebrow" }, label), h("span", { class: "value" }, String(value)), h("span", { class: "hint" }, hint));
+    const [n, reports] = await Promise.all([api.counts(ctx.org.orgId), api.listReports(ctx.org.orgId)]);
+    const month = stats(filterReports(reports, 30, null));
+    const tile = (label: string, value: string, hint: string, href: string) =>
+      h("a", { class: "tile", href }, h("span", { class: "eyebrow" }, label), h("span", { class: "value" }, value), h("span", { class: "hint" }, hint));
     return [
       h("div", { class: "tiles" },
-        tile("За одобрение", n.proposals, n.proposals ? "Прегледайте ги след срещата" : "Няма чакащи", "#/proposals"),
-        tile("Запазени срещи", n.meetings, `Пазят се ${ctx.org.retentionDays} дни`, "#/meetings"),
-        tile("Факти в паметта", n.memories, "Copilot ги ползва в подсказките", "#/memory"),
+        tile("Срещи (30 дни)", String(month.count), month.avgScore === null ? "Още няма срещи" : `Средна оценка ${month.avgScore.toFixed(1).replace(".", ",")}/10`, "#/meetings"),
+        tile("С уговорен час", month.count ? `${month.withNextStep}/${month.count}` : "–", "Срещи, завършили с ден и час", "#/meetings"),
+        tile("За одобрение", String(n.proposals), n.proposals ? "Прегледайте ги след срещата" : "Няма чакащи", "#/proposals"),
+        tile("Факти в паметта", String(n.memories), "Copilot ги ползва в подсказките", "#/memory"),
       ),
-      section("Последни срещи", meetings.length
-        ? h("ul", { class: "list" }, ...meetings.map((m) => h("li", {}, h("span", { class: "mono" }, m.meeting_code), h("span", { class: "muted" }, `${formatDateTime(m.started_at)} · ${m.lines.length} реда`))))
-        : empty("Още няма запазени срещи. Те идват от бутона „Запази“ в панела на Copilot (връзката с разширението е следващата стъпка).")),
+      section("Последни срещи", reports.length
+        ? h("ul", { class: "list" }, ...reports.slice(0, 5).map((r) => h("li", {},
+            h("span", { class: `score ${scoreTone(r.score)}` }, `${r.score}/10`),
+            h("span", {}, formatDateTime(r.started_at)),
+            h("span", { class: "muted" }, r.next_step ? `✓ ${r.next_step.label}` : "✕ без уговорен час"))))
+        : empty("Още няма срещи. Те идват от разширението: Опции → Табло → вход с имейл и парола.")),
     ];
   });
   return root;
@@ -76,12 +82,129 @@ export function proposalsScreen(ctx: Context): HTMLElement {
 }
 
 // ---------- Срещи ----------
+const PERIODS = [7, 30, 90, 365];
+
 export function meetingsScreen(ctx: Context): HTMLElement {
+  const isOwner = ctx.org.role === "owner";
+  const period = h("select", { id: "rep-period" },
+    ...PERIODS.map((d) => h("option", { value: d, selected: d === 30 }, d === 365 ? "Последната година" : `Последните ${d} дни`))) as HTMLSelectElement;
+  const seller = h("select", { id: "rep-seller" }, h("option", { value: "" }, "Всички")) as HTMLSelectElement;
+  const body = h("div", { class: "stack" });
+  let all: ReportRow[] = [];
+  let labels = new Map<string, string>();
+
+  const draw = () => {
+    const rows = filterReports(all, Number(period.value), seller.value || null);
+    if (!rows.length) {
+      body.replaceChildren(section("Няма срещи за периода",
+        h("p", { class: "muted" }, "Срещите идват от разширението след всяка среща (без бутона „Тест“). В разширението: Опции → Табло → вход с имейл и парола.")));
+      return;
+    }
+    body.replaceChildren(reportTiles(rows), reportCharts(rows), reportList(rows, ctx, isOwner ? labels : null));
+  };
+  period.addEventListener("change", draw);
+  seller.addEventListener("change", draw);
+
+  const filters = h("div", { class: "row wrap" },
+    h("label", { for: "rep-period" }, "Период", period),
+    isOwner ? h("label", { for: "rep-seller" }, "Продавач", seller) : null);
+  const root = h("div", { class: "stack" },
+    section("Срещи",
+      h("p", { class: "muted" }, isOwner
+        ? "Обобщението на всяка среща от Copilot: оценка, възражения, роботи, уговорен час. Без текста на разговора. Виждате срещите на целия екип."
+        : "Обобщението на вашите срещи от Copilot. Без текста на разговора. Виждате само своите срещи."),
+      filters),
+    body);
+
+  void loading(body, async () => {
+    await api.purgeExpiredReports().catch(() => {});
+    all = await api.listReports(ctx.org.orgId);
+    labels = sellerLabels(all, ctx.userId);
+    seller.replaceChildren(h("option", { value: "" }, "Всички"),
+      ...[...labels.entries()].filter(([id]) => all.some((r) => r.user_id === id)).map(([id, label]) => h("option", { value: id }, label)));
+    draw();
+    return [...body.childNodes];
+  });
+  if (isOwner) root.append(transcriptsSection(ctx));
+  return root;
+}
+
+export function reportTiles(rows: ReportRow[]): HTMLElement {
+  const s = stats(rows);
+  const tile = (label: string, value: string, hint: string) =>
+    h("div", { class: "tile" }, h("span", { class: "eyebrow" }, label), h("span", { class: "value" }, value), h("span", { class: "hint" }, hint));
+  const pct = (n: number) => `${Math.round((n / s.count) * 100)}%`;
+  return h("div", { class: "tiles" },
+    tile("Срещи", String(s.count), "за избрания период"),
+    tile("Средна оценка", s.avgScore === null ? "–" : `${s.avgScore.toFixed(1).replace(".", ",")}/10`, "по правилата на Copilot"),
+    tile("С уговорен час", pct(s.withNextStep), `${s.withNextStep} от ${s.count} срещи`),
+    tile("„Ще си помисля“", String(s.thinkMeetings), `${s.thinkMeetings === 1 ? "среща" : "срещи"} с това възражение`),
+    tile("Говорене", s.avgOwnerShare === null ? "–" : `${Math.round(s.avgOwnerShare * 100)}%`, "средно говорите вие (добре е под 65%)"),
+  );
+}
+
+export function reportCharts(rows: ReportRow[]): HTMLElement {
+  // Оценка по седмици: височината е оценката от 10; числото е винаги изписано.
+  const weeks = weeklyScores(rows);
+  const columns = weeks.map((w) => {
+    const bar = h("div", { class: `bar ${scoreTone(Math.round(w.avg))}` });
+    bar.style.height = `${(w.avg / 10) * 100}%`;
+    const [, month, day] = w.week.split("-");
+    return h("div", { class: "col", title: `${w.count} ${w.count === 1 ? "среща" : "срещи"}` },
+      h("span", { class: "col-value" }, w.avg.toFixed(1).replace(".", ",")),
+      h("div", { class: "col-track" }, bar),
+      h("span", { class: "col-label" }, `${Number(day)}.${month}`));
+  });
+  const objections = objectionCounts(rows);
+  const max = Math.max(1, ...objections.map((o) => o.count));
+  return h("div", { class: "charts" },
+    section("Оценка по седмици",
+      weeks.length > 1 ? h("div", { class: "columns", role: "img", "aria-label": weeks.map((w) => `седмица от ${w.week}: ${w.avg.toFixed(1)}`).join("; ") }, ...columns)
+        : empty("Графиката се появява, когато има срещи в поне две седмици."),
+    ),
+    section("Най-чести възражения",
+      objections.length ? h("ul", { class: "hbars" }, ...objections.map((o) => {
+        const fill = h("div", { class: `hbar-fill ${o.id === "think" ? "think" : ""}` });
+        fill.style.width = `${(o.count / max) * 100}%`;
+        return h("li", {},
+          h("div", { class: "row spread" }, h("span", {}, o.label), h("span", { class: "mono" }, `${o.count} пъти · ${o.meetings} ${o.meetings === 1 ? "среща" : "срещи"}`)),
+          h("div", { class: "hbar" }, fill));
+      })) : empty("Няма възражения в този период."),
+    ),
+  );
+}
+
+export function reportList(rows: ReportRow[], ctx: Context, labels: Map<string, string> | null): HTMLElement {
+  return section("Всички срещи", h("ul", { class: "cards" }, ...rows.map((r) => {
+    const objections = [...new Set(r.objections.map((o) => o.label))];
+    const total = r.owner_ms + r.counterpart_ms;
+    const owner = total > 0 ? Math.round((r.owner_ms / total) * 100) : null;
+    const details = h("details", { class: "report" },
+      h("summary", {},
+        h("span", { class: `score ${scoreTone(r.score)}` }, `${r.score}/10`),
+        h("span", {}, `${formatDateTime(r.started_at)} · ${duration(r.started_at, r.ended_at)}${labels ? ` · ${labels.get(r.user_id) ?? "Продавач"}` : ""}`),
+        h("span", { class: "muted tagline" }, [r.next_step ? `✓ ${r.next_step.label}` : "✕ без уговорен час", ...objections].join(" · "))),
+      h("div", { class: "report-body" },
+        r.notes.length ? h("ul", { class: "notes" }, ...r.notes.map((n) => h("li", {}, n))) : null,
+        r.objections.length ? h("div", {}, h("h3", {}, "Възражения"),
+          h("ul", { class: "notes" }, ...r.objections.map((o) => h("li", {}, h("span", { class: "mono" }, offset(o.atMs)), ` ${o.label}${o.again ? " (пак)" : ""}`)))) : null,
+        r.products.length ? h("p", {}, h("strong", {}, "Роботи: "), r.products.join(", ")) : null,
+        owner !== null ? h("p", {}, h("strong", {}, "Говорене: "), `Вие ${owner}% · Клиент ${100 - owner}%`) : null,
+        h("div", { class: "row spread" },
+          h("span", { class: "muted mono" }, `${r.meeting_code} · ${r.hints} подсказки`),
+          confirmAction("Изтрий", "Обобщението на срещата се изтрива от таблото.", async () => { await api.deleteReport(r.id); ctx.refresh(); })),
+      ));
+    return h("li", { class: "card" }, details);
+  })));
+}
+
+/** Старите записани разговори (бутон „Запази“): показват се само ако има такива. */
+function transcriptsSection(ctx: Context): HTMLElement {
   const root = h("div", { class: "stack" });
   void loading(root, async () => {
     const meetings = await api.listMeetings(ctx.org.orgId);
-    if (!meetings.length) return [section("Срещи", empty("Още няма запазени срещи."))];
-    return [section("Срещи", h("ul", { class: "cards" }, ...meetings.map((m) => {
+    if (!meetings.length) return [];
+    return [section("Записани разговори", h("ul", { class: "cards" }, ...meetings.map((m) => {
       const transcript = h("div", { class: "transcript", hidden: true },
         ...m.lines.map((line) => h("p", {}, h("strong", {}, line.speaker === "owner" ? "Вие: " : "Събеседник: "), line.text)));
       const toggle = h("button", { type: "button", class: "ghost" }, "Покажи текста");

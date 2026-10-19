@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { projectOrigin, type MemoryRow, type Membership, type Role } from "./model";
+import type { ReportRow } from "./reports";
 
 // Всички заявки към базата. Правилата за достъп (RLS) решават кой какво вижда:
 // таблото само показва; дори грешка тук не може да покаже чужди данни.
@@ -98,6 +99,28 @@ export async function listMeetings(orgId: string, limit = 100): Promise<MeetingR
   return check(
     await db().from("meetings").select("id, meeting_code, started_at, saved_at, lines").eq("org_id", orgId).order("saved_at", { ascending: false }).limit(limit),
   ) as MeetingRow[];
+}
+
+/** Обобщенията на срещите за последната година. Правилата в базата: продавачът получава само своите. */
+export async function listReports(orgId: string): Promise<ReportRow[]> {
+  const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+  return check(
+    await db()
+      .from("meeting_reports")
+      .select("id, user_id, meeting_code, started_at, ended_at, owner_ms, counterpart_ms, monologues, hints, score, objections, products, next_step, notes")
+      .eq("org_id", orgId)
+      .gte("started_at", since)
+      .order("started_at", { ascending: false })
+      .limit(1000),
+  ) as ReportRow[];
+}
+
+export async function deleteReport(id: string): Promise<void> {
+  check(await db().from("meeting_reports").delete().eq("id", id));
+}
+
+export async function purgeExpiredReports(): Promise<void> {
+  await db().rpc("purge_expired_reports");
 }
 
 export async function deleteMeeting(id: string): Promise<void> {

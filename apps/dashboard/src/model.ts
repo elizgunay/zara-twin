@@ -33,8 +33,8 @@ export function projectOrigin(url: string): string {
 export function screensFor(role: Role): Screen[] {
   if (role === "owner") return ["start", "proposals", "meetings", "memory", "catalog", "settings"];
   if (role === "catalog_editor") return ["catalog"];
-  // Продавачът ползва Copilot; екранът със собствените му срещи идва в следващата стъпка.
-  if (role === "seller") return ["catalog"];
+  // Продавачът ползва Copilot и вижда своите срещи (правилата в базата пазят чуждите).
+  if (role === "seller") return ["meetings", "catalog"];
   return ["settings"];
 }
 
