@@ -18,6 +18,8 @@ export interface ReportRow {
   products: string[];
   next_step: { label: string; atMs: number } | null;
   notes: string[];
+  /** Текстът на разговора (миграция 0004). Празен след срока на фирмата. */
+  lines?: { speaker: "owner" | "counterpart"; text: string; at: number }[];
 }
 
 export interface ReportStats {

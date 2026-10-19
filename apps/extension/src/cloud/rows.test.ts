@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MeetingRecorder } from "../meetings/report";
-import { projectOrigin, reportToRow } from "./rows";
+import { missingColumn, projectOrigin, reportToRow } from "./rows";
 
 describe("reportToRow", () => {
-  it("превръща обобщението в ред за таблото, без текст от разговора", () => {
+  it("превръща обобщението в ред за таблото (без подаден текст: празен)", () => {
     const start = Date.UTC(2026, 9, 19, 10, 0);
     const rec = new MeetingRecorder("abc-defg-hij", start);
     rec.onHint({ key: "objection:price", kind: "objection", title: "Възражение: цена", lines: [] }, start + 60_000);
@@ -20,7 +20,22 @@ describe("reportToRow", () => {
       objections: [{ id: "price", label: "Възражение: цена", atMs: 60_000, again: false }],
       next_step: null,
     });
-    expect(Object.keys(row)).not.toContain("lines");
+    expect(row.lines).toEqual([]);
+  });
+});
+
+describe("текст и стари бази", () => {
+  it("праща текста на разговора с обобщението", () => {
+    const report = new MeetingRecorder("abc-defg-hij", 0).report({ ownerMs: 0, counterpartMs: 0, ownerShare: null }, 60_000);
+    const lines = [{ speaker: "counterpart" as const, text: "Трябва да си помисля.", at: 5_000 }];
+    expect(reportToRow(report, "o", "u", lines).lines).toEqual(lines);
+    expect(reportToRow(report, "o", "u").lines).toEqual([]);
+  });
+
+  it("разпознава липсваща колона по грешката на Supabase", () => {
+    expect(missingColumn("Could not find the 'lines' column of 'meeting_reports' in the schema cache")).toBe("lines");
+    expect(missingColumn('column "is_test" of relation "meeting_reports" does not exist')).toBe("is_test");
+    expect(missingColumn("new row violates row-level security policy")).toBeNull();
   });
 });
 

@@ -29,6 +29,7 @@
     "tabCapture",
     "offscreen",
     "storage",
+    "unlimitedStorage",
     "identity",
     "scripting"
   ],

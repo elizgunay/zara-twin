@@ -17,6 +17,11 @@ const rows: ReportRow[] = Array.from({ length: 14 }, (_, i) => {
     objections: good ? [think, price].slice(0, 1 + (i % 2)) : [think, { ...think, atMs: 20 * 60_000, again: true }],
     products: i % 2 ? ["Keenon Dinerbot T9"] : ["Keenon Kleenbot C40S", "Keenon Kleenbot C55"],
     next_step: good ? { label: "четвъртък, 10:00", atMs: 22 * 60_000 } : null,
+    lines: i === 0 ? [
+      { speaker: "counterpart", text: "Звучи интересно, но трябва да си помисля.", at: start + 12 * 60_000 },
+      { speaker: "owner", text: "Разбирам. Какво точно искате да обмислите?", at: start + 12 * 60_000 + 6_000 },
+      { speaker: "counterpart", text: "Може ли в четвъртък в 10 да дойдете?", at: start + 21 * 60_000 },
+    ] : [],
     notes: good ? ["Следваща стъпка: четвъртък, 10:00.", "Говорихте 53% от времето: клиентът имаше място да говори."]
       : ["Няма уговорен ден и час за следваща стъпка.", "Говорихте 76% от времето: клиентът почти не се изказа."],
   };

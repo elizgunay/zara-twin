@@ -71,6 +71,33 @@ describe("база на таблото (Supabase)", () => {
     await db.close();
   }, 60_000);
 
+  it("текст на разговора (0004): пази се с обобщението и се трие след срока на фирмата", async () => {
+    const db = new PGlite();
+    await db.exec(SUPABASE_STUB);
+    for (const m of ["0001_dashboard", "0002_meeting_reports", "0003_test_meetings", "0004_meeting_text"]) {
+      await db.exec(read(`../migrations/${m}.sql`));
+    }
+    await db.exec(read("../migrations/0004_meeting_text.sql")); // повторно пускане не чупи
+    const results = await db.exec(read("./0002_reports.sql"));
+    expect((results.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ДНЕВНИКЪТ Е ЗАЩИТЕН");
+
+    await db.exec(`
+      insert into auth.users (id) values ('00000000-0000-4000-8000-0000000000a1');
+      insert into public.orgs (id, name, retention_days) values ('00000000-0000-4000-8000-00000000a000', 'А', 7);
+      insert into public.meeting_reports (org_id, user_id, meeting_code, started_at, ended_at, owner_ms, counterpart_ms, score, lines) values
+        ('00000000-0000-4000-8000-00000000a000', '00000000-0000-4000-8000-0000000000a1', 'old', now() - interval '10 days', now() - interval '10 days', 0, 0, 5, '[{"speaker":"owner","text":"стар","at":0}]'),
+        ('00000000-0000-4000-8000-00000000a000', '00000000-0000-4000-8000-0000000000a1', 'new', now() - interval '1 day', now() - interval '1 day', 0, 0, 5, '[{"speaker":"owner","text":"нов","at":0}]');
+    `);
+    // Без вход (както по график): текстът на старата среща се трие, обобщението остава.
+    await db.query("select public.purge_expired_reports()");
+    const rows = await db.query<{ meeting_code: string; n: number }>(
+      "select meeting_code, jsonb_array_length(lines) as n from public.meeting_reports order by meeting_code",
+    );
+    expect(rows.rows).toEqual([{ meeting_code: "new", n: 1 }, { meeting_code: "old", n: 0 }]);
+    await expect(db.exec(`update public.meeting_reports set lines = '{}'::jsonb`)).rejects.toThrow(/lines_check/);
+    await db.close();
+  }, 60_000);
+
   it("продавач, който чете чужди срещи, спира проверката на 0002", async () => {
     const db = new PGlite();
     await db.exec(SUPABASE_STUB);

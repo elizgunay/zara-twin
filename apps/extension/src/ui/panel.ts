@@ -298,7 +298,7 @@ const TEMPLATE = /* html */ `
   <div class="meta" data-part="meeting">Няма активна среща</div>
   <div class="meta" data-part="stt" hidden></div>
   <div class="meta test-note" data-part="test-note" hidden>Тестова среща: записва се с етикет „Тест“.</div>
-  <div class="consent">Уведомете участниците, че разговорът се транскрибира.</div>
+  <div class="consent">Уведомете участниците, че разговорът се записва като текст.</div>
   <div class="notice" data-part="notice" role="status" hidden></div>
   <div class="notice error" data-part="mic" role="alert" hidden></div>
   <div class="levels" data-part="levels" hidden>

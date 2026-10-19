@@ -21,12 +21,14 @@ export interface ReportRow {
   products: string[];
   next_step: MeetingReport["nextStep"];
   notes: string[];
+  /** Текстът на разговора (миграция 0004); трие се след срока на фирмата. */
+  lines: { speaker: "owner" | "counterpart"; text: string; at: number }[];
 }
 
 /** Уникален ключ на срещата в базата: същата среща се обновява, не се дублира. */
 export const REPORT_CONFLICT = "org_id,user_id,meeting_code,started_at";
 
-export function reportToRow(report: MeetingReport, orgId: string, userId: string): ReportRow {
+export function reportToRow(report: MeetingReport, orgId: string, userId: string, lines: ReportRow["lines"] = []): ReportRow {
   return {
     org_id: orgId,
     user_id: userId,
@@ -43,7 +45,16 @@ export function reportToRow(report: MeetingReport, orgId: string, userId: string
     products: report.products,
     next_step: report.nextStep,
     notes: report.notes,
+    lines: lines.slice(-5000),
   };
+}
+
+/** Полетата от по-новите миграции: ако базата още ги няма, срещата се праща без тях. */
+export const OPTIONAL_COLUMNS = ["lines", "is_test"] as const;
+
+/** Коя колона липсва в базата, по грешката на Supabase („Could not find the 'lines' column…“). */
+export function missingColumn(message: string): (typeof OPTIONAL_COLUMNS)[number] | null {
+  return OPTIONAL_COLUMNS.find((c) => new RegExp(`'${c}' column|column "?${c}"? (of relation .* )?does not exist`, "i").test(message)) ?? null;
 }
 
 /** Адресът на проекта: приема и копиран адрес с „/rest/v1/“ накрая (като в таблото). */

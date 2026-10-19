@@ -198,12 +198,32 @@ export function reportList(rows: ReportRow[], ctx: Context, labels: Map<string, 
           h("ul", { class: "notes" }, ...r.objections.map((o) => h("li", {}, h("span", { class: "mono" }, offset(o.atMs)), ` ${o.label}${o.again ? " (пак)" : ""}`)))) : null,
         r.products.length ? h("p", {}, h("strong", {}, "Роботи: "), r.products.join(", ")) : null,
         owner !== null ? h("p", {}, h("strong", {}, "Говорене: "), `Вие ${owner}% · Клиент ${100 - owner}%`) : null,
+        conversation(r, ctx.org.retentionDays),
         h("div", { class: "row spread" },
           h("span", { class: "muted mono" }, `${r.meeting_code} · ${r.hints} подсказки`),
           confirmAction("Изтрий", "Обобщението на срещата се изтрива от таблото.", async () => { await api.deleteReport(r.id); ctx.refresh(); })),
       ));
     return h("li", { class: "card" }, details);
   })));
+}
+
+/** Текстът на разговора, скрит до натискане. Текстът е непроверен вход: само чрез textContent (h). */
+function conversation(r: ReportRow, retentionDays: number): HTMLElement {
+  const lines = r.lines ?? [];
+  if (!lines.length) {
+    return h("p", { class: "muted" }, `Текст на разговора: няма (пази се ${retentionDays} дни след срещата).`);
+  }
+  const start = new Date(r.started_at).getTime();
+  const box = h("div", { class: "transcript", hidden: true },
+    ...lines.map((line) => h("p", {},
+      h("span", { class: "mono muted" }, `${offset(line.at - start)} `),
+      h("strong", {}, line.speaker === "owner" ? "Вие: " : "Клиент: "), line.text)));
+  const toggle = h("button", { type: "button", class: "ghost" }, `Покажи разговора (${lines.length} реда)`);
+  toggle.addEventListener("click", () => {
+    box.hidden = !box.hidden;
+    toggle.textContent = box.hidden ? `Покажи разговора (${lines.length} реда)` : "Скрий разговора";
+  });
+  return h("div", { class: "stack" }, h("div", { class: "row" }, toggle), box);
 }
 
 /** Старите записани разговори (бутон „Запази“): показват се само ако има такива. */
@@ -331,7 +351,7 @@ export function settingsScreen(ctx: Context): HTMLElement {
   });
 
   root.append(section("Пазене на срещите",
-    h("p", { class: "muted" }, "Текстът на запазените срещи се изтрива автоматично след срока. Паметта (одобрените факти) остава, докато не я изтриете."),
+    h("p", { class: "muted" }, "Текстът на разговорите се изтрива автоматично след срока. Обобщението на срещата (оценка, възражения, роботи) остава една година. Паметта (одобрените факти) остава, докато не я изтриете."),
     h("label", { for: "retention" }, "Пази текста на срещите", retention), retentionStatus));
 
   if (isOwner) {

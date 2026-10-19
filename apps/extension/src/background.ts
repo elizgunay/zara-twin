@@ -11,6 +11,7 @@ import {
   type OffscreenMessage,
   type MicProblem,
   type OffscreenResponse,
+  type TranscriptLine,
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
@@ -67,7 +68,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (message.type === "save-report") {
     // Само от таба на същата среща в Meet.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") !== message.report.meetingCode) return;
-    saveReport(message.report).then(sendResponse);
+    saveReport(message.report, message.lines).then(sendResponse);
     return true;
   }
   if (message.type === "logs-request") {
@@ -230,17 +231,20 @@ async function reportMic(tabId: number, mic: MicProblem): Promise<void> {
   }
 }
 
-/** Дневникът на срещите: обобщения без текст, на този компютър, 90 дни. */
+/** Дневникът на срещите: обобщенията на този компютър, 90 дни (текстът е в TranscriptStore). */
 const meetingLog = new MeetingLog(chrome.storage.local);
 /** Записите вървят един след друг: иначе две почти едновременни обновявания се презаписват. */
 let reportQueue: Promise<unknown> = Promise.resolve();
 
-function saveReport(report: MeetingReport): Promise<{ ok: boolean }> {
+function saveReport(report: MeetingReport, lines: TranscriptLine[]): Promise<{ ok: boolean }> {
   const run = reportQueue.then(async () => {
     // Тестовите срещи също се записват: етикетът „Тест“ е в самото обобщение (report.test).
     await meetingLog.save(report);
-    // И в таблото, ако сте влезли (Опции → Табло). Грешка там не спира дневника на компютъра.
-    await uploadReports([report]).catch(() => null);
+    // Текстът: автоматично, на този компютър, със срока от Опции → Запазени срещи.
+    // Същият ключ като обобщението (код@начало), затова двете се намират едно друго.
+    if (lines.length > 0) await transcripts.save({ meetingCode: report.meetingCode, startedAt: report.startedAt, lines });
+    // И в таблото, ако сте влезли (Опции → Табло). Грешка там не спира записа на компютъра.
+    await uploadReports([report], () => lines).catch(() => null);
     return { ok: true };
   });
   reportQueue = run.catch(() => {});

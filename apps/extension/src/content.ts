@@ -55,7 +55,8 @@ function showHint(hint: Hint): void {
 }
 
 /**
- * Праща обобщението към дневника. Празни и много кратки срещи (проба на звука) не се записват.
+ * Праща обобщението и текста на срещата: на компютъра и в таблото, без бутон.
+ * Празни и много кратки срещи (проба на звука) не се записват.
  * Тестовите срещи се записват с етикет „Тест“, за да се виждат отделно в таблото.
  */
 function saveReport(): void {
@@ -65,7 +66,7 @@ function saveReport(): void {
   const report = recorder.report(meeting.talk.session(), now, testMode);
   const talked = report.ownerMs + report.counterpartMs;
   if (now - report.startedAt < 60_000 || (talked < 10_000 && report.hints === 0)) return;
-  const message: BackgroundMessage = { type: "save-report", report };
+  const message: BackgroundMessage = { type: "save-report", report, lines: meeting.lines };
   chrome.runtime.sendMessage(message).catch(() => {});
 }
 

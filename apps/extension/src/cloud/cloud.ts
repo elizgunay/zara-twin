@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { MeetingReport } from "../meetings/report";
-import { projectOrigin, REPORT_CONFLICT, reportToRow } from "./rows";
+import { missingColumn, OPTIONAL_COLUMNS, projectOrigin, REPORT_CONFLICT, reportToRow, type ReportRow } from "./rows";
 
 /**
  * Връзка с таблото (Supabase, Франкфурт, Р22). Влиза се с имейл и парола.
@@ -104,7 +104,10 @@ export async function chooseOrg(orgId: string): Promise<void> {
  * Изпраща обобщенията (една или повече срещи). Без вход или без избрана фирма не прави нищо
  * и връща null: дневникът на компютъра си остава и може да се изпрати по-късно.
  */
-export async function uploadReports(reports: MeetingReport[]): Promise<SyncResult | null> {
+export async function uploadReports(
+  reports: MeetingReport[],
+  linesFor: (report: MeetingReport) => ReportRow["lines"] = () => [],
+): Promise<SyncResult | null> {
   if (!cloudConfigured || reports.length === 0) return null;
   const { data } = await db().auth.getSession();
   const userId = data.session?.user.id;
@@ -116,17 +119,29 @@ export async function uploadReports(reports: MeetingReport[]): Promise<SyncResul
     await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: result });
     return result;
   }
-  const rows = reports.map((r) => reportToRow(r, orgId, userId));
-  const { error } = await db().from("meeting_reports").upsert(rows, { onConflict: REPORT_CONFLICT });
+  const rows: Partial<ReportRow>[] = reports.map((r) => reportToRow(r, orgId, userId, linesFor(r)));
+  // Ако базата още няма полетата от по-новите миграции, срещата пак стига до таблото, без тях.
+  const missing: string[] = [];
+  let error: { message: string } | null = null;
+  for (let attempt = 0; attempt <= OPTIONAL_COLUMNS.length; attempt++) {
+    ({ error } = await db().from("meeting_reports").upsert(rows, { onConflict: REPORT_CONFLICT }));
+    const column = error ? missingColumn(error.message) : null;
+    if (!column || missing.includes(column)) break;
+    missing.push(column);
+    for (const row of rows) delete row[column];
+  }
+  const warning = missing.length ? `Без ${missing.map((c) => MISSING_HINT[c]).join(" и ")}: пуснете ${missing.map((c) => MIGRATION_FOR[c]).join(" и ")} в SQL Editor.` : undefined;
   const result: SyncResult = error
     ? { at: Date.now(), ok: false, error: humanError(error.message) }
-    : { at: Date.now(), ok: true, count: rows.length };
+    : { at: Date.now(), ok: true, count: rows.length, ...(warning && { error: warning }) };
   await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: result });
   return result;
 }
 
+const MISSING_HINT: Record<string, string> = { lines: "текста на разговора", is_test: "етикета „Тест“" };
+const MIGRATION_FOR: Record<string, string> = { lines: "0004_meeting_text.sql", is_test: "0003_test_meetings.sql" };
+
 function humanError(message: string): string {
-  if (/is_test/i.test(message)) return "Базата още няма поле за тестови срещи: пуснете supabase/migrations/0003_test_meetings.sql в SQL Editor.";
   if (/row-level security|permission denied/i.test(message)) return "Нямате права: проверете дали сте поканени във фирмата.";
   if (/invalid login credentials/i.test(message)) return "Грешен имейл или парола.";
   if (/email not confirmed/i.test(message)) return "Акаунтът не е потвърден: в Supabase създайте го с отметка „Auto confirm“.";

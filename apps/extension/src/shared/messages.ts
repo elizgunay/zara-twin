@@ -43,8 +43,8 @@ export type BackgroundMessage =
   | { type: "logs-request" }
   /** От панела: запазване на текста от срещата (бутон „Запази“), само на този компютър. */
   | { type: "save-transcript"; meetingCode: string; startedAt: number; lines: TranscriptLine[] }
-  /** От панела: обобщението на срещата (без текст), по време на срещата и в края ѝ. */
-  | { type: "save-report"; report: MeetingReport };
+  /** От панела: обобщението и текстът на срещата, автоматично всяка минута и в края ѝ. */
+  | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] };
 
 export interface TranscriptLine {
   speaker: SpeakerRole;
@@ -101,6 +101,14 @@ function isLevel(value: unknown): value is number {
   return typeof value === "number" && value >= 0 && value <= 1;
 }
 
+function isTranscriptLines(value: unknown): value is TranscriptLine[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_SAVED_LINES &&
+    value.every((line: unknown) => isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at))
+  );
+}
+
 export function isContentMessage(value: unknown): value is ContentMessage {
   if (!isRecord(value)) return false;
   switch (value.type) {
@@ -144,15 +152,10 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
         value.meetingCode.length > 0 &&
         value.meetingCode.length <= 64 &&
         Number.isFinite(value.startedAt) &&
-        Array.isArray(value.lines) &&
-        value.lines.length <= MAX_SAVED_LINES &&
-        value.lines.every(
-          (line: unknown) =>
-            isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at),
-        )
+        isTranscriptLines(value.lines)
       );
     case "save-report":
-      return isMeetingReport(value.report);
+      return isMeetingReport(value.report) && isTranscriptLines(value.lines);
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&

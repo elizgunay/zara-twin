@@ -52,7 +52,7 @@
     <h1>Zara Copilot: настройки</h1>
     <section style="margin-bottom:16px" id="reports-section">
       <h2>Срещи</h2>
-      <p>Обобщение на всяка среща: кой колко говори, възраженията, роботите и дали има уговорен ден и час. <strong>Без текста на разговора.</strong> Пази се само на този компютър, 90 дни. Срещите с бутон „Тест“ в панела се записват с етикет „Тест“ и не влизат в общите числа отгоре.</p>
+      <p>Обобщение на всяка среща: кой колко говори, възраженията, роботите и дали има уговорен ден и час. Пази се на този компютър 90 дни; текстът на разговора е в „Запазени срещи“ по-долу. Срещите с бутон „Тест“ в панела се записват с етикет „Тест“ и не влизат в общите числа отгоре.</p>
       <div id="reports-summary" class="summary"></div>
       <ul id="reports" class="reports"></ul>
       <div class="actions"><button id="reports-delete-all" class="secondary" type="button">Изтрий дневника</button></div>
@@ -60,7 +60,7 @@
     </section>
     <section style="margin-bottom:16px" id="cloud-section">
       <h2>Табло</h2>
-      <p>Когато влезете, обобщенията на срещите отиват и в таблото на фирмата (Supabase, Франкфурт, ЕС). Там собственикът вижда срещите на целия екип, а всеки продавач само своите. <strong>Текстът на разговора не се праща.</strong></p>
+      <p>Когато влезете, обобщенията на срещите отиват и в таблото на фирмата (Supabase, Франкфурт, ЕС). Там собственикът вижда срещите на целия екип, а всеки продавач само своите. Праща се и текстът на разговора; в таблото той се трие след срока от Настройки (7, 30 или 90 дни).</p>
       <div id="cloud-signed-out">
         <label for="cloud-email" style="display:block;color:var(--muted)">Имейл (същият като в таблото)</label>
         <input id="cloud-email" type="email" autocomplete="username" class="field">
@@ -106,8 +106,8 @@
     </section>
     <section style="margin-bottom:16px">
       <h2>Запазени срещи</h2>
-      <p>Текстът от срещата се пази само когато натиснете <strong>„Запази“</strong> в панела, само на този компютър и без звук. Изтрива се автоматично след избрания срок.</p>
-      <label style="display:block;margin:6px 0 12px"><input type="checkbox" id="saving-enabled"> Показвай бутона „Запази“ в панела (изключено по подразбиране, докато тестваме)</label>
+      <p>Текстът на всяка среща се пази <strong>автоматично</strong>: на този компютър и в таблото, ако сте влезли. Без звук. Изтрива се след избрания срок. Уведомете участниците, че разговорът се записва.</p>
+      <label style="display:block;margin:6px 0 12px"><input type="checkbox" id="saving-enabled"> Показвай и бутона „Запази“ в панела (не е нужен: текстът се пази и без него)</label>
       <label for="retention" style="color:var(--muted)">Пази текстовете:</label>
       <select id="retention" style="font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)">
         <option value="7">7 дни</option>

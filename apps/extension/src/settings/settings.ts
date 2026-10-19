@@ -310,6 +310,12 @@ function showCloud(text: string, tone: "ok" | "err" | "" = "") {
   cloudStatusEl.className = tone;
 }
 
+/** Текстът на всяка среща от компютъра, по същия ключ като обобщението (код@начало). */
+async function savedLines(): Promise<(report: MeetingReport) => SavedMeeting["lines"]> {
+  const texts = new Map((await store.list()).map((m) => [m.id, m.lines]));
+  return (report) => texts.get(report.id) ?? [];
+}
+
 /** Бутон, който се изключва, докато действието тече, и показва грешката под раздела. */
 function cloudAction(selector: string, run: () => Promise<void>): void {
   const element = document.querySelector<HTMLButtonElement>(selector)!;
@@ -356,8 +362,11 @@ async function loadCloud(): Promise<void> {
   if (last && typeof last === "object") {
     const sync = last as SyncResult;
     const when = new Date(sync.at).toLocaleString("bg-BG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-    lastEl.textContent = sync.ok ? `Последно изпращане: ${when}, успешно.` : `Последно изпращане: ${when}, неуспешно: ${sync.error ?? ""}`;
-    lastEl.className = sync.ok ? "" : "err";
+    // При успех error е предупреждение (напр. базата още няма полето за текста).
+    lastEl.textContent = sync.ok
+      ? `Последно изпращане: ${when}, успешно.${sync.error ? ` ${sync.error}` : ""}`
+      : `Последно изпращане: ${when}, неуспешно: ${sync.error ?? ""}`;
+    lastEl.className = sync.ok && !sync.error ? "" : "err";
   } else {
     lastEl.textContent = "Още няма изпратени срещи. Новите срещи ще се изпращат сами.";
     lastEl.className = "";
@@ -371,7 +380,7 @@ cloudAction("#cloud-signin", async () => {
   cloudPassword.value = "";
   // Веднага изпраща и срещите, записани досега само на компютъра.
   const reports = await meetingLog.list();
-  const result = reports.length ? await uploadReports(reports) : null;
+  const result = reports.length ? await uploadReports(reports, await savedLines()) : null;
   if (result && !result.ok) showCloud(`Влязохте, но срещите не се изпратиха: ${result.error ?? ""}`, "err");
   else showCloud(`Влязохте.${result ? ` Изпратени ${result.count} срещи от дневника.` : ""} Новите срещи ще отиват в таблото сами.`, "ok");
   await loadCloud();
@@ -384,7 +393,7 @@ cloudPassword.addEventListener("keydown", (event) => {
 cloudAction("#cloud-sync", async () => {
   const reports = await meetingLog.list();
   if (reports.length === 0) return showCloud("Дневникът е празен: няма какво да се изпрати.");
-  const result = await uploadReports(reports);
+  const result = await uploadReports(reports, await savedLines());
   if (!result) throw new Error("Първо влезте и изберете фирма.");
   if (!result.ok) throw new Error(result.error ?? "Неуспешно изпращане.");
   showCloud(`Изпратени ${result.count} срещи.`, "ok");
