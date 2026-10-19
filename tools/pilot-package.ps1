@@ -15,8 +15,14 @@ $zip = Join-Path $root "release\zara-copilot-pilot.zip"
 $guide = Get-ChildItem (Join-Path $root "docs\pilot") -Filter "*.pdf" | Sort-Object Name | Select-Object -Last 1
 if ($null -eq $guide) { throw "Липсва PDF инструкция в docs\pilot (npm run pilot-guide)." }
 
-npm.cmd run build:extension | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Изграждането на разширението не успя." }
+# Пакетът е за други хора: изграждаме го без вградения ключ за Speechmatics (всеки въвежда свой).
+$env:ZARA_PILOT_PACKAGE = "1"
+try {
+  npm.cmd run build:extension | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Изграждането на разширението не успя." }
+} finally {
+  Remove-Item Env:ZARA_PILOT_PACKAGE -ErrorAction SilentlyContinue
+}
 
 # Изчистваме съдържанието, а не самата папка: тя може да е отворена в Explorer
 # или заредена в Chrome, и тогава Windows не позволява изтриването ѝ.
@@ -34,6 +40,13 @@ $forbidden = Get-ChildItem $out -Recurse -File | Where-Object {
   ($_.Name -match '\.(pem|env|wav|mp3|m4a|webm)$' -or $_.Name -eq ".env") -and $_.FullName -ne $allowed
 }
 if ($forbidden) { throw "В пакета има забранени файлове: $($forbidden.Name -join ', ')" }
+# Втора защита: в кода на пакета не бива да има вграден ключ.
+$baked = Get-ChildItem (Join-Path $out "extension") -Filter "*.js" -File | Select-String -Pattern 'BUILT_IN_SPEECHMATICS_KEY = "[^"]+"' -List
+if ($baked) { throw "В пакета има вграден ключ за Speechmatics ($($baked.Filename -join ', ')). Пакетът не е създаден." }
+
+# Обратно: разширението за разработка (apps\extension\dist) отново с ключа от .env.
+npm.cmd run build:extension | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Повторното изграждане на разширението не успя." }
 
 if (Test-Path $zip) { Remove-Item $zip -Force -Confirm:$false }
 # Не Compress-Archive: в Windows PowerShell 5.1 той записва пътищата с „\“ и на Mac

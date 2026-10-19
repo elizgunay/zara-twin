@@ -32,7 +32,8 @@ const options = {
     __SUPABASE_KEY__: JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY ?? ""),
     // Облакът по подразбиране, без въвеждане на ключа. Ключът влиза в dist/ (не е в git):
     // давайте изградената папка само на доверени хора.
-    __SPEECHMATICS_KEY__: JSON.stringify(process.env.SPEECHMATICS_API_KEY ?? ""),
+    // ZARA_PILOT_PACKAGE=1 (npm run pilot-package): пакетът за други хора е винаги без ключ.
+    __SPEECHMATICS_KEY__: JSON.stringify(process.env.ZARA_PILOT_PACKAGE === "1" ? "" : (process.env.SPEECHMATICS_API_KEY ?? "")),
   },
   outdir,
   bundle: true,
