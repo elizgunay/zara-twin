@@ -6,3 +6,5 @@ declare const __SUPABASE_URL__: string;
 declare const __SUPABASE_KEY__: string;
 /** Ключът за Speechmatics от .env (SPEECHMATICS_API_KEY), вграден при изграждане; празно, ако няма. */
 declare const __SPEECHMATICS_KEY__: string;
+/** Адресът на таблото (DASHBOARD_URL в .env); празно = без бутон „Отвори в таблото“. */
+declare const __DASHBOARD_URL__: string;

@@ -13,6 +13,7 @@ import {
   type SaveTranscriptResponse,
   type TranscriptLine,
 } from "./shared/messages";
+import { UtteranceMerger } from "./transcripts/merge";
 import { SAVING_ENABLED_KEY } from "./transcripts/store";
 import { CopilotPanel } from "./ui/panel";
 
@@ -25,6 +26,8 @@ const adapter = new GoogleMeetAdapter();
 const calendar = new ExtensionCalendarProvider();
 const talkRules = { maxOwnerShare: 0.65, windowMinutes: 3, monologueSeconds: 60, ...method.talkRatio };
 const TALK_REFRESH_MS = 1_000;
+/** Адресът на таблото (от .env при изграждане) за бутона „Отвори в таблото“ след срещата. */
+const DASHBOARD_URL: string = __DASHBOARD_URL__;
 
 /** Всичко, което помни какво е показано в текущата среща. Нова среща = чиста памет. */
 function freshAssistants() {
@@ -35,6 +38,7 @@ function freshAssistants() {
     talk: new TalkRatioTracker({ rules: talkRules }),
     talkShownAt: 0,
     echo: new EchoFilter(),
+    merger: new UtteranceMerger(),
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
@@ -124,15 +128,23 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
           () => panel.setSaveAvailable(false),
         );
         if (reportTimer === undefined) reportTimer = setInterval(saveReport, REPORT_EVERY_MS);
+        panel.hideSummary();
         panel.setRecording(true);
         panel.show();
       } else {
+        const report = meeting.recorder?.report(meeting.talk.session(), Date.now(), testMode);
         stopReports();
         saveReport();
         panel.setRecording(false);
         panel.clearHints();
         meeting = freshAssistants();
-        panel.hide();
+        // Веднага след срещата: обобщението в панела (затваря се с ×). Кратка проба на звука: нищо.
+        if (report && report.endedAt - report.startedAt >= 60_000) {
+          panel.showSummary(report, DASHBOARD_URL);
+          panel.show();
+        } else {
+          panel.hide();
+        }
       }
       break;
     case "audio-level": {
@@ -153,17 +165,26 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       panel.setMicProblem(message.text);
       panel.show();
       break;
-    case "transcript-segment":
+    case "transcript-segment": {
+      const now = Date.now();
       // Без слушалки едно изречение идва и от микрофона, и от таба: показваме го веднъж.
-      if (meeting.echo.isEcho(message.speaker, message.text, Date.now())) break;
-      panel.appendSegment(message);
-      if (meeting.lines.length < MAX_SAVED_LINES) meeting.lines.push({ speaker: message.speaker, text: message.text, at: Date.now() });
+      if (meeting.echo.isEcho(message.speaker, message.text, now)) break;
+      // Парчетата на същия човек без пауза стават едно изречение: в панела, в записа и за подсказките.
+      const line = meeting.merger.add(message.speaker, message.text, now);
+      panel.appendSegment({ speaker: message.speaker, text: line.text }, line.merged);
+      const last = meeting.lines[meeting.lines.length - 1];
+      if (line.merged && last) last.text = line.text;
+      else if (meeting.lines.length < MAX_SAVED_LINES) meeting.lines.push({ speaker: message.speaker, text: line.text, at: now });
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
-      for (const hint of [...meeting.hints.onSegment(message), ...meeting.objections.onSegment(message)]) {
+      // Възраженията и роботите се търсят в цялото изречение („трябва да си“ + „помисля“).
+      const sentence = { ...message, text: line.text };
+      for (const hint of [...meeting.hints.onSegment(sentence), ...meeting.objections.onSegment(sentence)]) {
         showHint(hint);
       }
+      // Уговорката има свой прозорец от последните реплики: подава се само новото парче.
       void meeting.schedule.onSegment(message).then((found) => found.forEach(showHint));
       break;
+    }
   }
 });
 

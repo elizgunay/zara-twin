@@ -30,6 +30,8 @@ const options = {
     __GOOGLE_CLIENT_ID__: JSON.stringify(process.env.GOOGLE_OAUTH_CLIENT_ID ?? ""),
     __SUPABASE_URL__: JSON.stringify(process.env.SUPABASE_URL ?? ""),
     __SUPABASE_KEY__: JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY ?? ""),
+    // Таблото онлайн (Cloudflare Pages); за друга инсталация: DASHBOARD_URL в .env.
+    __DASHBOARD_URL__: JSON.stringify(process.env.DASHBOARD_URL ?? "https://zara-copilot.pages.dev"),
     // Облакът по подразбиране, без въвеждане на ключа. Ключът влиза в dist/ (не е в git):
     // давайте изградената папка само на доверени хора.
     // ZARA_PILOT_PACKAGE=1 (npm run pilot-package): пакетът за други хора е винаги без ключ.

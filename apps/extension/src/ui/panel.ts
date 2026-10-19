@@ -1,5 +1,6 @@
 import type { AudioSourceKind, MeetingInfo, SpeakerRole } from "@zara-twin/core";
 import type { Hint } from "@zara-twin/hints";
+import { formatDuration, type MeetingReport } from "../meetings/report";
 
 const SPEAKER_LABEL: Record<SpeakerRole, string> = {
   owner: "Вие",
@@ -32,6 +33,8 @@ export class CopilotPanel {
   private readonly root: ShadowRoot;
   private readonly transcript: HTMLElement;
   private readonly emptyState: HTMLElement;
+  /** Текстът на последния ред: при слепено парче се обновява, вместо да се добавя нов ред. */
+  private lastLine: Text | null = null;
 
   constructor(
     options: PanelOptions = {},
@@ -59,6 +62,46 @@ export class CopilotPanel {
       this.setTestMode(on);
       options.onTestMode?.(on);
     });
+  }
+
+  /**
+   * Обобщението веднага след срещата: оценка, уговорен час, възражения и връзка към таблото.
+   * Всичко чрез textContent: възраженията и бележките идват от разпознат говор.
+   */
+  showSummary(report: MeetingReport, dashboardUrl: string): void {
+    const box = this.part("summary");
+    const title = this.doc.createElement("h2");
+    title.textContent = `Срещата приключи · ${report.score}/10${report.test ? " · Тест" : ""}`;
+    const meta = this.doc.createElement("p");
+    meta.className = "summary-meta";
+    meta.textContent = `${formatDuration(report.endedAt - report.startedAt)} · ${report.nextStep ? `✓ ${report.nextStep.label}` : "✕ без уговорен час"}`;
+    const list = this.doc.createElement("ul");
+    for (const note of report.notes.slice(0, 3)) {
+      const item = this.doc.createElement("li");
+      item.textContent = note;
+      list.append(item);
+    }
+    const objections = [...new Set(report.objections.map((o) => o.label))];
+    const parts: Node[] = [title, meta, list];
+    if (objections.length) {
+      const line = this.doc.createElement("p");
+      line.textContent = `Възражения: ${objections.join(", ")}`;
+      parts.push(line);
+    }
+    if (dashboardUrl.startsWith("https://")) {
+      const link = this.doc.createElement("a");
+      link.href = `${dashboardUrl.replace(/\/$/, "")}/#/meetings`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Отвори в таблото";
+      parts.push(link);
+    }
+    box.replaceChildren(...parts);
+    box.hidden = false;
+  }
+
+  hideSummary(): void {
+    this.part("summary").hidden = true;
   }
 
   /** Тестова среща: обобщението се записва с етикет „Тест“. */
@@ -161,12 +204,19 @@ export class CopilotPanel {
     notice.hidden = false;
   }
 
-  appendSegment(segment: { speaker: SpeakerRole; text: string }): void {
+  /** merged: парчето продължава предишния ред (същият човек, без пауза): редът се обновява. */
+  appendSegment(segment: { speaker: SpeakerRole; text: string }, merged = false): void {
     this.emptyState.hidden = true;
+    if (merged && this.lastLine) {
+      this.lastLine.textContent = segment.text;
+      this.transcript.scrollTop = this.transcript.scrollHeight;
+      return;
+    }
     const row = this.doc.createElement("p");
     const speaker = this.doc.createElement("strong");
     speaker.textContent = `${SPEAKER_LABEL[segment.speaker]}: `;
-    row.append(speaker, segment.text);
+    this.lastLine = this.doc.createTextNode(segment.text);
+    row.append(speaker, this.lastLine);
     this.transcript.append(row);
     while (this.transcript.querySelectorAll("p:not([data-part])").length > MAX_TRANSCRIPT_ROWS) {
       this.transcript.querySelector("p:not([data-part])")!.remove();
@@ -284,6 +334,13 @@ const TEMPLATE = /* html */ `
   button.small { font-size: 11px; padding: 2px 6px; background: #3c4352; }
   button.test[aria-pressed="true"] { background: #fdd663; color: #202124; font-weight: 600; }
   .test-note { color: #fdd663; }
+  .summary { margin: 10px 12px 0; padding: 10px 12px; border-radius: 8px; background: #1e3a5f; border-left: 3px solid #8ab4f8; }
+  .summary h2 { margin: 0 0 4px; font-size: 15px; color: #fff; }
+  .summary .summary-meta { margin: 0 0 6px; color: #aecbfa; font-weight: 600; }
+  .summary ul { margin: 0 0 6px; padding-left: 16px; color: #d2d6db; }
+  .summary p { margin: 0 0 6px; color: #d2d6db; }
+  .summary a { display: inline-block; padding: 4px 10px; border-radius: 6px; background: #8ab4f8; color: #1f2430; font-weight: 600; text-decoration: none; }
+  .summary a:focus-visible { outline: 2px solid #fff; }
   .logs { margin: 8px 12px 0; height: 120px; resize: vertical; background: #11151c; color: #bdc1c6; border: 1px solid #3c4352; border-radius: 6px; font: 10px/1.3 Consolas, monospace; }
 </style>
 <section class="panel" role="complementary" aria-label="Zara Copilot">
@@ -299,6 +356,7 @@ const TEMPLATE = /* html */ `
   <div class="meta" data-part="stt" hidden></div>
   <div class="meta test-note" data-part="test-note" hidden>Тестова среща: записва се с етикет „Тест“.</div>
   <div class="consent">Уведомете участниците, че разговорът се записва като текст.</div>
+  <section class="summary" data-part="summary" role="status" hidden></section>
   <div class="notice" data-part="notice" role="status" hidden></div>
   <div class="notice error" data-part="mic" role="alert" hidden></div>
   <div class="levels" data-part="levels" hidden>
