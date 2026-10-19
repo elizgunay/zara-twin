@@ -367,7 +367,11 @@ cloudAction("#cloud-signin", async () => {
   await cloudSignIn(cloudEmail.value, cloudPassword.value);
   // Паролата не остава в полето и не се пази: пази се само сесията от Supabase.
   cloudPassword.value = "";
-  showCloud("Влязохте. Новите срещи ще отиват и в таблото.", "ok");
+  // Веднага изпраща и срещите, записани досега само на компютъра.
+  const reports = await meetingLog.list();
+  const result = reports.length ? await uploadReports(reports) : null;
+  if (result && !result.ok) showCloud(`Влязохте, но срещите не се изпратиха: ${result.error ?? ""}`, "err");
+  else showCloud(`Влязохте.${result ? ` Изпратени ${result.count} срещи от дневника.` : ""} Новите срещи ще отиват в таблото сами.`, "ok");
   await loadCloud();
 });
 

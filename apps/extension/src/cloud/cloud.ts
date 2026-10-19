@@ -59,10 +59,9 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (!password) throw new Error("Въведете парола.");
   const { error } = await db().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
   if (error) throw new Error(humanError(error.message));
-  // Приема чакащите покани и избира фирмата, ако е само една.
+  // Приема чакащите покани; фирмата се избира сама, ако е само една (cloudStatus).
   await db().rpc("accept_invitations");
-  const { orgs } = await cloudStatus();
-  if (orgs.length === 1) await chrome.storage.local.set({ [CLOUD_ORG_KEY]: orgs[0]!.id });
+  await cloudStatus();
 }
 
 export async function signOut(): Promise<void> {
@@ -82,9 +81,19 @@ export async function cloudStatus(): Promise<CloudStatus> {
     name: r.orgs?.name ?? "",
     role: r.role,
   }));
+  return { configured: true, email: user.email ?? null, orgs, orgId: await pickOrg(orgs) };
+}
+
+/**
+ * Фирмата, към която отиват срещите: избраната, иначе единствената. Без това срещите
+ * не стигаха до таблото, ако човек е влязъл в разширението преди фирмата да е създадена.
+ */
+async function pickOrg(orgs: CloudOrg[]): Promise<string | null> {
   const stored: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
-  const orgId = orgs.some((o) => o.id === stored) ? (stored as string) : null;
-  return { configured: true, email: user.email ?? null, orgs, orgId };
+  if (orgs.some((o) => o.id === stored)) return stored as string;
+  if (orgs.length !== 1) return null;
+  await chrome.storage.local.set({ [CLOUD_ORG_KEY]: orgs[0]!.id });
+  return orgs[0]!.id;
 }
 
 export async function chooseOrg(orgId: string): Promise<void> {
@@ -99,8 +108,14 @@ export async function uploadReports(reports: MeetingReport[]): Promise<SyncResul
   if (!cloudConfigured || reports.length === 0) return null;
   const { data } = await db().auth.getSession();
   const userId = data.session?.user.id;
-  const orgId: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
-  if (!userId || typeof orgId !== "string") return null;
+  if (!userId) return null;
+  let orgId: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
+  if (typeof orgId !== "string") orgId = (await cloudStatus()).orgId;
+  if (typeof orgId !== "string") {
+    const result: SyncResult = { at: Date.now(), ok: false, error: "Не сте във фирма в таблото или не е избрана фирма." };
+    await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: result });
+    return result;
+  }
   const rows = reports.map((r) => reportToRow(r, orgId, userId));
   const { error } = await db().from("meeting_reports").upsert(rows, { onConflict: REPORT_CONFLICT });
   const result: SyncResult = error
