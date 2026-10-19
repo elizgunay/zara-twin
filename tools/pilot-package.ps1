@@ -1,8 +1,8 @@
 ﻿# Сглобява пакет за пренасяне на компютъра на ръководителя:
 #   release/zara-copilot-pilot/
 #     extension/            готовото разширение (Load unpacked)
-#     hardware-check.ps1    проверка на компютъра
 #     Инструкция.pdf        стъпките за теста
+#     Сценарий за тест.pdf  листът за отбелязване по време на пробната среща
 #   release/zara-copilot-pilot.zip
 #
 # Файлът е UTF-8 с BOM, иначе Windows PowerShell 5.1 обърква кирилицата.
@@ -15,8 +15,11 @@ $ErrorActionPreference = "Stop"
 $root = (Get-Location).Path
 $out = Join-Path $root "release\zara-copilot-pilot"
 $zip = Join-Path $root "release\zara-copilot-pilot.zip"
-$guide = Get-ChildItem (Join-Path $root "docs\pilot") -Filter "*.pdf" | Sort-Object Name | Select-Object -Last 1
+$guide = Get-ChildItem (Join-Path $root "docs\pilot") -Filter "Тест_при_ръководителя_v*.pdf" | Sort-Object Name | Select-Object -Last 1
 if ($null -eq $guide) { throw "Липсва PDF инструкция в docs\pilot (npm run pilot-guide)." }
+# Листът за отбелязване по време на пробната среща (инструкцията препраща към него).
+$script = Join-Path $root "docs\pilot\Сценарий_за_тест.pdf"
+if (-not (Test-Path $script)) { throw "Липсва docs\pilot\Сценарий_за_тест.pdf." }
 
 # По подразбиране пакетът е без вградения ключ за Speechmatics (всеки въвежда свой).
 if (-not $WithKey) { $env:ZARA_PILOT_PACKAGE = "1" }
@@ -32,9 +35,8 @@ try {
 New-Item -ItemType Directory -Force $out | Out-Null
 Get-ChildItem $out -Force | Remove-Item -Recurse -Force -Confirm:$false
 Copy-Item (Join-Path $root "apps\extension\dist") (Join-Path $out "extension") -Recurse
-Copy-Item (Join-Path $root "tools\hardware-check.ps1") $out
-Copy-Item (Join-Path $root "tools\hardware-check.cmd") $out
 Copy-Item $guide.FullName (Join-Path $out "Инструкция.pdf")
+Copy-Item $script (Join-Path $out "Сценарий за тест.pdf")
 
 # Пакетът за ръководителя не бива да съдържа тайни или данни от разговори.
 # Изключение: синтетичният запис за теста на компютъра (Windows TTS, без лични данни).
