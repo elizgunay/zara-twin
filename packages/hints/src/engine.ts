@@ -94,7 +94,8 @@ export class HintEngine {
         key: "no-data:price",
         kind: "no-data",
         title: "Няма данни за цени",
-        lines: ["Не давайте цифра на момента.", "Предложете писмена оферта след срещата."],
+        say: ["Ще ви изпратя точна оферта днес, след срещата."],
+        lines: [],
       });
     }
     if (!ownerPrices && DISCOUNT_QUESTION.test(text) && missing("Граници на отстъпките")) {
@@ -102,7 +103,8 @@ export class HintEngine {
         key: "no-data:discount",
         kind: "no-data",
         title: "Няма данни за отстъпки",
-        lines: ["Не обещавайте отстъпка на момента.", "Отговорете, че ще я включите в офертата."],
+        say: ["Най-добрите условия ще включа директно в офертата."],
+        lines: [],
       });
     }
     if (LEASING_QUESTION.test(text)) {
