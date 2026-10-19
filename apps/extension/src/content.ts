@@ -15,7 +15,10 @@ import {
 } from "./shared/messages";
 import { UtteranceMerger } from "./transcripts/merge";
 import { SAVING_ENABLED_KEY } from "./transcripts/store";
-import { CopilotPanel } from "./ui/panel";
+import { CopilotPanel, isPanelPrefs } from "./ui/panel";
+
+/** Мястото на панела и дали разговорът е разгънат (запомня се между срещите). */
+const PANEL_PREFS_KEY = "panelPrefs";
 
 // Content script: работи вътре в meet.google.com и само показва състоянието.
 // Звукът се прихваща в offscreen документа, а сесията се управлява от service worker-а.
@@ -107,8 +110,19 @@ const panel = new CopilotPanel({
     // Сменен по средата на срещата: записът на тази среща веднага взима новия етикет.
     saveReport();
   },
+  onPrefsChange: (prefs) => {
+    void chrome.storage.local.set({ [PANEL_PREFS_KEY]: prefs }).catch(() => {});
+  },
 });
 panel.mount();
+// Мястото на панела и разгънатият разговор от предишната среща.
+void chrome.storage.local.get(PANEL_PREFS_KEY).then(
+  (stored) => {
+    const prefs: unknown = stored[PANEL_PREFS_KEY];
+    if (isPanelPrefs(prefs)) panel.applyPrefs(prefs);
+  },
+  () => {},
+);
 
 chrome.runtime.onMessage.addListener((message: unknown) => {
   if (!isContentMessage(message)) return;

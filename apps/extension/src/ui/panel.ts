@@ -21,6 +21,22 @@ export interface PanelOptions {
   onSave?: () => Promise<{ tone: "info" | "error"; text: string }>;
   /** Бутонът „Тест“: отбелязва срещата като тестова (записва се с етикет, отделно от истинските). */
   onTestMode?: (on: boolean) => void;
+  /** Мястото на панела и дали разговорът е разгънат: пазят се за следващата среща. */
+  onPrefsChange?: (prefs: PanelPrefs) => void;
+}
+
+export interface PanelPrefs {
+  transcriptOpen: boolean;
+  /** Горният ляв ъгъл в пиксели; без тях панелът е горе вдясно. */
+  x?: number;
+  y?: number;
+}
+
+export function isPanelPrefs(value: unknown): value is PanelPrefs {
+  if (typeof value !== "object" || value === null) return false;
+  const p = value as Record<string, unknown>;
+  const coord = (v: unknown) => v === undefined || (typeof v === "number" && Number.isFinite(v));
+  return typeof p.transcriptOpen === "boolean" && coord(p.x) && coord(p.y);
 }
 
 /**
@@ -62,6 +78,73 @@ export class CopilotPanel {
       this.setTestMode(on);
       options.onTestMode?.(on);
     });
+    this.part("transcript-toggle").addEventListener("click", () => {
+      this.setTranscriptOpen(!this.prefs.transcriptOpen);
+      options.onPrefsChange?.({ ...this.prefs });
+    });
+    this.enableDrag(() => options.onPrefsChange?.({ ...this.prefs }));
+    this.setTranscriptOpen(false);
+  }
+
+  private prefs: PanelPrefs = { transcriptOpen: false };
+
+  /** Възстановява мястото и разгънатия разговор от предишната среща. */
+  applyPrefs(prefs: PanelPrefs): void {
+    this.setTranscriptOpen(prefs.transcriptOpen);
+    if (prefs.x !== undefined && prefs.y !== undefined) this.moveTo(prefs.x, prefs.y);
+  }
+
+  /** Разговорът е свит по подразбиране (последните 2 реда): подсказките са по-важни. */
+  setTranscriptOpen(open: boolean): void {
+    this.prefs.transcriptOpen = open;
+    this.transcript.classList.toggle("collapsed", !open);
+    const toggle = this.part("transcript-toggle");
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.textContent = open ? "Разговор ▾" : "Разговор ▸";
+    this.transcript.scrollTop = this.transcript.scrollHeight;
+  }
+
+  /** Местене за заглавната лента; панелът остава изцяло в прозореца. */
+  private enableDrag(onDone: () => void): void {
+    const header = this.root.querySelector<HTMLElement>("header")!;
+    let start: { dx: number; dy: number } | null = null;
+    header.addEventListener("pointerdown", (event) => {
+      if ((event.target as HTMLElement).closest("button") || event.button !== 0) return;
+      const rect = this.panelBox().getBoundingClientRect();
+      start = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+      header.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    header.addEventListener("pointermove", (event) => {
+      if (start) this.moveTo(event.clientX - start.dx, event.clientY - start.dy);
+    });
+    const end = () => {
+      if (!start) return;
+      start = null;
+      onDone();
+    };
+    header.addEventListener("pointerup", end);
+    header.addEventListener("pointercancel", end);
+    // При смяна на размера на прозореца панелът се връща във видимата част.
+    this.doc.defaultView?.addEventListener("resize", () => {
+      if (this.prefs.x !== undefined && this.prefs.y !== undefined) this.moveTo(this.prefs.x, this.prefs.y);
+    });
+  }
+
+  private moveTo(x: number, y: number): void {
+    const box = this.panelBox();
+    const view = this.doc.defaultView;
+    const maxX = Math.max(0, (view?.innerWidth ?? 1280) - box.offsetWidth);
+    const maxY = Math.max(0, (view?.innerHeight ?? 800) - 48);
+    this.prefs.x = Math.round(Math.min(Math.max(0, x), maxX));
+    this.prefs.y = Math.round(Math.min(Math.max(0, y), maxY));
+    box.style.left = `${this.prefs.x}px`;
+    box.style.top = `${this.prefs.y}px`;
+    box.style.right = "auto";
+  }
+
+  private panelBox(): HTMLElement {
+    return this.root.querySelector<HTMLElement>(".panel")!;
   }
 
   /**
@@ -288,7 +371,8 @@ const TEMPLATE = /* html */ `
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     font: 13px/1.45 "Segoe UI", Roboto, Arial, sans-serif;
   }
-  header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #3c4352; }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #3c4352; cursor: move; user-select: none; touch-action: none; }
+  header button { cursor: pointer; }
   header h1 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
   header > * { white-space: nowrap; }
   .badge { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #3c4352; color: #bdc1c6; }
@@ -323,13 +407,21 @@ const TEMPLATE = /* html */ `
   .hint.answer .say { color: #c8ecd3; }
   .hint.calendar-busy { border-left-color: #f28b82; background: #3a2526; }
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
+  /* Най-новата подсказка е отгоре и изпъква; по-старите са бледи и по-дребни. */
+  .hints .hint:first-child { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+  .hints .hint:not(:first-child) { opacity: 0.55; }
+  .hints .hint:not(:first-child) .say.main { font-size: 13px; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }
   .hint li { margin: 2px 0; }
   .hint .say { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: #d7c4f5; }
   .hint .say.main { font-size: 15px; font-weight: 600; color: #fff; }
   .hint .say + ul { margin-top: 6px; font-size: 12px; color: #9aa0a6; }
   .hint a { display: inline-block; margin-top: 4px; font-size: 11px; color: #8ab4f8; }
-  .transcript { flex: 1; overflow-y: auto; padding: 4px 12px 12px; border-top: 1px solid #3c4352; margin-top: 10px; }
+  .section-toggle { margin: 10px 0 0; padding: 6px 12px; border-top: 1px solid #3c4352; border-radius: 0; font-size: 12px; font-weight: 600; color: #9aa0a6; text-align: left; }
+  .transcript { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+  /* Свит разговор: само последните 2 реда, подсказките остават главното. */
+  .transcript.collapsed { flex: none; max-height: 3.2em; overflow: hidden; padding-bottom: 8px; color: #9aa0a6; }
+  .transcript.collapsed p { margin: 2px 0; }
   .transcript p { margin: 6px 0; }
   .transcript strong { color: #8ab4f8; font-weight: 600; }
   .empty { color: #9aa0a6; font-style: italic; }
@@ -371,6 +463,7 @@ const TEMPLATE = /* html */ `
   </div>
   <textarea class="logs" data-part="logs-box" readonly hidden></textarea>
   <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>
+  <button type="button" class="section-toggle" data-part="transcript-toggle" aria-expanded="false">Разговор ▸</button>
   <div class="transcript" data-part="transcript">
     <p class="empty" data-part="empty">Текстът от разговора ще се появи тук.</p>
   </div>
