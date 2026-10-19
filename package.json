@@ -25,7 +25,8 @@
     "client-brief": "node tools/strategy-doc/client-brief.js",
     "pilot-guide": "node tools/strategy-doc/pilot-guide.js",
     "pilot-package": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/pilot-package.ps1",
-    "bench:speechmatics": "tsx tools/stt-bench/src/speechmatics.ts"
+    "bench:speechmatics": "tsx tools/stt-bench/src/speechmatics.ts",
+    "pilot-package:with-key": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/pilot-package.ps1 -WithKey"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

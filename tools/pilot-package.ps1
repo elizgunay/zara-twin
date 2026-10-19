@@ -7,6 +7,9 @@
 #
 # Файлът е UTF-8 с BOM, иначе Windows PowerShell 5.1 обърква кирилицата.
 # Употреба (от корена на проекта):  npm run pilot-package
+#   С вградения ключ за Speechmatics (колегите не въвеждат нищо): npm run pilot-package:with-key
+#   Само за доверени хора: който има zip-а, има и ключа (и харчи минутите от акаунта).
+param([switch]$WithKey)
 $ErrorActionPreference = "Stop"
 
 $root = (Get-Location).Path
@@ -15,8 +18,8 @@ $zip = Join-Path $root "release\zara-copilot-pilot.zip"
 $guide = Get-ChildItem (Join-Path $root "docs\pilot") -Filter "*.pdf" | Sort-Object Name | Select-Object -Last 1
 if ($null -eq $guide) { throw "Липсва PDF инструкция в docs\pilot (npm run pilot-guide)." }
 
-# Пакетът е за други хора: изграждаме го без вградения ключ за Speechmatics (всеки въвежда свой).
-$env:ZARA_PILOT_PACKAGE = "1"
+# По подразбиране пакетът е без вградения ключ за Speechmatics (всеки въвежда свой).
+if (-not $WithKey) { $env:ZARA_PILOT_PACKAGE = "1" }
 try {
   npm.cmd run build:extension | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Изграждането на разширението не успя." }
@@ -42,7 +45,8 @@ $forbidden = Get-ChildItem $out -Recurse -File | Where-Object {
 if ($forbidden) { throw "В пакета има забранени файлове: $($forbidden.Name -join ', ')" }
 # Втора защита: в кода на пакета не бива да има вграден ключ.
 $baked = Get-ChildItem (Join-Path $out "extension") -Filter "*.js" -File | Select-String -Pattern 'BUILT_IN_SPEECHMATICS_KEY = "[^"]+"' -List
-if ($baked) { throw "В пакета има вграден ключ за Speechmatics ($($baked.Filename -join ', ')). Пакетът не е създаден." }
+if ($baked -and -not $WithKey) { throw "В пакета има вграден ключ за Speechmatics ($($baked.Filename -join ', ')). Пакетът не е създаден." }
+if ($WithKey -and -not $baked) { throw "Поискан е пакет с ключ, но в .env няма SPEECHMATICS_API_KEY." }
 
 # Обратно: разширението за разработка (apps\extension\dist) отново с ключа от .env.
 npm.cmd run build:extension | Out-Null
@@ -64,3 +68,4 @@ try {
   $archive.Dispose()
 }
 "Готово: $zip ($([math]::Round((Get-Item $zip).Length / 1KB)) KB)"
+if ($WithKey) { "ВНИМАНИЕ: пакетът съдържа ключа за Speechmatics. Давайте го само на доверени колеги." }
