@@ -41,20 +41,30 @@ const WEEKDAY = new RegExp(
   "iu",
 );
 const NEXT_WEEK = new RegExp(`${B}(?:следващата|другата)\\s+седмица${E}`, "iu");
-const MONTH_DATE = new RegExp(`${B}(\\d{1,2})(?:-?(?:ви|ри|ти|ми))?\\s+(${MONTHS.join("|")})${E}`, "iu");
+// „21 октомври“, „21-ви октомври“ и „21 ви октомври“ (така го пише разпознаването на говор).
+const MONTH_DATE = new RegExp(`${B}(\\d{1,2})(?:[-\\s]?(?:ви|ри|ти|ми))?\\s+(${MONTHS.join("|")})${E}`, "iu");
 const NUMERIC_DATE = new RegExp(`${B}на\\s+(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{4}))?${E}`, "iu");
 // „в 10“, „в 10:30“, „в 10.30“, „в 10 и 30“, „в 10 и половина“, „към 9 часа“
 const TIME = new RegExp(
   `${B}(?:в|във|към|около|от)\\s+(\\d{1,2})(?:[:.](\\d{2})|\\s+и\\s+(половина|\\d{1,2}))?(?:\\s*(ч\\.?|часа?|часът))?(?=\\s|[,.!?;]|$)`,
   "iu",
 );
+// „за 10 часа“: само с „часа“ след числото (иначе „за 3 етажа“ би станало час).
+const FOR_TIME = new RegExp(`${B}за\\s+(\\d{1,2})(?:[:.](\\d{2}))?\\s*(?:ч\\.?|часа?)(?=\\s|[,.!?;]|$)`, "iu");
+// Часовете с думи: „в десет“, „за десет часа“, „към два“ → цифри, само след предлог за време.
+const HOUR_WORDS: Record<string, number> = {
+  един: 1, една: 1, два: 2, две: 2, три: 3, четири: 4, пет: 5, шест: 6, седем: 7, осем: 8, девет: 9, десет: 10,
+  единадесет: 11, единайсет: 11, дванадесет: 12, дванайсет: 12,
+};
+const HOUR_WORD = new RegExp(`${B}(в|във|към|около|от|за)\\s+(${Object.keys(HOUR_WORDS).join("|")})${E}`, "giu");
 // „в 3 етажа“, „в 2 години“ не са час: след числото стои мерна единица или предмет.
 const QUANTITY_AFTER = /^\s*(?:етаж|ста[яи]|кг|килограм|робот|машин|месец|годин|дни|ден|седмиц|метр|м²|м2|кв|души|човек|хора|бр\.?|броя|процент|%|евро|€|лв|лева|нив[ао]|смен|минут)/iu;
 
 const DEFAULT_DURATION_MIN = 60;
 const WORKDAY = { from: 9, to: 18 };
 
-export function parseSchedule(text: string, now: Date): ScheduleMention | null {
+export function parseSchedule(input: string, now: Date): ScheduleMention | null {
+  const text = input.replace(HOUR_WORD, (_, prep: string, word: string) => `${prep} ${HOUR_WORDS[word.toLowerCase()]}`);
   const day = resolveDay(text, now);
   if (day === null) return null;
 
@@ -124,7 +134,13 @@ function resolveDay(text: string, now: Date): Date | null {
 
 function parseTime(text: string): { hour: number; minute: number } | null {
   const match = TIME.exec(text);
-  if (!match) return null;
+  if (!match) {
+    const forTime = FOR_TIME.exec(text);
+    if (!forTime) return null;
+    const hour = Number(forTime[1]);
+    const minute = forTime[2] !== undefined ? Number(forTime[2]) : 0;
+    return hour > 23 || minute > 59 ? null : { hour, minute };
+  }
   const hasMinutes = match[2] !== undefined || match[3] !== undefined;
   if (!hasMinutes && match[4] === undefined && QUANTITY_AFTER.test(text.slice(match.index + match[0].length))) {
     return null;

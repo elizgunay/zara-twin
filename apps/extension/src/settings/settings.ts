@@ -5,6 +5,7 @@ import {
   cloudStatus,
   signIn as cloudSignIn,
   signOut as cloudSignOut,
+  syncPending,
   uploadReports,
   type SyncResult,
 } from "../cloud/cloud";
@@ -380,7 +381,7 @@ cloudAction("#cloud-signin", async () => {
   cloudPassword.value = "";
   // Веднага изпраща и срещите, записани досега само на компютъра.
   const reports = await meetingLog.list();
-  const result = reports.length ? await uploadReports(reports, await savedLines()) : null;
+  const result = reports.length ? await syncPending(reports, await savedLines()) : null;
   if (result && !result.ok) showCloud(`Влязохте, но срещите не се изпратиха: ${result.error ?? ""}`, "err");
   else showCloud(`Влязохте.${result ? ` Изпратени ${result.count} срещи от дневника.` : ""} Новите срещи ще отиват в таблото сами.`, "ok");
   await loadCloud();

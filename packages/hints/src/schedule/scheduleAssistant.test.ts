@@ -11,6 +11,27 @@ function calendarWith(busy: TimeRange[]): CalendarProvider {
 
 const say = (assistant: ScheduleAssistant, text: string) => assistant.onSegment({ speaker: "counterpart", text });
 
+describe("ScheduleAssistant: уговорка на парчета (истинска среща, 19.10)", () => {
+  it("събира датата и часа от няколко реплики на двамата", async () => {
+    const assistant = new ScheduleAssistant(null, { now: () => NOW });
+    const pieces: [ "owner" | "counterpart", string][] = [
+      ["counterpart", "Да се уговорим за"], ["counterpart", "среща"], ["counterpart", "за"], ["counterpart", "21 ви"],
+      ["owner", "Октомври"], ["owner", "За десет часа"], ["owner", "Окей, става"],
+    ];
+    const hints = [];
+    for (const [speaker, text] of pieces) hints.push(...(await assistant.onSegment({ speaker, text })));
+    // Последната подсказка е с точния час: от нея обобщението взима „следваща стъпка“.
+    expect(hints.at(-1)).toMatchObject({ kind: "calendar", title: "Час: сряда, 21 окт., 10:00" });
+  });
+
+  it("по-новият час печели пред по-ранния ден", async () => {
+    const assistant = new ScheduleAssistant(null, { now: () => NOW });
+    await say(assistant, "Удобно ли ви е в понеделник?");
+    const [hint] = await say(assistant, "Не, по-добре в петък в 11");
+    expect(hint).toMatchObject({ title: "Час: петък, 16 окт., 11:00" });
+  });
+});
+
 describe("ScheduleAssistant", () => {
   it("предупреждава при конфликт и предлага първия свободен час", async () => {
     const calendar = calendarWith([{ start: wed(10, 30), end: wed(11, 30) }]);

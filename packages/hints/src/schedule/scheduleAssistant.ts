@@ -16,8 +16,13 @@ export interface ScheduleAssistantOptions {
   workday?: { fromHour: number; toHour: number };
 }
 
+/** Колко назад се гледа за части от уговорката: 30 секунди, до 8 реплики. */
+const WINDOW_MS = 30_000;
+const WINDOW_SEGMENTS = 8;
+
 export class ScheduleAssistant {
   private readonly shownAt = new Map<string, number>();
+  private recent: { text: string; at: number }[] = [];
   private readonly now: () => Date;
   private readonly cooldownMs: number;
   private readonly workday: { fromHour: number; toHour: number };
@@ -33,7 +38,11 @@ export class ScheduleAssistant {
 
   async onSegment(segment: SegmentInput): Promise<Hint[]> {
     const now = this.now();
-    const mention = parseSchedule(segment.text, now);
+    // Разпознаването на говор праща изреченията на парчета („за 21 ви“ / „октомври“ / „за десет часа“),
+    // а датата често се казва от двамата. Затова гледаме и последните реплики заедно.
+    this.recent.push({ text: segment.text, at: now.getTime() });
+    this.recent = this.recent.filter((r) => now.getTime() - r.at <= WINDOW_MS).slice(-WINDOW_SEGMENTS);
+    const mention = this.findMention(now);
     if (mention === null) return [];
 
     const key = `calendar:${mention.start.getTime()}:${mention.end.getTime()}`;
@@ -61,6 +70,21 @@ export class ScheduleAssistant {
     }
 
     return [mention.exactTime ? this.exactHint(key, mention, busy, day) : this.rangeHint(key, mention, busy)];
+  }
+
+  /**
+   * От най-новата реплика назад: първо само тя, после с предишните. Предпочита точен час;
+   * така „не, в петък в 10“ печели пред по-ранното „в четвъртък“.
+   */
+  private findMention(now: Date): ScheduleMention | null {
+    let fallback: ScheduleMention | null = null;
+    for (let count = 1; count <= this.recent.length; count++) {
+      const text = this.recent.slice(-count).map((r) => r.text).join(" ");
+      const mention = parseSchedule(text, now);
+      if (mention?.exactTime) return mention;
+      fallback ??= mention;
+    }
+    return fallback;
   }
 
   private exactHint(key: string, mention: ScheduleMention, busy: TimeRange[], day: TimeRange): Hint {

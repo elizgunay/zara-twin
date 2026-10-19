@@ -66,7 +66,8 @@ export async function signIn(email: string, password: string): Promise<void> {
 
 export async function signOut(): Promise<void> {
   await db().auth.signOut().catch(() => {});
-  await chrome.storage.local.remove([CLOUD_ORG_KEY, CLOUD_SYNC_KEY, AUTH_STORAGE_KEY]);
+  // При следващ вход (може и с друг акаунт) всичко се праща наново.
+  await chrome.storage.local.remove([CLOUD_ORG_KEY, CLOUD_SYNC_KEY, CLOUD_SYNCED_KEY, AUTH_STORAGE_KEY]);
 }
 
 export async function cloudStatus(): Promise<CloudStatus> {
@@ -135,6 +136,32 @@ export async function uploadReports(
     ? { at: Date.now(), ok: false, error: humanError(error.message) }
     : { at: Date.now(), ok: true, count: rows.length, ...(warning && { error: warning }) };
   await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: result });
+  return result;
+}
+
+/** Коя среща до коя версия е стигнала до таблото: id → endedAt на изпратената версия. */
+export const CLOUD_SYNCED_KEY = "cloudSynced";
+
+/**
+ * Праща сам всичко, което още не е в таблото: нови срещи, по-нови версии на срещи и срещите,
+ * изпратени без текста (преди миграция 0004). Без бутон; вика се при всеки запис, при старт и при вход.
+ */
+export async function syncPending(
+  reports: MeetingReport[],
+  linesFor: (report: MeetingReport) => ReportRow["lines"],
+): Promise<SyncResult | null> {
+  const stored: unknown = (await chrome.storage.local.get(CLOUD_SYNCED_KEY))[CLOUD_SYNCED_KEY];
+  const synced: Record<string, number> = stored && typeof stored === "object" ? (stored as Record<string, number>) : {};
+  const pending = reports.filter((r) => synced[r.id] !== r.endedAt);
+  if (pending.length === 0) return null;
+  const result = await uploadReports(pending, linesFor);
+  // Предупреждението („без текста…“) значи, че нещо не е стигнало: опитваме пак следващия път.
+  if (result?.ok && !result.error) {
+    const next: Record<string, number> = {};
+    for (const r of reports) if (synced[r.id] !== undefined) next[r.id] = synced[r.id]!;
+    for (const r of pending) next[r.id] = r.endedAt;
+    await chrome.storage.local.set({ [CLOUD_SYNCED_KEY]: next });
+  }
   return result;
 }
 

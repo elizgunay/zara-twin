@@ -5,6 +5,24 @@ import { parseSchedule } from "./parseSchedule";
 const NOW = new Date(2026, 9, 15, 10, 0);
 const d = (month: number, day: number, hour = 0, minute = 0) => new Date(2026, month - 1, day, hour, minute);
 
+describe("parseSchedule: както пише разпознаването на говор", () => {
+  it("„21 ви октомври … за десет часа“", () => {
+    expect(parseSchedule("Да се уговорим за среща за 21 ви Октомври За десет часа", NOW)).toMatchObject({ start: d(10, 21, 10), exactTime: true });
+  });
+
+  it("часове с думи след предлог", () => {
+    expect(parseSchedule("Утре в десет", NOW)).toMatchObject({ start: d(10, 16, 10) });
+    expect(parseSchedule("В петък към два", NOW)).toMatchObject({ start: d(10, 16, 14) }); // 2 → 14:00
+    expect(parseSchedule("Утре за 11 часа", NOW)).toMatchObject({ start: d(10, 16, 11) });
+  });
+
+  it("„за“ без „часа“ не е час", () => {
+    expect(parseSchedule("Утре за 3 етажа", NOW)).toBeNull();
+    // „две маси“ без предлог за време не става час.
+    expect(parseSchedule("В петък поръчахме две маси", NOW)).toBeNull();
+  });
+});
+
 describe("parseSchedule", () => {
   it("„следващата сряда в 10“ = сряда от следващата седмица, 10:00–11:00", () => {
     expect(parseSchedule("Да се видим следващата сряда в 10", NOW)).toEqual({

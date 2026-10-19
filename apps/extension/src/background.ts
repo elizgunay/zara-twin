@@ -17,7 +17,7 @@ import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
-import { uploadReports } from "./cloud/cloud";
+import { syncPending } from "./cloud/cloud";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
 import { resolveCloudStt, SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
@@ -243,13 +243,25 @@ function saveReport(report: MeetingReport, lines: TranscriptLine[]): Promise<{ o
     // Текстът: автоматично, на този компютър, със срока от Опции → Запазени срещи.
     // Същият ключ като обобщението (код@начало), затова двете се намират едно друго.
     if (lines.length > 0) await transcripts.save({ meetingCode: report.meetingCode, startedAt: report.startedAt, lines });
-    // И в таблото, ако сте влезли (Опции → Табло). Грешка там не спира записа на компютъра.
-    await uploadReports([report], () => lines).catch(() => null);
+    // И в таблото, ако сте влезли: тази среща и всичко, което още не е стигнало. Без бутон.
+    // Грешка там не спира записа на компютъра; следващото записване опитва пак.
+    await syncAll().catch(() => null);
     return { ok: true };
   });
   reportQueue = run.catch(() => {});
   return run.catch(() => ({ ok: false }));
 }
+
+/** Целият дневник към таблото: обобщенията и текстът (по същия ключ код@начало). */
+async function syncAll(): Promise<void> {
+  const texts = new Map((await transcripts.list()).map((m) => [m.id, m.lines]));
+  await syncPending(await meetingLog.list(), (r) => texts.get(r.id) ?? []);
+}
+
+// При всяко събуждане на service worker-а (старт на браузъра, след презареждане): догонва таблото.
+setTimeout(() => {
+  reportQueue = reportQueue.then(syncAll).catch(() => {});
+}, 5_000);
 
 /** Запазените срещи: само на този компютър, със срок за автоматично изтриване. */
 const transcripts = new TranscriptStore(chrome.storage.local);
