@@ -171,6 +171,14 @@ export class CopilotPanel {
     title.textContent = hint.title;
     card.append(title);
 
+    // Готовите реплики се четат на един поглед: едър шрифт, в кавички, първата е основната.
+    hint.say?.forEach((line, index) => {
+      const quote = this.doc.createElement("p");
+      quote.className = index === 0 ? "say main" : "say";
+      quote.textContent = `„${line}“`;
+      card.append(quote);
+    });
+
     if (hint.lines.length > 0) {
       const list = this.doc.createElement("ul");
       for (const line of hint.lines) {
@@ -252,6 +260,9 @@ const TEMPLATE = /* html */ `
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }
   .hint li { margin: 2px 0; }
+  .hint .say { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: #d7c4f5; }
+  .hint .say.main { font-size: 15px; font-weight: 600; color: #fff; }
+  .hint .say + ul { margin-top: 6px; font-size: 12px; color: #9aa0a6; }
   .hint a { display: inline-block; margin-top: 4px; font-size: 11px; color: #8ab4f8; }
   .transcript { flex: 1; overflow-y: auto; padding: 4px 12px 12px; border-top: 1px solid #3c4352; margin-top: 10px; }
   .transcript p { margin: 6px 0; }

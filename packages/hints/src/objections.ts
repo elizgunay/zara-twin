@@ -1,4 +1,4 @@
-import type { KnowledgePack, MethodPack, Objection } from "@zara-twin/knowledge";
+import type { KnowledgePack, MethodPack, Objection, Tip } from "@zara-twin/knowledge";
 import type { Hint, SegmentInput } from "./engine";
 
 /**
@@ -46,12 +46,18 @@ export class ObjectionDetector {
       const last = this.shownAt.get(key);
       if (last !== undefined && now - last < this.cooldownMs) continue;
       this.shownAt.set(key, now);
-      hints.push({ key, kind: "objection", title: objection.label, lines: objection.tips.map((tip) => this.render(tip)) });
+      hints.push({
+        key,
+        kind: "objection",
+        title: objection.label,
+        say: objection.say,
+        lines: (objection.tips ?? []).map((tip) => this.render(tip)),
+      });
     }
     return hints;
   }
 
-  private render(tip: Objection["tips"][number]): string {
+  private render(tip: Tip): string {
     if (!tip.policyTopic) return tip.text;
     const policy = this.profile.policies.find((p) => p.topic.startsWith(tip.policyTopic!));
     // Ако профилът няма такава политика, не измисляме: показваме само общия съвет.

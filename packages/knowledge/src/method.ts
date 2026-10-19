@@ -28,7 +28,10 @@ export interface Objection {
   label: string;
   /** Фрази, по които се разпознава. Малки букви; окончанията се допускат автоматично. */
   triggers: string[];
-  tips: Tip[];
+  /** 1–2 готови изречения, които продавачът казва дословно. Първото е основното. */
+  say: string[];
+  /** 0–1 кратко напомняне (факт от профила), показва се дребно под репликите. */
+  tips?: Tip[];
 }
 
 export interface Tip {
@@ -51,7 +54,10 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (!objection.label) problems.push(`„${objection.id}“: липсва заглавие.`);
     if (!objection.triggers?.length) problems.push(`„${objection.id}“: няма фрази за разпознаване.`);
     if (objection.triggers?.some((t) => t !== t.toLowerCase())) problems.push(`„${objection.id}“: фразите трябва да са с малки букви.`);
-    if (!objection.tips?.length || objection.tips.length > 3) problems.push(`„${objection.id}“: трябват 1–3 съвета (повече не се четат по време на разговор).`);
+    // По време на разговор се чете само кратко: 1–2 реплики и най-много едно напомняне.
+    if (!objection.say?.length || objection.say.length > 2) problems.push(`„${objection.id}“: трябват 1–2 реплики (повече не се четат по време на разговор).`);
+    if (objection.say?.some((line) => line.length > 140)) problems.push(`„${objection.id}“: репликата е твърде дълга (до 140 знака).`);
+    if ((objection.tips?.length ?? 0) > 1) problems.push(`„${objection.id}“: най-много едно напомняне.`);
   }
   const talk = pack.talkRatio;
   if (talk !== undefined) {

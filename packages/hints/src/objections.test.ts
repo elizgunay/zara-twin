@@ -18,22 +18,34 @@ describe("ObjectionDetector", () => {
     const { d } = detector();
     expect(client(d, "Честно казано, доста е скъпо за нас.")).toEqual(["objection:price"]);
     expect(client(d, "Мисля, че ще го оставим за догодина.")).toEqual(["objection:timing"]);
+    expect(client(d, "Добре, трябва да си помисля.")).toEqual(["objection:think"]);
     expect(client(d, "Трябва да питам съдружника.")).toEqual(["objection:authority"]);
     expect(client(d, "Не съм сигурен, че персоналът ще го приеме.")).toEqual(["objection:trust"]);
     expect(client(d, "Имаме и друга оферта.")).toEqual(["objection:competitor"]);
+  });
+
+  it("„ще си помисля“ дава готова реплика за казване, не съвет", () => {
+    const variants = ["Ще си помисля и ще ви се обадя.", "Нека помислим малко.", "Ще го обмислим с колегите.", "Ще ви върнем отговор."];
+    for (const text of variants) {
+      const [hint] = detector().d.onSegment({ speaker: "counterpart", text });
+      expect(hint, text).toMatchObject({ key: "objection:think" });
+      expect(hint!.say![0]).toMatch(/^Разбира се\. Какво точно/);
+      expect(hint!.say).toHaveLength(2);
+    }
   });
 
   it("взима условията от профила на бизнеса (метод + профил)", () => {
     const { d } = detector();
     const [hint] = d.onSegment({ speaker: "counterpart", text: "А ако се повреди?" });
     expect(hint).toMatchObject({ kind: "objection", title: "Съмнение дали ще проработи" });
-    expect(hint!.lines[2]).toBe("Напомнете: Гаранция до 24 месеца.");
+    expect(hint!.say![0]).toBe("Разбирам ви. Какво точно ви притеснява?");
+    expect(hint!.lines).toEqual(["Факт: Гаранция до 24 месеца."]);
   });
 
   it("без политика в профила показва само общия съвет, без да измисля", () => {
     const empty = { ...profile, policies: [] };
     const [hint] = new ObjectionDetector(method, empty).onSegment({ speaker: "counterpart", text: "рисковано е" });
-    expect(hint!.lines[2]).toBe("Напомнете.");
+    expect(hint!.lines).toEqual(["Факт."]);
   });
 
   it("реагира само на думите на клиента", () => {
@@ -66,9 +78,12 @@ describe("ObjectionDetector", () => {
 });
 
 describe("validateMethodPack", () => {
-  it("отказва метод с твърде много съвети", () => {
-    const broken = structuredClone(rawMethod);
-    broken.objections[0]!.tips.push({ text: "четвърти" });
-    expect(() => validateMethodPack(broken)).toThrow(/1–3 съвета/);
+  it("отказва метод с твърде много или твърде дълги реплики", () => {
+    const many = structuredClone(rawMethod);
+    many.objections[0]!.say.push("трета");
+    expect(() => validateMethodPack(many)).toThrow(/1–2 реплики/);
+    const long = structuredClone(rawMethod);
+    long.objections[0]!.say[0] = "дума ".repeat(40);
+    expect(() => validateMethodPack(long)).toThrow(/твърде дълга/);
   });
 });

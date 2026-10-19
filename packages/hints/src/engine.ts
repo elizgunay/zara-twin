@@ -12,6 +12,8 @@ export interface Hint {
   kind: "product" | "family" | "no-data" | "objection" | "talk" | "calendar" | "calendar-free" | "calendar-busy";
   title: string;
   lines: string[];
+  /** Готови изречения за казване дословно (при възражения). Показват се с едър шрифт над lines. */
+  say?: string[];
   sourceUrl?: string;
 }
 
