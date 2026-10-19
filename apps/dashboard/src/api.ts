@@ -107,7 +107,8 @@ export async function listReports(orgId: string): Promise<ReportRow[]> {
   return check(
     await db()
       .from("meeting_reports")
-      .select("id, user_id, meeting_code, started_at, ended_at, owner_ms, counterpart_ms, monologues, hints, score, objections, products, next_step, notes")
+      // Всички колони: така работи и преди миграция 0003 (без is_test), и след нея.
+      .select("*")
       .eq("org_id", orgId)
       .gte("started_at", since)
       .order("started_at", { ascending: false })

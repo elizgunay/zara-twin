@@ -14,7 +14,7 @@ import {
 } from "./shared/messages";
 import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
-import { MeetingLog, TEST_MODE_KEY } from "./meetings/log";
+import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
 import { uploadReports } from "./cloud/cloud";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
@@ -237,8 +237,7 @@ let reportQueue: Promise<unknown> = Promise.resolve();
 
 function saveReport(report: MeetingReport): Promise<{ ok: boolean }> {
   const run = reportQueue.then(async () => {
-    // Втора защита: тестова среща не се записва, дори панелът да е пратил обобщение.
-    if ((await chrome.storage.local.get(TEST_MODE_KEY))[TEST_MODE_KEY] === true) return { ok: false };
+    // Тестовите срещи също се записват: етикетът „Тест“ е в самото обобщение (report.test).
     await meetingLog.save(report);
     // И в таблото, ако сте влезли (Опции → Табло). Грешка там не спира дневника на компютъра.
     await uploadReports([report]).catch(() => null);

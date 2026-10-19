@@ -11,6 +11,8 @@ export interface ReportRow {
   counterpart_ms: number;
   monologues: number;
   hints: number;
+  /** Тестова среща (бутон „Тест“ в панела). Липсва, докато не е пусната миграция 0003. */
+  is_test?: boolean;
   score: number;
   objections: { id: string; label: string; atMs: number; again: boolean }[];
   products: string[];
@@ -79,10 +81,17 @@ export function weeklyScores(rows: ReportRow[], weeks = 8): { week: string; avg:
     .map(([week, scores]) => ({ week, avg: scores.reduce((a, b) => a + b, 0) / scores.length, count: scores.length }));
 }
 
-/** Срещите от последните N дни (по началото), по желание само на един продавач. */
-export function filterReports(rows: ReportRow[], days: number, userId: string | null, now = Date.now()): ReportRow[] {
+export type ReportKind = "all" | "real" | "test";
+
+/** Срещите от последните N дни (по началото), по желание само на един продавач и само реални или тестови. */
+export function filterReports(rows: ReportRow[], days: number, userId: string | null, kind: ReportKind = "all", now = Date.now()): ReportRow[] {
   const since = now - days * DAY_MS;
-  return rows.filter((r) => new Date(r.started_at).getTime() >= since && (userId === null || r.user_id === userId));
+  return rows.filter(
+    (r) =>
+      new Date(r.started_at).getTime() >= since &&
+      (userId === null || r.user_id === userId) &&
+      (kind === "all" || (kind === "test") === (r.is_test === true)),
+  );
 }
 
 /** Без имена в базата: „Вие“ и „Продавач 1, 2…“ по реда, в който се появяват. */

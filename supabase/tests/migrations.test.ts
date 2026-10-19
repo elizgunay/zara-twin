@@ -54,6 +54,23 @@ describe("база на таблото (Supabase)", () => {
     await db.close();
   }, 60_000);
 
+  it("тестови срещи (0003): поле is_test, по подразбиране false, правилата остават", async () => {
+    const db = new PGlite();
+    await db.exec(SUPABASE_STUB);
+    await db.exec(read("../migrations/0001_dashboard.sql"));
+    await db.exec(read("../migrations/0002_meeting_reports.sql"));
+    await db.exec(read("../migrations/0003_test_meetings.sql"));
+    // Повторно пускане не чупи нищо.
+    await db.exec(read("../migrations/0003_test_meetings.sql"));
+    const results = await db.exec(read("./0002_reports.sql"));
+    expect((results.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ДНЕВНИКЪТ Е ЗАЩИТЕН");
+    const column = await db.query<{ column_default: string; is_nullable: string }>(
+      "select column_default, is_nullable from information_schema.columns where table_name = 'meeting_reports' and column_name = 'is_test'",
+    );
+    expect(column.rows[0]).toEqual({ column_default: "false", is_nullable: "NO" });
+    await db.close();
+  }, 60_000);
+
   it("продавач, който чете чужди срещи, спира проверката на 0002", async () => {
     const db = new PGlite();
     await db.exec(SUPABASE_STUB);

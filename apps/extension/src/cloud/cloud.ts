@@ -126,6 +126,7 @@ export async function uploadReports(reports: MeetingReport[]): Promise<SyncResul
 }
 
 function humanError(message: string): string {
+  if (/is_test/i.test(message)) return "Базата още няма поле за тестови срещи: пуснете supabase/migrations/0003_test_meetings.sql в SQL Editor.";
   if (/row-level security|permission denied/i.test(message)) return "Нямате права: проверете дали сте поканени във фирмата.";
   if (/invalid login credentials/i.test(message)) return "Грешен имейл или парола.";
   if (/email not confirmed/i.test(message)) return "Акаунтът не е потвърден: в Supabase създайте го с отметка „Auto confirm“.";

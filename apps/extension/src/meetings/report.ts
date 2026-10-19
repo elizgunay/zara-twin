@@ -22,6 +22,8 @@ export interface MeetingReport {
   /** Последният споменат ден и час, напр. „четвъртък, 10:00“. null = няма уговорка. */
   nextStep: { label: string; atMs: number } | null;
   hints: number;
+  /** Тестова среща (бутон „Тест“ в панела): записва се, но се показва отделно. */
+  test?: boolean;
   /** 1–10 по прости правила (виж scoreReport). */
   score: number;
   /** Кратки изводи за показване, най-важният първи. */
@@ -62,8 +64,9 @@ export class MeetingRecorder {
     }
   }
 
-  report(talk: TalkStats, endedAt: number): MeetingReport {
+  report(talk: TalkStats, endedAt: number, test = false): MeetingReport {
     const base = {
+      test,
       id: `${this.meetingCode}@${this.startedAt}`,
       meetingCode: this.meetingCode,
       startedAt: this.startedAt,
@@ -160,6 +163,7 @@ export function isMeetingReport(value: unknown): value is MeetingReport {
     isTime(r.counterpartMs) &&
     isTime(r.monologues) &&
     isTime(r.hints) &&
+    (r.test === undefined || typeof r.test === "boolean") &&
     typeof r.score === "number" &&
     r.score >= 1 &&
     r.score <= 10 &&

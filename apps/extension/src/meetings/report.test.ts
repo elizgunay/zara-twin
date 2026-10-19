@@ -41,6 +41,13 @@ describe("MeetingRecorder", () => {
     expect(report.score).toBe(2); // 10 − 3 − 1 − 3 − 1
   });
 
+  it("тестовата среща носи етикет и минава проверката", () => {
+    const report = new MeetingRecorder("abc-defg-hij", START).report({ ownerMs: 0, counterpartMs: 0, ownerShare: null }, START + min(5), true);
+    expect(report.test).toBe(true);
+    expect(isMeetingReport(report)).toBe(true);
+    expect(isMeetingReport({ ...report, test: "да" })).toBe(false);
+  });
+
   it("при кратко говорене не съди за дела", () => {
     const report = new MeetingRecorder("abc-defg-hij", START).report({ ownerMs: 20_000, counterpartMs: 5_000, ownerShare: 0.8 }, START + min(1));
     expect(report.notes.some((n) => n.startsWith("Говорихте"))).toBe(false);

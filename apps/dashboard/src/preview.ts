@@ -10,7 +10,7 @@ const rows: ReportRow[] = Array.from({ length: 14 }, (_, i) => {
   const start = Date.now() - i * 2.3 * day;
   const good = i % 3 !== 1;
   return {
-    id: String(i), user_id: i % 4 === 0 ? "u2" : "me", meeting_code: "abc-defg-hij",
+    id: String(i), user_id: i % 4 === 0 ? "u2" : "me", meeting_code: "abc-defg-hij", is_test: i === 0,
     started_at: new Date(start).toISOString(), ended_at: new Date(start + (20 + i) * 60_000).toISOString(),
     owner_ms: good ? 9 * 60_000 : 16 * 60_000, counterpart_ms: good ? 8 * 60_000 : 5 * 60_000, monologues: good ? 0 : 2, hints: 6 + i,
     score: good ? Math.min(10, 6 + (i % 5)) : 2 + (i % 3),

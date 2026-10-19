@@ -14,6 +14,8 @@ export interface ReportRow {
   counterpart_ms: number;
   monologues: number;
   hints: number;
+  /** Тестова среща (миграция 0003). */
+  is_test: boolean;
   score: number;
   objections: MeetingReport["objections"];
   products: string[];
@@ -35,6 +37,7 @@ export function reportToRow(report: MeetingReport, orgId: string, userId: string
     counterpart_ms: Math.round(report.counterpartMs),
     monologues: report.monologues,
     hints: report.hints,
+    is_test: report.test === true,
     score: report.score,
     objections: report.objections,
     products: report.products,

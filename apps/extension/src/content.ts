@@ -1,6 +1,6 @@
 import { EchoFilter } from "@zara-twin/core";
 import { HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
-import { MeetingLog, TEST_MODE_KEY } from "./meetings/log";
+import { TEST_MODE_KEY } from "./meetings/log";
 import { MeetingRecorder } from "./meetings/report";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
 import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
@@ -54,12 +54,15 @@ function showHint(hint: Hint): void {
   meeting.recorder?.onHint(hint, Date.now());
 }
 
-/** Праща обобщението към дневника. Празни и много кратки срещи (проба на звука) не се записват. */
+/**
+ * Праща обобщението към дневника. Празни и много кратки срещи (проба на звука) не се записват.
+ * Тестовите срещи се записват с етикет „Тест“, за да се виждат отделно в таблото.
+ */
 function saveReport(): void {
   const recorder = meeting.recorder;
-  if (!recorder || testMode) return;
+  if (!recorder) return;
   const now = Date.now();
-  const report = recorder.report(meeting.talk.session(), now);
+  const report = recorder.report(meeting.talk.session(), now, testMode);
   const talked = report.ownerMs + report.counterpartMs;
   if (now - report.startedAt < 60_000 || (talked < 10_000 && report.hints === 0)) return;
   const message: BackgroundMessage = { type: "save-report", report };
@@ -95,10 +98,8 @@ const panel = new CopilotPanel({
   onTestMode: (on) => {
     testMode = on;
     void chrome.storage.local.set({ [TEST_MODE_KEY]: on });
-    // Включен тест по средата на срещата: махаме вече записаното обобщение на тази среща.
-    const id = meeting.recorder?.report(meeting.talk.session(), Date.now()).id;
-    if (on && id) void new MeetingLog(chrome.storage.local).remove(id).catch(() => {});
-    if (!on) saveReport();
+    // Сменен по средата на срещата: записът на тази среща веднага взима новия етикет.
+    saveReport();
   },
 });
 panel.mount();

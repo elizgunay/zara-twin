@@ -34,6 +34,7 @@
     .score { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 3.2em; }
     .score.low { color: var(--err); } .score.mid { color: #b06000; } .score.high { color: var(--ok); }
     .when { flex: 1; }
+    .test-tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #fdd663; color: #202124; }
     .tagline { color: var(--muted); font-size: 13px; width: 100%; padding-left: 1.2em; }
     .body { padding: 8px 0 0 1.2em; display: grid; gap: 6px; }
     .body ul { margin: 0; padding-left: 18px; }
@@ -51,7 +52,7 @@
     <h1>Zara Copilot: настройки</h1>
     <section style="margin-bottom:16px" id="reports-section">
       <h2>Срещи</h2>
-      <p>Обобщение на всяка среща: кой колко говори, възраженията, роботите и дали има уговорен ден и час. <strong>Без текста на разговора.</strong> Пази се само на този компютър, 90 дни. Срещите с бутон „Тест“ в панела не се записват.</p>
+      <p>Обобщение на всяка среща: кой колко говори, възраженията, роботите и дали има уговорен ден и час. <strong>Без текста на разговора.</strong> Пази се само на този компютър, 90 дни. Срещите с бутон „Тест“ в панела се записват с етикет „Тест“ и не влизат в общите числа отгоре.</p>
       <div id="reports-summary" class="summary"></div>
       <ul id="reports" class="reports"></ul>
       <div class="actions"><button id="reports-delete-all" class="secondary" type="button">Изтрий дневника</button></div>

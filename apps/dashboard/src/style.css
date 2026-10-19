@@ -81,6 +81,7 @@ button.ghost.danger { background: transparent; color: var(--bad); border-color: 
 .ok { color: var(--good); } .err { color: var(--bad); }
 .empty { color: var(--muted); font-size: .9rem; }
 /* Срещи: оценка, графики и разгъващ се списък */
+.chip.test { background: var(--warn); color: var(--surface); }
 .score { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 3.2em; }
 .score.low { color: var(--bad); } .score.mid { color: var(--warn); } .score.high { color: var(--good); }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }

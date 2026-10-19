@@ -221,7 +221,8 @@ async function loadReports(): Promise<void> {
   reportsStatus.textContent = reports.length === 0 ? "Още няма срещи в дневника." : "";
   reportsStatus.className = "";
   // Общо за последните 30 дни: колко срещи, средна оценка и колко завършват с уговорен час.
-  const recent = reports.filter((r) => r.startedAt >= Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Тестовите срещи са в списъка, но не и в общите числа.
+  const recent = reports.filter((r) => !r.test && r.startedAt >= Date.now() - 30 * 24 * 60 * 60 * 1000);
   if (recent.length === 0) return reportsSummary.replaceChildren();
   const average = recent.reduce((sum, r) => sum + r.score, 0) / recent.length;
   const withStep = recent.filter((r) => r.nextStep).length;
@@ -249,6 +250,7 @@ function reportRow(report: MeetingReport): HTMLLIElement {
   summary.append(
     el("span", `score ${tone}`, `${report.score}/10`),
     el("span", "when", when),
+    ...(report.test ? [el("span", "test-tag", "Тест")] : []),
     el("span", "tagline", [report.nextStep ? `✓ ${report.nextStep.label}` : "✕ без уговорен час", ...objections].join(" · ")),
   );
 

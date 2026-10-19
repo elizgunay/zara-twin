@@ -3,7 +3,7 @@ import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
 import * as api from "./api";
 import { action, confirmAction, empty, h, humanError } from "./dom";
 import { daysLeft, formatDateTime, groupMemories, isEmail, ROLE_LABEL, type Membership, type Role } from "./model";
-import { duration, filterReports, objectionCounts, offset, scoreTone, sellerLabels, stats, weeklyScores, type ReportRow } from "./reports";
+import { duration, filterReports, objectionCounts, offset, scoreTone, sellerLabels, stats, weeklyScores, type ReportKind, type ReportRow } from "./reports";
 
 // Екраните на таблото. Всеки връща елемент и сам зарежда данните си; refresh() го рисува отново.
 
@@ -35,12 +35,14 @@ export function startScreen(ctx: Context): HTMLElement {
   void loading(root, async () => {
     await api.purgeExpired();
     const [n, reports] = await Promise.all([api.counts(ctx.org.orgId), api.listReports(ctx.org.orgId)]);
-    const month = stats(filterReports(reports, 30, null));
+    const month = stats(filterReports(reports, 30, null, "real"));
+    const tests = filterReports(reports, 30, null, "test").length;
     const tile = (label: string, value: string, hint: string, href: string) =>
       h("a", { class: "tile", href }, h("span", { class: "eyebrow" }, label), h("span", { class: "value" }, value), h("span", { class: "hint" }, hint));
     return [
       h("div", { class: "tiles" },
-        tile("Срещи (30 дни)", String(month.count), month.avgScore === null ? "Още няма срещи" : `Средна оценка ${month.avgScore.toFixed(1).replace(".", ",")}/10`, "#/meetings"),
+        tile("Срещи (30 дни)", String(month.count),
+          `${month.avgScore === null ? "Още няма реални срещи" : `Средна оценка ${month.avgScore.toFixed(1).replace(".", ",")}/10`}${tests ? ` · ${tests} тестови` : ""}`, "#/meetings"),
         tile("С уговорен час", month.count ? `${month.withNextStep}/${month.count}` : "–", "Срещи, завършили с ден и час", "#/meetings"),
         tile("За одобрение", String(n.proposals), n.proposals ? "Прегледайте ги след срещата" : "Няма чакащи", "#/proposals"),
         tile("Факти в паметта", String(n.memories), "Copilot ги ползва в подсказките", "#/memory"),
@@ -49,6 +51,7 @@ export function startScreen(ctx: Context): HTMLElement {
         ? h("ul", { class: "list" }, ...reports.slice(0, 5).map((r) => h("li", {},
             h("span", { class: `score ${scoreTone(r.score)}` }, `${r.score}/10`),
             h("span", {}, formatDateTime(r.started_at)),
+            r.is_test ? h("span", { class: "chip test" }, "Тест") : null,
             h("span", { class: "muted" }, r.next_step ? `✓ ${r.next_step.label}` : "✕ без уговорен час"))))
         : empty("Още няма срещи. Те идват от разширението: Опции → Табло → вход с имейл и парола.")),
     ];
@@ -89,12 +92,14 @@ export function meetingsScreen(ctx: Context): HTMLElement {
   const period = h("select", { id: "rep-period" },
     ...PERIODS.map((d) => h("option", { value: d, selected: d === 30 }, d === 365 ? "Последната година" : `Последните ${d} дни`))) as HTMLSelectElement;
   const seller = h("select", { id: "rep-seller" }, h("option", { value: "" }, "Всички")) as HTMLSelectElement;
+  const kind = h("select", { id: "rep-kind" },
+    h("option", { value: "all" }, "Всички"), h("option", { value: "real" }, "Само реалните"), h("option", { value: "test" }, "Само тестовите")) as HTMLSelectElement;
   const body = h("div", { class: "stack" });
   let all: ReportRow[] = [];
   let labels = new Map<string, string>();
 
   const draw = () => {
-    const rows = filterReports(all, Number(period.value), seller.value || null);
+    const rows = filterReports(all, Number(period.value), seller.value || null, kind.value as ReportKind);
     if (!rows.length) {
       body.replaceChildren(section("Няма срещи за периода",
         h("p", { class: "muted" }, "Срещите идват от разширението след всяка среща (без бутона „Тест“). В разширението: Опции → Табло → вход с имейл и парола.")));
@@ -104,9 +109,11 @@ export function meetingsScreen(ctx: Context): HTMLElement {
   };
   period.addEventListener("change", draw);
   seller.addEventListener("change", draw);
+  kind.addEventListener("change", draw);
 
   const filters = h("div", { class: "row wrap" },
     h("label", { for: "rep-period" }, "Период", period),
+    h("label", { for: "rep-kind" }, "Вид", kind),
     isOwner ? h("label", { for: "rep-seller" }, "Продавач", seller) : null);
   const root = h("div", { class: "stack" },
     section("Срещи",
@@ -183,6 +190,7 @@ export function reportList(rows: ReportRow[], ctx: Context, labels: Map<string, 
       h("summary", {},
         h("span", { class: `score ${scoreTone(r.score)}` }, `${r.score}/10`),
         h("span", {}, `${formatDateTime(r.started_at)} · ${duration(r.started_at, r.ended_at)}${labels ? ` · ${labels.get(r.user_id) ?? "Продавач"}` : ""}`),
+        r.is_test ? h("span", { class: "chip test" }, "Тест") : null,
         h("span", { class: "muted tagline" }, [r.next_step ? `✓ ${r.next_step.label}` : "✕ без уговорен час", ...objections].join(" · "))),
       h("div", { class: "report-body" },
         r.notes.length ? h("ul", { class: "notes" }, ...r.notes.map((n) => h("li", {}, n))) : null,

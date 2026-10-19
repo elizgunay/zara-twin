@@ -18,7 +18,7 @@ export interface PanelOptions {
   onLogs?: () => Promise<string[]>;
   /** Бутонът „Запази“: запазва текста от срещата и връща съобщение за потребителя. */
   onSave?: () => Promise<{ tone: "info" | "error"; text: string }>;
-  /** Бутонът „Тест“: включва и изключва тестовия режим (срещата не се записва в дневника). */
+  /** Бутонът „Тест“: отбелязва срещата като тестова (записва се с етикет, отделно от истинските). */
   onTestMode?: (on: boolean) => void;
 }
 
@@ -61,7 +61,7 @@ export class CopilotPanel {
     });
   }
 
-  /** Тестова среща: обобщението не влиза в дневника. */
+  /** Тестова среща: обобщението се записва с етикет „Тест“. */
   setTestMode(on: boolean): void {
     this.part("test").setAttribute("aria-pressed", String(on));
     this.part("test-note").hidden = !on;
@@ -290,14 +290,14 @@ const TEMPLATE = /* html */ `
   <header>
     <h1>Zara Copilot</h1>
     <span class="rec" data-part="recording" hidden>Запис</span>
-    <button type="button" class="small test" data-part="test" aria-pressed="false" title="Тестова среща: обобщението не се записва в дневника">Тест</button>
+    <button type="button" class="small test" data-part="test" aria-pressed="false" title="Тестова среща: записва се с етикет „Тест“, отделно от истинските">Тест</button>
     <button type="button" class="small" data-part="save" title="Запази текста от срещата на този компютър" hidden>Запази</button>
     <button type="button" class="small" data-part="logs" title="Копирай логовете за диагностика">Логове</button>
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
   <div class="meta" data-part="meeting">Няма активна среща</div>
   <div class="meta" data-part="stt" hidden></div>
-  <div class="meta test-note" data-part="test-note" hidden>Тестова среща: не се записва в дневника.</div>
+  <div class="meta test-note" data-part="test-note" hidden>Тестова среща: записва се с етикет „Тест“.</div>
   <div class="consent">Уведомете участниците, че разговорът се транскрибира.</div>
   <div class="notice" data-part="notice" role="status" hidden></div>
   <div class="notice error" data-part="mic" role="alert" hidden></div>

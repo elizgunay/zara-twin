@@ -43,8 +43,12 @@ describe("отчети за срещите", () => {
       row({ id: "b", user_id: "u2", started_at: "2026-10-01T10:00:00Z" }),
       row({ id: "c", user_id: "u3", started_at: "2026-10-19T09:00:00Z" }),
     ];
-    expect(filterReports(rows, 7, null, now).map((r) => r.id)).toEqual(["a", "c"]);
-    expect(filterReports(rows, 30, "u2", now).map((r) => r.id)).toEqual(["b"]);
+    expect(filterReports(rows, 7, null, "all", now).map((r) => r.id)).toEqual(["a", "c"]);
+    expect(filterReports(rows, 30, "u2", "all", now).map((r) => r.id)).toEqual(["b"]);
+    const mixed = [...rows, row({ id: "t", is_test: true, started_at: "2026-10-19T08:00:00Z" })];
+    expect(filterReports(mixed, 7, null, "test", now).map((r) => r.id)).toEqual(["t"]);
+    // Без миграция 0003 полето липсва: срещата се брои за реална.
+    expect(filterReports(mixed, 7, null, "real", now).map((r) => r.id)).toEqual(["a", "c"]);
     expect([...sellerLabels(rows, "me").entries()]).toEqual([["me", "Вие"], ["u2", "Продавач 1"], ["u3", "Продавач 2"]]);
   });
 
