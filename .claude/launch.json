@@ -28,6 +28,18 @@
         "dashboard"
       ],
       "port": 5180
+    },
+    {
+      "name": "trainer",
+      "runtimeExecutable": "npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "tools/trainer/dist",
+        "--port",
+        "5181",
+        "--strictPort"
+      ],
+      "port": 5181
     }
   ]
 }

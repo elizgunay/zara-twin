@@ -1,0 +1,444 @@
+<title>Тренировка за възражения</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Същите цветове като таблото и Copilot: тъмносиньо + синьо. Клиентът е вляво, вие вдясно, оценката под вашия отговор. */
+  :root {
+    --bg: #f3f5f9; --surface: #ffffff; --surface-2: #eef2f8; --ink: #1b2436; --muted: #5b6579; --line: #dce2ec;
+    --navy: #1f3864; --accent: #2e75b6; --accent-soft: #e2ecf8; --on-accent: #ffffff;
+    --good: #1d7a45; --good-soft: #e1f3e8; --ok: #8a5a00; --ok-soft: #fbf0d9; --bad: #b3261e; --bad-soft: #fbe3e1;
+    --client: #f5f0fb; --client-line: #d9c8ef; --objection: #6b3fa0;
+    --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151d; --surface: #1a2030; --surface-2: #222a3c; --ink: #e6e9f0; --muted: #9aa3b5; --line: #2d3549;
+      --navy: #a9c2ec; --accent: #7fb2ea; --accent-soft: #1f3150; --on-accent: #0d1420;
+      --good: #7fd29d; --good-soft: #17301f; --ok: #f0c46a; --ok-soft: #33290f; --bad: #f19a92; --bad-soft: #3a1c1a;
+      --client: #261f33; --client-line: #43355c; --objection: #c9a6f5; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11151d; --surface: #1a2030; --surface-2: #222a3c; --ink: #e6e9f0; --muted: #9aa3b5; --line: #2d3549;
+    --navy: #a9c2ec; --accent: #7fb2ea; --accent-soft: #1f3150; --on-accent: #0d1420;
+    --good: #7fd29d; --good-soft: #17301f; --ok: #f0c46a; --ok-soft: #33290f; --bad: #f19a92; --bad-soft: #3a1c1a;
+    --client: #261f33; --client-line: #43355c; --objection: #c9a6f5; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); }
+  .wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 22px 40px; display: grid; gap: 16px; }
+  h1, h2, h3 { margin: 0; color: var(--navy); text-wrap: balance; }
+  h1 { font-size: 1.45rem; } h2 { font-size: 1.05rem; } h3 { font-size: .95rem; }
+  p { margin: 0; }
+  .eyebrow { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  header { display: grid; gap: 2px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+  .tabs button { all: unset; cursor: pointer; padding: 8px 14px; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; }
+  .tabs button[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--accent); }
+  .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+  .field { display: grid; gap: 8px; }
+  .label { font-weight: 600; font-size: .86rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-size: .9rem; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--navy); font-weight: 600; }
+  .note { font-size: .85rem; color: var(--ok); background: var(--ok-soft); border-radius: 8px; padding: 8px 12px; }
+  button.primary, button.ghost { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); }
+  button.ghost { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, .chip:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .spread { justify-content: space-between; }
+  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 8px; border-bottom: 1px solid var(--line); }
+  .timer { font-family: var(--mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; color: var(--navy); }
+  .timer.late { color: var(--bad); }
+  .tag { font-size: .78rem; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .chat { display: grid; gap: 12px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 12px; min-width: 0; overflow-wrap: anywhere; display: grid; gap: 4px; }
+  .msg .who { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .msg.client { justify-self: start; background: var(--client); border: 1px solid var(--client-line); border-top-left-radius: 4px; }
+  .msg.me { justify-self: end; background: var(--accent-soft); border-top-right-radius: 4px; }
+  .objection { font-size: .78rem; font-weight: 600; color: var(--objection); }
+  .fb { justify-self: end; max-width: 88%; border-radius: 10px; padding: 10px 14px; display: grid; gap: 4px; font-size: .9rem; border-left: 3px solid; }
+  .fb.good { background: var(--good-soft); border-color: var(--good); }
+  .fb.ok { background: var(--ok-soft); border-color: var(--ok); }
+  .fb.bad { background: var(--bad-soft); border-color: var(--bad); }
+  .verdict { font-weight: 600; }
+  .fb.good .verdict { color: var(--good); } .fb.ok .verdict { color: var(--ok); } .fb.bad .verdict { color: var(--bad); }
+  .say { font-weight: 600; }
+  .thinking { justify-self: start; color: var(--muted); font-style: italic; font-size: .9rem; }
+  .compose { display: grid; gap: 8px; }
+  textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-height: 76px; resize: vertical; }
+  .error { color: var(--bad); font-size: .9rem; }
+  .score { font-family: var(--mono); font-size: 2.4rem; line-height: 1; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .score small { font-size: 1rem; color: var(--muted); }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .list > li { padding: 10px 0; border-bottom: 1px solid var(--line); display: grid; gap: 4px; min-width: 0; }
+  .list > li:last-child { border-bottom: 0; }
+  .counts { display: flex; gap: 10px; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .c-good { color: var(--good); } .c-ok { color: var(--ok); } .c-bad { color: var(--bad); }
+  details summary { cursor: pointer; color: var(--accent); font-size: .88rem; }
+  .quote { font-size: .9rem; padding-left: 10px; border-left: 3px solid var(--line); }
+  .empty { color: var(--muted); font-size: .92rem; }
+  @media (max-width: 480px) { .msg, .fb { max-width: 100%; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Zara Robotics · Тренировка</span>
+    <h1>Възражения за 5 минути</h1>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Раздели">
+    <button role="tab" data-tab="train" aria-selected="true">Тренировка</button>
+    <button role="tab" data-tab="mine" aria-selected="false">Моите резултати</button>
+    <button role="tab" data-tab="team" aria-selected="false" hidden>Екип</button>
+  </nav>
+  <main id="view"></main>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const SCENARIOS = {
+  restaurant: { label: "Ресторант", brief: "собственик на ресторант с 2 зали и 12 маси; липсват сервитьори в пиковите часове" },
+  hotel: { label: "Хотел", brief: "управител на хотел с 80 стаи, 5 етажа и ресторант за закуска; мисли за рум-сервиз и сервиране" },
+  cleaning: { label: "Почистване", brief: "управител на офис сграда/мол с големи площи за почистване всяка нощ" },
+  warehouse: { label: "Склад", brief: "управител на склад, който пренася стоки между стелажи и зона за товарене" },
+  greeting: { label: "Посрещане", brief: "собственик на магазин или шоурум, който иска да посреща и води клиенти" },
+};
+const LEVELS = {
+  easy: { label: "Лесен", brief: "отзивчив клиент; след добър отговор се съгласява на следваща стъпка" },
+  normal: { label: "Нормален", brief: "предпазлив клиент; иска доводи, повтаря възражение само след слаб отговор" },
+  hard: { label: "Твърд", brief: "труден клиент; повтаря „трябва да си помисля“ и „скъпо е“, отстъпва само пред конкретен въпрос или конкретна следваща стъпка с дата" },
+};
+const VERDICT = { good: "✓ Добре", ok: "~ Може по-добре", bad: "✕ Изпуснахте клиента" };
+const DURATION_MS = 5 * 60 * 1000;
+const objectionLabel = Object.fromEntries(DATA.objections.map((o) => [o.id, o.label]));
+
+const view = document.getElementById("view");
+let sample = null, db = null, user = null, myId = null;
+let choice = { scenario: "restaurant", level: "normal" };
+let session = null;
+let timerId = null;
+
+// --- малки помощници: текстът винаги през textContent (отговорите са въвеждани от хора и от AI) ---
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === undefined || v === false || v === null) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else el.setAttribute(k, String(v));
+  }
+  for (const c of children) if (c !== null && c !== undefined && c !== false) el.append(typeof c === "string" ? document.createTextNode(c) : c);
+  return el;
+}
+const fmtTime = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const fmtDate = (t) => new Date(t).toLocaleString("bg-BG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const clip = (s, n) => (String(s ?? "").length > n ? String(s).slice(0, n - 1) + "…" : String(s ?? ""));
+
+// --- инструкцията към Claude: роля на клиента + оценка на продавача ---
+function rules() {
+  const sc = SCENARIOS[choice.scenario], lv = LEVELS[choice.level];
+  return `Ти си тренировъчен симулатор за продавачи на Zara Robotics (дистрибутор на роботи Keenon в България).
+Играеш КЛИЕНТ в разговор по видеовръзка и след всеки отговор на продавача даваш кратка оценка.
+
+КЛИЕНТЪТ: ${sc.brief}. Трудност: ${lv.brief}.
+- Говори естествен разговорен български, 1–3 кратки изречения на реплика. Използвай измислено име, никога реално.
+- Тренировката е 5 минути. В нея повдигни 2–3 възражения. Едното ЗАДЪЛЖИТЕЛНО е вариант на „трябва да си помисля“ (това е слабото място на продавача). Другите: цена/бюджет, „не сега“, „решава друг“, съмнение, друга оферта.
+- Реагирай на качеството на отговора: след силен отговор омекни и се съгласи на конкретна следваща стъпка; след слаб отговор настоявай или се отдръпни.
+- Знаеш само фактите от ДАННИТЕ отдолу. Не измисляй характеристики. Цени не знаеш: питай за тях, но не казвай суми.
+
+ОЦЕНКА на всеки отговор на продавача:
+- "good": разпознава истинската причина с въпрос, връща към ползата за клиента или предлага конкретна следваща стъпка с ден и час; кратко.
+- "ok": в правилна посока, но общо, дълго или без следваща стъпка.
+- "bad": приема възражението пасивно („добре, обадете ми се“), спори, дава отстъпка веднага, казва грешен факт, говори монолог.
+- "why": до 90 знака, защо.
+- "better": ЕДНО готово изречение, което продавачът да каже дословно следващия път, до 140 знака. Без съвети от типа „направете…“, само репликата.
+- Еталонни реплики (ползвай ги за ориентир, не ги копирай задължително) са в ДАННИТЕ → objections.say/escalate.
+
+ФОРМАТ: отговаряй САМО с един JSON обект, без друг текст:
+{"feedback": null или {"verdict":"good"|"ok"|"bad","why":"...","better":"..."},
+ "objection": "think"|"price"|"timing"|"authority"|"trust"|"competitor"|"none",
+ "client": "следващата реплика на клиента",
+ "done": false,
+ "summary": null}
+- "feedback" е null само в първото съобщение (продавачът още не е отговорил).
+- "objection" е видът възражение в ТВОЯТА нова реплика "client" ("none", ако няма).
+- Когато ти кажат, че времето изтече, или клиентът се е съгласил на следваща стъпка, или се е отказал окончателно: "done": true, "client" е кратка последна реплика, а "summary" е {"score": цяло число 1–10, "strong":"какво се получи, до 120 знака", "practice":"кое възражение да упражни и как, до 160 знака"}.
+
+ДАННИ:
+${JSON.stringify(DATA)}`;
+}
+
+// --- сесия ---
+function startSession() {
+  session = { scenario: choice.scenario, level: choice.level, turns: [], log: [], startedAt: null, busy: false, ended: false, summary: null, error: "" };
+  renderTrain();
+  ask(`${rules()}\n\nЗапочни разговора: поздрави и кажи накратко защо се интересуваш от роботи.`);
+}
+
+async function ask(userText) {
+  session.lastAsk = userText;
+  session.turns.push({ role: "user", content: userText });
+  session.busy = true; session.error = "";
+  renderTrain();
+  try {
+    const reply = await sample.json(session.turns, { cache: false, modelTier: "default", effort: "low" });
+    if (!reply || typeof reply.client !== "string") throw { code: "invalid_json" };
+    session.turns.push({ role: "assistant", content: JSON.stringify(reply) });
+    const last = session.log[session.log.length - 1];
+    if (last && last.role === "me" && reply.feedback && VERDICT[reply.feedback.verdict]) {
+      last.fb = { verdict: reply.feedback.verdict, why: clip(reply.feedback.why, 140), better: clip(reply.feedback.better, 180) };
+    }
+    session.log.push({ role: "client", text: reply.client, objection: objectionLabel[reply.objection] ? reply.objection : null });
+    if (!session.startedAt) { session.startedAt = Date.now(); startTimer(); }
+    if (reply.done) await finish(reply.summary);
+  } catch (e) {
+    session.turns.pop(); // заявката не мина: връщаме разговора както беше
+    session.error = errorText(e);
+    if (e && e.code === "not_granted") sample = null;
+  } finally {
+    session.busy = false;
+    renderTrain();
+  }
+}
+
+function errorText(e) {
+  switch (e && e.code) {
+    case "not_granted": case "sampling_disabled": return "Тренировката няма достъп до Claude. Разрешете го от менюто на страницата и опитайте пак.";
+    case "rate_limited": return "Твърде много заявки или достигнат лимит. Изчакайте малко и натиснете „Опитай пак“.";
+    case "session_expired": return "Влезте отново в claude.ai.";
+    case "invalid_json": return "Клиентът отговори неразбираемо. Натиснете „Опитай пак“.";
+    default: return "Нещо прекъсна. Натиснете „Опитай пак“.";
+  }
+}
+
+function sendAnswer(text) {
+  const answer = text.trim();
+  if (!answer || session.busy || session.ended) return;
+  session.log.push({ role: "me", text: answer });
+  const left = DURATION_MS - (Date.now() - session.startedAt);
+  const note = left <= 0
+    ? "(Времето изтече: оцени този отговор, кажи последна кратка реплика и приключи с \"done\": true и summary.)"
+    : `(Остават около ${Math.max(1, Math.round(left / 60000))} мин.)`;
+  ask(`Продавачът отговаря: „${answer}“\n${note}`);
+}
+
+function endNow() {
+  if (session.busy || session.ended) return;
+  ask("(Продавачът приключва тренировката сега. Без нова оценка: \"feedback\": null. Кажи кратка последна реплика и върни \"done\": true със summary за целия разговор.)");
+}
+
+async function finish(summary) {
+  session.ended = true;
+  stopTimer();
+  const s = summary && typeof summary === "object" ? summary : {};
+  session.summary = { score: Math.min(10, Math.max(1, Math.round(Number(s.score) || 0))) || null, strong: clip(s.strong, 200), practice: clip(s.practice, 240) };
+  await saveRun();
+}
+
+function retry() {
+  // Същата заявка отново: при грешка тя е махната от разговора, а отговорът ви стои на екрана.
+  if (session.lastAsk && !session.busy) ask(session.lastAsk);
+}
+
+function startTimer() {
+  stopTimer();
+  timerId = setInterval(() => {
+    const el = document.getElementById("timer");
+    if (!el || !session || session.ended) return stopTimer();
+    const left = DURATION_MS - (Date.now() - session.startedAt);
+    el.textContent = fmtTime(left);
+    el.classList.toggle("late", left <= 30000);
+  }, 1000);
+}
+function stopTimer() { if (timerId) clearInterval(timerId); timerId = null; }
+
+// --- запис на резултата: всеки пази своите, собственикът вижда целия екип ---
+async function saveRun() {
+  if (!db || !myId) { session.saveNote = "Резултатът не се запази: страницата няма достъп до базата."; return; }
+  const exchanges = [];
+  for (let i = 0; i < session.log.length; i++) {
+    const m = session.log[i];
+    if (m.role !== "me") continue;
+    const client = [...session.log.slice(0, i)].reverse().find((x) => x.role === "client");
+    exchanges.push({ client: clip(client?.text, 300), objection: client?.objection ?? null, answer: clip(m.text, 400), verdict: m.fb?.verdict ?? null, better: m.fb?.better ?? "" });
+  }
+  const counts = { good: 0, ok: 0, bad: 0 };
+  exchanges.forEach((x) => { if (x.verdict) counts[x.verdict]++; });
+  const run = { at: Date.now(), scenario: session.scenario, level: session.level, score: session.summary.score, strong: session.summary.strong, practice: session.summary.practice, counts, exchanges };
+  try {
+    const ref = db.doc(`runs/${myId}`);
+    const snap = await ref.get();
+    const items = snap.exists && Array.isArray(snap.data().items) ? [...snap.data().items] : [];
+    items.unshift(run);
+    await ref.set({ items: items.slice(0, 30), updatedAt: Date.now() });
+    session.saveNote = "Резултатът е запазен в „Моите резултати“.";
+  } catch (e) {
+    session.saveNote = e && e.code === "invalid_argument"
+      ? "Резултатът не се запази: нужен е достъп „Contributor“ до страницата. Помолете собственика."
+      : "Резултатът не се запази. Опитайте следващия път.";
+  }
+}
+
+// --- изгледи ---
+function renderTrain() {
+  if (!sample) {
+    view.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "Тренировката не е достъпна тук"),
+      h("p", { class: "muted" }, "Отворете страницата в claude.ai, влезли в акаунта си, и разрешете достъпа до Claude, когато бъдете попитани.")));
+    return;
+  }
+  if (!session) return view.replaceChildren(setupView());
+  view.replaceChildren(sessionView());
+  const box = document.getElementById("answer");
+  if (box && !session.busy && !session.ended) box.focus();
+  window.scrollTo({ top: document.body.scrollHeight });
+}
+
+function chipGroup(label, options, key) {
+  return h("div", { class: "field" }, h("span", { class: "label" }, label),
+    h("div", { class: "chips", role: "group", "aria-label": label },
+      ...Object.entries(options).map(([id, o]) => h("button", {
+        type: "button", class: "chip", "aria-pressed": String(choice[key] === id),
+        onclick: () => { choice[key] = id; renderTrain(); },
+      }, o.label))));
+}
+
+function setupView() {
+  return h("section", { class: "panel" },
+    h("p", {}, "Claude играе клиента и ще ви каже „трябва да си помисля“, „скъпо е“ и други възражения. След всеки ваш отговор получавате оценка и готово изречение за следващия път."),
+    chipGroup("Клиент", SCENARIOS, "scenario"),
+    chipGroup("Трудност", LEVELS, "level"),
+    h("p", { class: "note" }, "Не пишете истински имена на клиенти или фирми: разговорът минава през Claude."),
+    h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: startSession }, "Започни (5 мин)")));
+}
+
+function sessionView() {
+  const s = session;
+  const left = s.startedAt ? DURATION_MS - (Date.now() - s.startedAt) : DURATION_MS;
+  const bar = h("div", { class: "bar row spread" },
+    h("div", { class: "row" }, h("span", { class: "tag" }, SCENARIOS[s.scenario].label), h("span", { class: "tag" }, LEVELS[s.level].label)),
+    h("div", { class: "row" },
+      h("span", { id: "timer", class: left <= 30000 ? "timer late" : "timer", "aria-label": "Оставащо време" }, s.ended ? "край" : fmtTime(left)),
+      s.ended ? null : h("button", { type: "button", class: "ghost", disabled: s.busy || !s.startedAt, onclick: endNow }, "Приключи")));
+
+  const chat = h("div", { class: "chat", "aria-live": "polite" });
+  for (const m of s.log) {
+    if (m.role === "client") {
+      chat.append(h("div", { class: "msg client" },
+        h("span", { class: "who" }, "Клиент"),
+        m.objection ? h("span", { class: "objection" }, objectionLabel[m.objection]) : null,
+        h("p", {}, m.text)));
+    } else {
+      chat.append(h("div", { class: "msg me" }, h("span", { class: "who" }, "Вие"), h("p", {}, m.text)));
+      if (m.fb) chat.append(h("div", { class: `fb ${m.fb.verdict}` },
+        h("span", { class: "verdict" }, VERDICT[m.fb.verdict]),
+        m.fb.why ? h("p", {}, m.fb.why) : null,
+        m.fb.better && m.fb.verdict !== "good" ? h("p", { class: "say" }, `Кажете: „${m.fb.better}“`) : null));
+    }
+  }
+  if (s.busy) chat.append(h("p", { class: "thinking" }, s.log.length ? "Клиентът мисли…" : "Клиентът влиза в срещата…"));
+
+  const parts = [bar, chat];
+  if (s.error) parts.push(h("div", { class: "row" }, h("p", { class: "error" }, s.error), h("button", { type: "button", class: "ghost", onclick: retry }, "Опитай пак")));
+  if (s.ended) parts.push(summaryView());
+  else if (s.startedAt) {
+    const box = h("textarea", { id: "answer", placeholder: "Вашият отговор… (Enter изпраща, Shift+Enter нов ред)", disabled: s.busy, "aria-label": "Вашият отговор" });
+    box.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendAnswer(box.value); } });
+    parts.push(h("div", { class: "compose" }, box,
+      h("div", { class: "row" }, h("button", { type: "button", class: "primary", disabled: s.busy, onclick: () => sendAnswer(box.value) }, "Изпрати"))));
+  }
+  return h("section", { class: "panel" }, ...parts);
+}
+
+function summaryView() {
+  const s = session.summary || {};
+  const mine = session.log.filter((m) => m.role === "me" && m.fb);
+  const counts = { good: 0, ok: 0, bad: 0 };
+  mine.forEach((m) => counts[m.fb.verdict]++);
+  const lines = mine.filter((m) => m.fb.verdict !== "good" && m.fb.better).map((m) => h("li", {}, h("p", { class: "say" }, `„${m.fb.better}“`)));
+  return h("div", { class: "panel" },
+    h("div", { class: "row spread" }, h("h2", {}, "Обобщение"), s.score ? h("span", { class: "score" }, String(s.score), h("small", {}, " / 10")) : null),
+    h("div", { class: "counts" }, h("span", { class: "c-good" }, `✓ ${counts.good}`), h("span", { class: "c-ok" }, `~ ${counts.ok}`), h("span", { class: "c-bad" }, `✕ ${counts.bad}`)),
+    s.strong ? h("p", {}, h("strong", {}, "Добре: "), s.strong) : null,
+    s.practice ? h("p", {}, h("strong", {}, "Упражнете: "), s.practice) : null,
+    lines.length ? h("div", { class: "field" }, h("span", { class: "label" }, "Реплики за запомняне"), h("ul", { class: "list" }, ...lines)) : null,
+    session.saveNote ? h("p", { class: "muted" }, session.saveNote) : null,
+    h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: () => { session = null; renderTrain(); } }, "Нова тренировка")));
+}
+
+function runItem(run) {
+  const c = run.counts || {};
+  const bad = (run.exchanges || []).filter((x) => x.verdict && x.verdict !== "good");
+  return h("li", {},
+    h("div", { class: "row spread" },
+      h("span", {}, `${fmtDate(run.at)} · ${SCENARIOS[run.scenario]?.label ?? ""} · ${LEVELS[run.level]?.label ?? ""}`),
+      run.score ? h("span", { class: "timer" }, `${run.score}/10`) : null),
+    h("div", { class: "counts" }, h("span", { class: "c-good" }, `✓ ${c.good ?? 0}`), h("span", { class: "c-ok" }, `~ ${c.ok ?? 0}`), h("span", { class: "c-bad" }, `✕ ${c.bad ?? 0}`)),
+    run.practice ? h("p", { class: "muted" }, `Упражнете: ${run.practice}`) : null,
+    bad.length ? h("details", {}, h("summary", {}, "Отговори за подобрение"),
+      h("ul", { class: "list" }, ...bad.map((x) => h("li", {},
+        h("p", { class: "quote" }, `Клиент: ${x.client}`),
+        h("p", {}, `Вие: ${x.answer}`),
+        x.better ? h("p", { class: "say" }, `По-добре: „${x.better}“`) : null)))) : null);
+}
+
+async function renderMine() {
+  if (!db || !myId) return view.replaceChildren(h("section", { class: "panel" }, h("p", { class: "empty" }, "Резултатите се виждат, когато сте влезли в claude.ai.")));
+  view.replaceChildren(h("section", { class: "panel" }, h("p", { class: "empty" }, "Зареждане…")));
+  let items = [];
+  try { const snap = await db.doc(`runs/${myId}`).get(); items = snap.exists ? snap.data().items || [] : []; } catch { /* празно */ }
+  view.replaceChildren(h("section", { class: "panel" },
+    h("h2", {}, "Моите тренировки"),
+    items.length ? h("ul", { class: "list" }, ...items.map(runItem)) : h("p", { class: "empty" }, "Още няма тренировки. Започнете от раздел „Тренировка“.")));
+}
+
+async function renderTeam() {
+  view.replaceChildren(h("section", { class: "panel" }, h("p", { class: "empty" }, "Зареждане…")));
+  let docs = [];
+  try { docs = (await db.collection("runs").get()).docs; } catch { /* празно */ }
+  const ids = docs.map((d) => d.id);
+  const people = ids.length ? await user.profiles(ids) : {};
+  const rows = docs.map((d) => {
+    const items = d.data().items || [];
+    const scored = items.filter((r) => r.score);
+    const avg = scored.length ? (scored.reduce((a, r) => a + r.score, 0) / scored.length).toFixed(1) : "–";
+    const weak = {};
+    items.forEach((r) => (r.exchanges || []).forEach((x) => { if (x.verdict === "bad" && x.objection) weak[x.objection] = (weak[x.objection] || 0) + 1; }));
+    const weakest = Object.entries(weak).sort((a, b) => b[1] - a[1])[0];
+    const good = items.flatMap((r) => (r.exchanges || []).filter((x) => x.verdict === "good" && x.objection)).slice(0, 8);
+    return h("li", {},
+      h("div", { class: "row spread" }, h("strong", {}, people[d.id]?.name || "Колега"), h("span", { class: "timer" }, `ср. ${avg}/10`)),
+      h("p", { class: "muted" }, `${items.length} ${items.length === 1 ? "тренировка" : "тренировки"} · последна ${items[0] ? fmtDate(items[0].at) : "–"}${weakest ? ` · най-трудно: ${objectionLabel[weakest[0]]}` : ""}`),
+      good.length ? h("details", {}, h("summary", {}, "Силни отговори (за Copilot)"),
+        h("ul", { class: "list" }, ...good.map((x) => h("li", {}, h("span", { class: "objection" }, objectionLabel[x.objection]), h("p", {}, `„${x.answer}“`))))) : null);
+  });
+  view.replaceChildren(h("section", { class: "panel" },
+    h("h2", {}, "Екип"),
+    h("p", { class: "muted" }, "Виждате го само вие. Силните отговори могат да станат реплики в Copilot."),
+    rows.length ? h("ul", { class: "list" }, ...rows) : h("p", { class: "empty" }, "Още никой не е тренирал.")));
+}
+
+function selectTab(tab) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  if (tab === "train") renderTrain();
+  else if (tab === "mine") renderMine();
+  else renderTeam();
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+// --- старт: страницата се показва веднага, възможностите се включват, когато пристигнат ---
+renderTrain();
+(async () => {
+  if (!window.claude) return;
+  [sample, db, user] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user")]);
+  myId = user ? await user.id() : null;
+  if (user && db && (await user.isOwner())) document.querySelector('[data-tab="team"]').hidden = false;
+  if (document.querySelector('[data-tab="train"]').getAttribute("aria-selected") === "true") renderTrain();
+})();
+</script>
