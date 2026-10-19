@@ -13,7 +13,11 @@ export interface CloudStt {
   apiKey: string;
 }
 
-export const STT_MODE_STORAGE_KEY = "sttMode";
+/**
+ * Нов ключ (по-рано „sttMode“): изборът „На компютъра“ от по-старите версии не важи. Тогава
+ * облакът беше изключен по подразбиране и старият запис иначе би скрил новия избор: облакът.
+ */
+export const STT_MODE_STORAGE_KEY = "sttModeV2";
 export const SPEECHMATICS_KEY_STORAGE_KEY = "speechmaticsApiKey";
 
 /** Регионът на Speechmatics в ЕС (Р22): eu1 за партиди, eu.rt.speechmatics.com на живо. */
