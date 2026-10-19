@@ -37,6 +37,8 @@ Get-ChildItem $out -Force | Remove-Item -Recurse -Force -Confirm:$false
 Copy-Item (Join-Path $root "apps\extension\dist") (Join-Path $out "extension") -Recurse
 Copy-Item $guide.FullName (Join-Path $out "Инструкция.pdf")
 Copy-Item $script (Join-Path $out "Сценарий за тест.pdf")
+$script2 = Join-Path $root "docs\pilot\Сценарий_за_тест_2.pdf"
+if (Test-Path $script2) { Copy-Item $script2 (Join-Path $out "Сценарий за тест 2.pdf") }
 
 # Пакетът за ръководителя не бива да съдържа тайни или данни от разговори.
 # Изключение: синтетичният запис за теста на компютъра (Windows TTS, без лични данни).

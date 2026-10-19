@@ -9,6 +9,8 @@ const SPEAKER_LABEL: Record<SpeakerRole, string> = {
 
 /** Повече карти наведнъж не се четат по време на разговор. */
 const MAX_HINTS = 3;
+/** Информационно съобщение стои толкова, после изчезва. */
+const NOTICE_INFO_MS = 8_000;
 /** Последните реплики са достатъчни за контекст. Целият разговор не се пази. */
 const MAX_TRANSCRIPT_ROWS = 50;
 
@@ -141,6 +143,8 @@ export class CopilotPanel {
     box.style.left = `${this.prefs.x}px`;
     box.style.top = `${this.prefs.y}px`;
     box.style.right = "auto";
+    // Преместен надолу панелът пак свършва над долния ръб: подсказките се превъртат, разговорът се вижда.
+    box.style.maxHeight = `calc(100vh - ${this.prefs.y + 16}px)`;
   }
 
   private panelBox(): HTMLElement {
@@ -285,7 +289,12 @@ export class CopilotPanel {
     notice.textContent = text;
     notice.className = `notice ${tone}`;
     notice.hidden = false;
+    // Информацията („разпознаването е включено“) изчезва сама, за да не заема място; грешките остават.
+    clearTimeout(this.noticeTimer);
+    if (tone === "info") this.noticeTimer = setTimeout(() => (notice.hidden = true), NOTICE_INFO_MS);
   }
+
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** merged: парчето продължава предишния ред (същият човек, без пауза): редът се обновява. */
   appendSegment(segment: { speaker: SpeakerRole; text: string }, merged = false): void {
@@ -366,7 +375,7 @@ const TEMPLATE = /* html */ `
   [hidden] { display: none !important; }
   .panel {
     position: fixed; top: 16px; right: 16px; z-index: 2147483647;
-    width: 320px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
+    width: min(400px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column;
     background: #1f2430; color: #e8eaed; border: 1px solid #3c4352; border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     font: 13px/1.45 "Segoe UI", Roboto, Arial, sans-serif;
@@ -397,7 +406,10 @@ const TEMPLATE = /* html */ `
   .talk-bar > div { height: 100%; width: 50%; background: #81c995; transition: width 300ms; }
   .talk-bar > div.over { background: #fdd663; }
   .hint.talk { border-left-color: #fdd663; }
-  .hints { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 0; }
+  /* Подреждане по височина: горните части не се свиват; подсказките заемат мястото и се превъртат;
+     разговорът е винаги видим най-долу (свит: 2 реда, разгънат: до 35% от екрана). */
+  .panel > * { flex-shrink: 0; }
+  .hints { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 4px; flex: 1 1 auto; min-height: 72px; overflow-y: auto; }
   .hints:empty { display: none; }
   .hint { padding: 8px 10px; border-radius: 8px; background: #263041; border-left: 3px solid #8ab4f8; }
   .hint.no-data, .hint.calendar { border-left-color: #fdd663; }
@@ -409,8 +421,11 @@ const TEMPLATE = /* html */ `
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
   /* Най-новата подсказка е отгоре и изпъква; по-старите са бледи и по-дребни. */
   .hints .hint:first-child { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
-  .hints .hint:not(:first-child) { opacity: 0.55; }
-  .hints .hint:not(:first-child) .say.main { font-size: 13px; }
+  .hints .hint:not(:first-child) { opacity: 0.55; padding: 5px 10px; }
+  /* По-старите: само заглавието и един ред от репликата, за да не избутват разговора. */
+  .hints .hint:not(:first-child) ul, .hints .hint:not(:first-child) .say:not(.main), .hints .hint:not(:first-child) a { display: none; }
+  .hints .hint:not(:first-child) h2 { margin: 0; }
+  .hints .hint:not(:first-child) .say.main { font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }
   .hint li { margin: 2px 0; }
   .hint .say { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: #d7c4f5; }
@@ -418,7 +433,7 @@ const TEMPLATE = /* html */ `
   .hint .say + ul { margin-top: 6px; font-size: 12px; color: #9aa0a6; }
   .hint a { display: inline-block; margin-top: 4px; font-size: 11px; color: #8ab4f8; }
   .section-toggle { margin: 10px 0 0; padding: 6px 12px; border-top: 1px solid #3c4352; border-radius: 0; font-size: 12px; font-weight: 600; color: #9aa0a6; text-align: left; }
-  .transcript { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+  .transcript { flex: 0 1 auto; max-height: 35vh; overflow-y: auto; padding: 0 12px 12px; }
   /* Свит разговор: само последните 2 реда, подсказките остават главното. */
   .transcript.collapsed { flex: none; max-height: 3.2em; overflow: hidden; padding-bottom: 8px; color: #9aa0a6; }
   .transcript.collapsed p { margin: 2px 0; }

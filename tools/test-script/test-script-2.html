@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<title>Zara Copilot: сценарий за тест 2</title>
+<style>
+  /* Печат A4: квадратчета ✓/✗ и място за бележки до всяка точка. Цветовете са като в панела на Copilot. */
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 10.5pt/1.4 "Segoe UI", Arial, sans-serif; color: #1b2436; }
+  h1 { font-size: 17pt; margin: 0; color: #1f3864; }
+  .sub { color: #5b6579; margin: 2px 0 10px; font-size: 9.5pt; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 9pt; margin: 0 0 10px; padding: 6px 10px; background: #f3f5f9; border-radius: 6px; }
+  .legend b { color: #1f3864; }
+  h2 { font-size: 11.5pt; margin: 12px 0 4px; color: #1f3864; break-after: avoid; }
+  table { width: 100%; border-collapse: collapse; break-inside: auto; }
+  tr { break-inside: avoid; }
+  th { text-align: left; font-size: 8.5pt; color: #5b6579; font-weight: 600; padding: 3px 6px; border-bottom: 1px solid #c9d1df; }
+  td { padding: 5px 6px; border-bottom: 1px solid #e3e8f0; vertical-align: top; }
+  .who { width: 13%; font-weight: 600; white-space: nowrap; }
+  .who.client { color: #6b3fa0; }
+  .who.me { color: #2e75b6; }
+  .say { width: 38%; }
+  .expect { width: 31%; color: #3a4558; font-size: 9.5pt; }
+  .mark { width: 18%; white-space: nowrap; font-size: 9.5pt; color: #5b6579; }
+  .box { display: inline-block; width: 11px; height: 11px; border: 1.3px solid #5b6579; border-radius: 2px; vertical-align: -1px; margin-right: 2px; }
+  .card { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 8.5pt; font-weight: 600; }
+  .violet { background: #efe6fa; color: #6b3fa0; } .green { background: #e1f3e8; color: #1d7a45; }
+  .blue { background: #e2ecf8; color: #1f3864; } .none { background: #f3f5f9; color: #5b6579; }
+  .note { font-size: 9pt; color: #5b6579; margin: 3px 0 0; }
+  .lines { margin-top: 10px; break-inside: avoid; }
+  .lines div { border-bottom: 1px solid #c9d1df; height: 20px; }
+</style>
+</head>
+<body>
+  <h1>Zara Copilot: сценарий за тест 2 (хотел и почистване)</h1>
+  <p class="sub">Около 10 минути. Преди началото: ↻ при Zara Copilot в chrome://extensions, нова среща в нов таб, бутон <b>„Тест“</b> в панела (жълт).</p>
+  <div class="legend">
+    <span><b>Клиент</b>: казва вторият човек</span><span><b>Вие</b>: казвате вие</span>
+    <span><span class="card violet">лилава</span> възражение</span><span><span class="card green">зелена</span> отговор на въпрос</span>
+    <span><span class="card blue">синя</span> робот / час</span><span><span class="card none">нищо</span> не трябва да излиза карта</span>
+  </div>
+
+    <h2>1. Роботи</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Имаме хотел с 5 етажа и мислим за рум-сервиз.“</td><td>Може без карта (няма име на модел)</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Разкажете ми за W3.“</td><td><span class="card blue">карта</span> Keenon Butlerbot W3</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„А за почистване на фоайето, C55 става ли?“</td><td><span class="card blue">карта</span> Keenon Kleenbot C55</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Имате ли нещо за посрещане на гости?“</td><td><span class="card blue">карта</span> OrionStar GreetingBot Mini</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>2. Въпроси на клиента</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Кой поддържа робота, ако спре?“</td><td><span class="card green">Сервиз и поддръжка</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Свързва ли се с нашата система за поръчки?“</td><td><span class="card green">Връзка с касата и системите</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Колко бързо ще тръгне при нас?“</td><td><span class="card green">Колко бързо тръгва</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Може ли на лизинг?“</td><td><span class="card green">Покупка или наем</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Персоналът ще се научи ли?“</td><td><span class="card green">Обучение</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>3. Възражения, които първият тест не покри</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Трябва да говоря със собственика.“</td><td><span class="card violet">Решението е на някой друг</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Не съм сигурен, че гостите ще го приемат.“</td><td><span class="card violet">Съмнение дали ще проработи</span> + факт за гаранцията</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Имаме оферта от друга фирма.“</td><td><span class="card violet">Сравняват с друга оферта</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Не сега, след сезона.“</td><td><span class="card violet">Възражение: не сега</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>След 20 s: „Не бързаме, ще видим.“</td><td><span class="card violet">не сега – пак</span> по-настоятелна реплика</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Ще го обмислим с колегите.“</td><td><span class="card violet">„Трябва да си помисля“</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>4. Уговорка, по различни начини</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Елате утре следобед.“</td><td><span class="card blue">Час</span> утре, следобед</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Може ли следващия петък в 2?“</td><td><span class="card blue">Час</span> петък следващата седмица, 14:00</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Удобно ли ви е на 3 ноември в 11 часа?“</td><td><span class="card blue">Час</span> 3 ноем., 11:00</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>5. Капани: тук не трябва да излиза карта</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Хотелът има 3 етажа.“</td><td><span class="card none">нищо</span> (етажи, не час)</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who me">Вие</td><td>„Не е рисковано, ще видите.“</td><td><span class="card none">нищо</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Аз съм собственикът на хотела.“</td><td><span class="card none">нищо</span> (не е „решава друг“)</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>6. Панел и край</h2>
+  <table>
+    <tr><th>Кой</th><th>Прави</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who me">Вие</td><td>Гледате панела след много подсказки.</td><td>Най-новата е цяла, старите свити; разговорът се вижда долу</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who me">Вие</td><td>Спирате Copilot (× или иконата).</td><td>„Срещата приключи · X/10 · Тест“, ✓ час, възражения</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who me">Вие</td><td>Таблото → „Срещи“ → срещата → „Покажи разговора“.</td><td>Срещата е там, с текста</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+<div class="lines">
+    <h2>Бележки: какво излезе вместо очакваното</h2>
+    <div></div><div></div><div></div><div></div><div></div>
+  </div>
+  <p class="note">Ако нещо не стане: снимка на панела или кажете „провери“, и Claude ще види от файловете на разширението какво е разпознато.</p>
+</body>
+</html>
