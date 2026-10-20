@@ -75,7 +75,7 @@ describe("ObjectionDetector", () => {
     const { d } = detector();
     const [hint] = d.onSegment({ speaker: "counterpart", text: "А ако се повреди?" });
     expect(hint).toMatchObject({ kind: "objection", title: "Съмнение дали ще проработи" });
-    expect(hint!.say![0]).toBe("Разбирам ви. Какво точно ви притеснява?");
+    expect(hint!.say![0]).toBe("Точно затова имаме безплатна демонстрация при вас!");
     expect(hint!.lines).toEqual(["Факт: Гаранция до 24 месеца."]);
   });
 
