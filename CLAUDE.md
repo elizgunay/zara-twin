@@ -36,5 +36,6 @@ B2B продукт, затова ядрото не съдържа нищо сп�
 - `npm run bench:sample` създава български тестов запис (Windows TTS) в `data/bench/`, а `npm.cmd run bench:stt -- --audio … --reference … --model …` мери доставчик. В PowerShell: `npm.cmd`, не `npm` (губи аргументите след `--`). Моделите се кешират в `data/models/`.
 - `.ps1` файлове с кирилица се записват като UTF-8 **с BOM**, иначе Windows PowerShell 5.1 ги чете грешно.
 - `npm.cmd run bench:meaning -- --model small|large` мери разпознаването по смисъл (локален модел, кеш в `data/models/`) на измислени перифрази.
+- `npm.cmd run bench:replay -- --file data/recordings/X.txt --seller S2 [--until мм:сс]` пуска реален запис през целия Copilot; резултатът е `X.copilot.txt` до записа (само локално).
 - `npm run build:extension` изгражда разширението в `apps/extension/dist` (esbuild, IIFE).
 - Визуална проверка на панела без Meet: страница, която подменя `window.chrome`, зарежда `dist/content.js` и се снима с `msedge --headless=new --screenshot`.

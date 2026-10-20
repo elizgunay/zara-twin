@@ -37,6 +37,11 @@ export interface MeaningOptions {
   /** По-кратки изречения („Да, добре.“) не се разпознават по смисъл. */
   minWords?: number;
   /**
+   * Възраженията по смисъл искат много по-голям отстъп: в реалните разговори разказите на клиента
+   * („Сега правим ремонт…“) често приличат на възражение. 0,05 е измерено на 3 реални записа.
+   */
+  objectionMargin?: number;
+  /**
    * За фразите от пакета: напр. същият модел с кеш на диска, за да не се смятат на всяка среща.
    * Изреченията от разговора минават само през embed и не се пазят никъде.
    */
@@ -75,6 +80,7 @@ export class MeaningIndex {
     private readonly embed: Embed,
     private readonly minMargin: number,
     private readonly minWords: number,
+    private readonly objectionMargin: number,
   ) {}
 
   /** Превръща всички фрази в вектори веднъж, при старта на срещата. */
@@ -86,7 +92,7 @@ export class MeaningIndex {
       const vectors = await (options.buildEmbed ?? embed)(batch.map((item) => item.text));
       batch.forEach((item, j) => entries.push({ intent: item.intent, vector: vectors[j]! }));
     }
-    return new MeaningIndex(entries, embed, options.minMargin ?? 0.02, options.minWords ?? 3);
+    return new MeaningIndex(entries, embed, options.minMargin ?? 0.02, options.minWords ?? 3, options.objectionMargin ?? 0.05);
   }
 
   get size(): number {
@@ -108,6 +114,9 @@ export class MeaningIndex {
     if (!first || first[0].kind === "neutral") return null;
     const margin = first[1] - (second?.[1] ?? 0);
     if (margin < this.minMargin) return null;
+    // Отговор само на въпрос: в реален разговор твърденията на клиента дават лъжливи съвпадения.
+    if (first[0].kind === "answer" && !isQuestion(text)) return null;
+    if (first[0].kind === "objection" && margin < this.objectionMargin) return null;
     return { kind: first[0].kind, id: first[0].id, score: first[1], margin };
   }
 }
@@ -116,6 +125,15 @@ export class MeaningIndex {
 export function meaningHints(match: MeaningMatch, answers: AnswerDetector, objections: ObjectionDetector): Hint[] {
   const hints = match.kind === "answer" ? answers.show(match.id) : objections.show(match.id);
   return hints.map((hint) => ({ ...hint, byMeaning: true }));
+}
+
+/** Тагът „нали?“ / „нали така?“ в края не прави изречението въпрос. */
+const TAG_QUESTION = /,?\s*нали(?:\s+така)?\s*\?\s*$/iu;
+const QUESTION_START = /^(?:а\s+|и\s+|ами\s+)?(?:колко|как|кога|какв\p{L}*|кой|коя|кое|кои|къде|защо|дали|има\s+ли|може\s+ли|можете\s+ли)(?!\p{L})/iu;
+
+export function isQuestion(text: string): boolean {
+  const trimmed = text.trim().replace(TAG_QUESTION, ".");
+  return /\?/.test(trimmed) || QUESTION_START.test(trimmed);
 }
 
 function dot(a: number[], b: number[]): number {

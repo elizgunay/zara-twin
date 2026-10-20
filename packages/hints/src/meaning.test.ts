@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import rawMethod from "../../../knowledge-packs/methods/b2b-sales-bg/method.json";
 import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
 import { AnswerDetector } from "./answers";
-import { meaningHints, MeaningIndex, meaningIntents, type Embed, type MeaningIntent } from "./meaning";
+import { isQuestion, meaningHints, MeaningIndex, meaningIntents, type Embed, type MeaningIntent } from "./meaning";
 import { ObjectionDetector } from "./objections";
 
 // Вместо модел: вектор по думите (без окончания). Достатъчно, за да се провери логиката:
@@ -62,6 +62,14 @@ describe("разпознаване по смисъл", () => {
     expect(hint).toMatchObject({ key: "answer:price", byMeaning: true, say: pack.answers!.find((a) => a.id === "price")!.say });
     expect(meaningHints({ kind: "answer", id: "price", score: 0.9, margin: 0.05 }, answers, objections)).toEqual([]);
     expect(meaningHints({ kind: "objection", id: "think", score: 0.9, margin: 0.05 }, answers, objections)[0]?.title).toBe("„Трябва да си помисля“");
+  });
+
+  it("отговор по смисъл само на въпрос; тагът „нали?“ не е въпрос", async () => {
+    expect(isQuestion("Колко ще ни излезе всичко?")).toBe(true);
+    expect(isQuestion("Колко ще ни излезе всичко")).toBe(true);
+    expect(isQuestion("Виждал съм ги на доста места, нали?")).toBe(false);
+    const index = await MeaningIndex.build(intents, fakeEmbed(vocabulary));
+    expect(await index.match("Цялата сума ще ни излезе голяма.")).toBeNull();
   });
 
   it("темите идват от пакета: фрази, примери и „нищо особено“", () => {
