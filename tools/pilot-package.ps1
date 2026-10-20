@@ -39,6 +39,8 @@ Copy-Item $guide.FullName (Join-Path $out "Инструкция.pdf")
 Copy-Item $script (Join-Path $out "Сценарий за тест.pdf")
 $script2 = Join-Path $root "docs\pilot\Сценарий_за_тест_2.pdf"
 if (Test-Path $script2) { Copy-Item $script2 (Join-Path $out "Сценарий за тест 2.pdf") }
+$script3 = Join-Path $root "docs\pilot\Сценарий_за_тест_3.pdf"
+if (Test-Path $script3) { Copy-Item $script3 (Join-Path $out "Сценарий за тест 3.pdf") }
 
 # Пакетът за ръководителя не бива да съдържа тайни или данни от разговори.
 # Изключение: синтетичният запис за теста на компютъра (Windows TTS, без лични данни).

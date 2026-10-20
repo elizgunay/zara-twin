@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<title>Zara Copilot: сценарий за тест 3</title>
+<style>
+  /* Печат A4: квадратчета ✓/✗ до всяка реплика. Цветовете са като в панела на Copilot. */
+  @page { size: A4; margin: 13mm 14mm 13mm 14mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 10.2pt/1.38 "Segoe UI", Arial, sans-serif; color: #1b2436; }
+  h1 { font-size: 16.5pt; margin: 0; color: #1f3864; }
+  .sub { color: #5b6579; margin: 2px 0 8px; font-size: 9.5pt; }
+  .legend { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 8.8pt; margin: 0 0 8px; padding: 6px 10px; background: #f3f5f9; border-radius: 6px; }
+  .legend b { color: #1f3864; }
+  h2 { font-size: 11pt; margin: 10px 0 3px; color: #1f3864; break-after: avoid; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th:nth-child(1) { width: 10%; } th:nth-child(2) { width: 42%; } th:nth-child(3) { width: 36%; } th:nth-child(4) { width: 12%; }
+  tr { break-inside: avoid; }
+  th { text-align: left; font-size: 8.3pt; color: #5b6579; font-weight: 600; padding: 3px 6px; border-bottom: 1px solid #c9d1df; }
+  td { padding: 4px 6px; border-bottom: 1px solid #e3e8f0; vertical-align: top; }
+  .who { width: 10%; font-weight: 600; white-space: nowrap; }
+  .who.client { color: #6b3fa0; }
+  .who.me { color: #2e75b6; }
+  .say { width: 40%; }
+  .expect { width: 36%; color: #3a4558; font-size: 9.2pt; }
+  .mark { width: 14%; white-space: nowrap; font-size: 9.2pt; color: #5b6579; }
+  .box { display: inline-block; width: 11px; height: 11px; border: 1.3px solid #5b6579; border-radius: 2px; vertical-align: -1px; margin-right: 2px; }
+  .card { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 8.3pt; font-weight: 600; }
+  .violet { background: #efe6fa; color: #6b3fa0; } .green { background: #e1f3e8; color: #1d7a45; }
+  .blue { background: #e2ecf8; color: #1f3864; } .yellow { background: #fbf1d5; color: #8a6100; }
+  .none { background: #f3f5f9; color: #5b6579; } .tag { background: #fff; color: #3a4558; border: 1px solid #9aa3b5; }
+  .hint { color: #5b6579; font-size: 8.6pt; }
+  .note { font-size: 8.8pt; color: #5b6579; margin: 6px 0 0; }
+  .lines { margin-top: 8px; break-inside: avoid; }
+  .lines div { border-bottom: 1px solid #c9d1df; height: 19px; }
+</style>
+</head>
+<body>
+  <h1>Zara Copilot: сценарий за тест 3 (цял разговор)</h1>
+  <p class="sub">Около 10 минути. Ресторант, който мисли за робот сервитьор. Проверява готовите карти, разбирането по смисъл и AI отговорите. Преди началото: вход в <b>Опции → Табло</b>, <b>„Подготви сега“</b> е минало, ↻ при Zara Copilot, нова среща, бутон <b>„Тест“</b> в панела. <b>Пауза 4–5 секунди след всяка реплика.</b></p>
+  <div class="legend">
+    <span><b>Клиент</b>: казва вторият човек</span><span><b>Вие</b>: казвате вие</span>
+    <span><span class="card violet">лилава</span> възражение</span><span><span class="card green">зелена</span> отговор</span>
+    <span><span class="card blue">синя</span> робот / час</span><span><span class="card yellow">жълта</span> за вас</span>
+    <span><span class="card tag">по смисъл</span> разпознато по смисъл</span><span><span class="card tag">AI</span> съставено от AI, 2 реплики</span>
+    <span><span class="card none">нищо</span> без карта</span>
+  </div>
+
+  <h2>1. Отваряне</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who me">Вие</td><td>„Здравейте, обаждам се от Zara Robotics, оставили сте ни номер от рекламата. Удобно ли е 5 минути?“</td><td><span class="card none">нищо</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Да, слушам ви.“</td><td><span class="card none">нищо</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>2. Обектът</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Имаме ресторант в центъра от две години.“</td><td><span class="card green">Въпроси за обекта</span> „Има ли стъпала…“</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Подът е гранитогрес, без стъпала, а залата е около 200 квадрата.“</td><td><span class="card tag">AI</span> <span class="hint">следващ въпрос, напр. за разстоянието между масите или персонала</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>3. Болката</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Вечер сме пълни, а сервитьорите не смогват.“</td><td><span class="card tag">AI</span> <span class="hint">въпрос за болката, напр. „Разкажете ми повече…“</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Миналото лято загубихме двама сервитьори и не намерихме нови.“</td><td><span class="card tag">AI</span> <span class="hint">обобщение: „Значи… Правилно ли го казвам?“</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>4. Решение и цена</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Как точно ще ни помогне един робот?“</td><td><span class="card tag">AI</span> <span class="hint">роботът поема разнасянето, сервитьорите остават при гостите</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Колко ще ми излезе цялата работа?“</td><td><span class="card green">Цена</span> <span class="card tag">по смисъл</span> <span class="hint">(или AI)</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>5. Възражения</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who client">Клиент</td><td>„Скъпо ми е.“</td><td><span class="card violet">Възражение: цена</span> „Разбирам, и точно затова да сметнем…“</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td><b>След поне 30 секунди:</b> „Наистина е скъпо за нас.“</td><td><span class="card violet">Възражение: цена – пак</span> по-настоятелно</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Масите ни са нагъсто.“</td><td><span class="card green">Тясно ли е за робота</span> „Малкият минава през 55 см…“</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Какви са минусите на роботите?“</td><td><span class="card tag">AI</span> <span class="hint">честен минус (равен под, проход) + към демо</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Трябва да питам съдружника.“</td><td><span class="card violet">Решението е на някой друг</span> „…Елате заедно на демото.“</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Защо да купя от вас, а не от някой друг?“</td><td><span class="card tag">AI</span> <span class="hint">официален представител, сервиз в България, части до 10 дни</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Правите ли отстъпки?“</td><td><span class="card tag">AI</span> <span class="hint">„Ще ви го уточня в офертата…“ (без измислена отстъпка)</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <h2>6. Затваряне с дата</h2>
+  <table>
+    <tr><th>Кой</th><th>Казва</th><th>Очаквано</th><th>Резултат</th></tr>
+    <tr><td class="who me">Вие</td><td>„Ще ви пратя офертата.“</td><td><span class="card yellow">Сложете ден и час</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Може ли да го видим на живо?“</td><td><span class="card green">Демонстрация</span> „Вторник в 15:00 или четвъртък в 11:00?“</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Да, четвъртък в 11 часа ми е удобно.“</td><td><span class="card blue">час</span> с конкретната дата на четвъртъка</td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+    <tr><td class="who client">Клиент</td><td>„Добре, благодаря.“</td><td><span class="card none">нищо</span></td><td class="mark"><span class="box"></span>✓ <span class="box"></span>✗</td></tr>
+  </table>
+
+  <p class="note"><b>Проверете и на всяка AI карта:</b> само български (без руски думи) · изречението е цяло, без „…“ · няма измислени цени, отстъпки или срокове · вторият вариант е различен от първия. Накрая: в таблото срещата е с етикет „Тест“ и има уговорен час.</p>
+  <div class="lines"><b>Бележки (кое не излезе, кое беше грешно):</b><div></div><div></div><div></div></div>
+</body>
+</html>
