@@ -19,7 +19,7 @@ import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
 import { aiSuggest, syncPending } from "./cloud/cloud";
 import { aiFacts } from "@zara-twin/knowledge";
-import { pack } from "./pack";
+import { method, pack } from "./pack";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
 import { resolveCloudStt, SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
@@ -109,7 +109,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
  * на Chrome). Всеки опит взима ново разрешение: streamId е за едно ползване и за няколко секунди.
  */
 /** Фактите на фирмата за AI отговорите: от вградения пакет, веднъж. */
-const AI_FACTS = aiFacts(pack);
+const AI_FACTS = aiFacts(pack, method);
 const AI_LAST_KEY = "aiLastResult";
 
 const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];

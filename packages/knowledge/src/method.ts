@@ -19,6 +19,11 @@ export interface MethodPack {
    * по смисъл ги ползва като „нищо особено“: ако изречението е най-близо до тях, подсказка няма.
    */
   neutralExamples?: string[];
+  /**
+   * Сценарият на разговора: целта, стъпките по ред и правилата. AI отговорите го ползват,
+   * за да предложат следващата реплика и на изказване на клиента, не само на въпрос. По избор.
+   */
+  playbook?: Playbook;
   /** Колко да говори продавачът. По избор: без него се ползват стойностите по подразбиране. */
   talkRatio?: TalkRatioRules;
 }
@@ -46,6 +51,15 @@ export interface Objection {
   escalate?: string[];
   /** 0–1 кратко напомняне (факт от профила), показва се дребно под репликите. */
   tips?: Tip[];
+}
+
+export interface Playbook {
+  /** Напр. „Уговорено демо с ден и час“. */
+  goal: string;
+  /** Стъпките по ред, всяка с примерна реплика. */
+  steps: string[];
+  /** Кратки правила („Никога без дата“). */
+  rules: string[];
 }
 
 export interface Nudge {
@@ -94,6 +108,11 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (!nudge.id || !nudge.label) problems.push("Подсказка за продавача без id или заглавие.");
     if (!nudge.triggers?.length || nudge.triggers.some((t) => t !== t.toLowerCase())) problems.push(`„${nudge.id}“: фразите трябва да са с малки букви.`);
     if (!nudge.say?.length || nudge.say.length > 2 || nudge.say.some((s) => s.length > 140)) problems.push(`„${nudge.id}“: трябват 1–2 реплики до 140 знака.`);
+  }
+  const book = pack.playbook;
+  if (book !== undefined) {
+    const texts = (v: unknown, max: number) => Array.isArray(v) && v.length > 0 && v.length <= max && v.every((t) => typeof t === "string" && t.trim() && t.length <= 400);
+    if (typeof book.goal !== "string" || !book.goal.trim() || !texts(book.steps, 12) || !texts(book.rules, 12)) problems.push("playbook: трябват цел, 1–12 стъпки и 1–12 правила (до 400 знака).");
   }
   if (!validExamples(pack.neutralExamples)) problems.push("neutralExamples: изреченията трябва да са до 200 знака.");
   const talk = pack.talkRatio;

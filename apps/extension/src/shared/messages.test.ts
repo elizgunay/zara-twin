@@ -61,11 +61,11 @@ describe("isBackgroundMessage", () => {
 });
 
 describe("AI отговор (ai-suggest)", () => {
-  it("кратък въпрос и до 4 реплики контекст", () => {
+  it("кратък въпрос и до 6 реплики контекст", () => {
     const turns = [{ speaker: "client", text: "Здравейте" }];
     expect(isBackgroundMessage({ type: "ai-suggest", question: "Какви са минусите?", turns })).toBe(true);
     expect(isBackgroundMessage({ type: "ai-suggest", question: "а", turns })).toBe(false);
-    expect(isBackgroundMessage({ type: "ai-suggest", question: "Какви са минусите?", turns: Array(5).fill(turns[0]) })).toBe(false);
+    expect(isBackgroundMessage({ type: "ai-suggest", question: "Какви са минусите?", turns: Array(7).fill(turns[0]) })).toBe(false);
     expect(isBackgroundMessage({ type: "ai-suggest", question: "Какви са минусите?", turns: [{ speaker: "owner", text: "x" }] })).toBe(false);
     expect(isBackgroundMessage({ type: "ai-suggest", question: "в".repeat(400), turns })).toBe(false);
   });

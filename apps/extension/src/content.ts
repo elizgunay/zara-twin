@@ -72,6 +72,8 @@ function freshAssistants() {
     aiPending: false,
     aiAt: 0,
     aiErrorShown: false,
+    /** Изречение, чакащо реда си към AI (лимитът на безплатния план). */
+    aiNext: null as string | null,
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
@@ -242,7 +244,11 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
 function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
   const current = meeting;
   if (!merged) current.lineHinted = false;
-  if (hinted) current.lineHinted = true;
+  if (hinted) {
+    current.lineHinted = true;
+    // Ново изречение с готова карта: чакащото към AI вече е остаряло.
+    current.aiNext = null;
+  }
   clearTimeout(current.meaningTimer);
   if (current.lineHinted) return;
   current.meaningTimer = setTimeout(() => {
@@ -254,6 +260,7 @@ function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
         const hints = response?.ok && response.match ? meaningHints(response.match, current.answers, current.objections) : [];
         if (hints.length > 0) {
           current.lineHinted = true;
+          current.aiNext = null;
           hints.forEach(showHint);
           return;
         }
@@ -269,13 +276,20 @@ const AI_GAP_MS = 3_000;
 const words = (text: string) => text.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
 
 /**
- * Последната стъпка: AI отговор от фактите на фирмата (Mistral, ЕС), когато нито фраза, нито
- * смисълът не са дали карта. Само за въпрос или по-дълго изречение: поздрави и „добре“ не се пращат.
+ * Последната стъпка: AI реплика от фактите и сценария (Mistral, ЕС), когато нито фраза, нито смисълът
+ * не са дали карта. За всяко изречение на клиента от 3 думи: въпрос → отговор, разказ → следващият
+ * въпрос по сценария, колебание → към демо с дата. „Добре“, „Здравейте“ не се пращат.
+ * Ако AI още мисли по предишното, новото изречение чака и тръгва веднага след него (само последното).
  */
 function askAi(text: string, current: typeof meeting): void {
-  if (!aiEnabled || current.lineHinted || current.aiPending) return;
-  if (!isQuestion(text) && words(text) < 8) return;
-  if (Date.now() - current.aiAt < AI_GAP_MS) return;
+  if (!aiEnabled || current.lineHinted) return;
+  if (words(text) < 3 && !isQuestion(text)) return;
+  if (current.aiPending || Date.now() - current.aiAt < AI_GAP_MS) {
+    current.aiNext = text;
+    if (!current.aiPending) setTimeout(() => flushAi(current), AI_GAP_MS - (Date.now() - current.aiAt));
+    return;
+  }
+  current.aiNext = null;
   current.aiPending = true;
   current.aiAt = Date.now();
   // Контекст: последните реплики преди това изречение, съкратени.
@@ -287,6 +301,7 @@ function askAi(text: string, current: typeof meeting): void {
   void chrome.runtime.sendMessage(request).then(
     (response: AiSuggestion | undefined) => {
       current.aiPending = false;
+      setTimeout(() => flushAi(current), AI_GAP_MS);
       if (meeting !== current || current.lineHinted) return;
       if (!response?.ok) {
         // Веднъж на среща: защо няма AI отговори (няма вход, липсва ключ…).
@@ -302,8 +317,19 @@ function askAi(text: string, current: typeof meeting): void {
     },
     () => {
       current.aiPending = false;
+      setTimeout(() => flushAi(current), AI_GAP_MS);
     },
   );
+}
+
+/** Изречението, което е чакало, докато AI отговаряше на предишното. */
+function flushAi(current: typeof meeting): void {
+  const next = current.aiNext;
+  if (!next || meeting !== current || current.aiPending) return;
+  current.aiNext = null;
+  // Чакалото изречение е последното на клиента: ако междувременно е получило карта, не се праща.
+  current.lineHinted = false;
+  askAi(next, current);
 }
 
 // Табът се затваря или презарежда по време на срещата: последно обновяване на дневника.

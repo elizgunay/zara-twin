@@ -50,7 +50,7 @@ export type BackgroundMessage =
   | { type: "ai-suggest"; question: string; turns: { speaker: "client" | "seller"; text: string }[] };
 
 /** Колко реплики преди въпроса отиват към AI (за контекст), и колко дълги. */
-export const AI_MAX_TURNS = 4;
+export const AI_MAX_TURNS = 6;
 export const AI_MAX_TEXT = 300;
 
 export interface TranscriptLine {

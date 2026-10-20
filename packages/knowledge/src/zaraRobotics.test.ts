@@ -5,6 +5,8 @@ import { codePattern, MentionFinder } from "./mentions";
 import { validatePack } from "./validate";
 import { sttVocabulary } from "./vocabulary";
 import { aiFacts } from "./aiFacts";
+import rawMethod from "../../../knowledge-packs/methods/b2b-sales-bg/method.json";
+import { validateMethodPack } from "./method";
 
 const pack = validatePack(rawPack);
 const finder = new MentionFinder(pack);
@@ -58,7 +60,20 @@ describe("фактите за AI отговорите", () => {
     // Моделите без цена са с описание, но без цифри за цена.
     expect(facts).toContain("Други модели (цена: по запитване");
     expect(facts).toContain("Keenon Kleenbot C40S (C40S): Робот 5-в-1");
-    expect(facts.length).toBeLessThan(11_000);
+    expect(facts.length).toBeLessThan(14_000);
+  });
+});
+
+describe("сценарият на разговора за AI", () => {
+  it("целта, стъпките и правилата отиват към AI; грешен сценарий спира метода", () => {
+    const method = validateMethodPack(rawMethod);
+    const facts = aiFacts(pack, method);
+    expect(facts).toContain("Сценарий на разговора. Цел: Уговорена демонстрация");
+    expect(facts).toContain("7. Затваряне с дата");
+    expect(facts).toContain("Никога без дата");
+    const broken = structuredClone(rawMethod) as { playbook: { steps: unknown } };
+    broken.playbook.steps = [];
+    expect(() => validateMethodPack(broken)).toThrow(/playbook/);
   });
 });
 

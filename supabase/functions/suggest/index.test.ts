@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, parseRequest, parseSay, userPrompt, type Deps } from "./index";
+import { handle, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
 
 const ORG = "00000000-0000-4000-8000-00000000a000";
 const OTHER = "00000000-0000-4000-8000-00000000b000";
@@ -45,13 +45,31 @@ describe("AI отговор (Edge Function suggest)", () => {
     expect(parseRequest({ ...body, facts: "x".repeat(20_000) })).toBeNull();
   });
 
-  it("само до 2 кратки изречения, а без въпрос – нищо", () => {
+  it("до 2 реплики, цели, без „…“", () => {
     expect(parseSay('{"say":[]}')).toEqual([]);
     expect(parseSay("не е JSON")).toEqual([]);
     expect(parseSay('Ето: {"say":["Едно.","Две.","Три."]}')).toEqual(["Едно.", "Две."]);
-    const long = parseSay(JSON.stringify({ say: ["дума ".repeat(60)] }))[0]!;
-    expect(long.length).toBeLessThanOrEqual(160);
-    expect(long.endsWith("…")).toBe(true);
+    // 200 знака: остава цяла (преди се режеше на 160 с „…“).
+    const medium = "Роботът поема разнасянето на чиниите, а вашите сервитьори остават при гостите и продават повече. Идваме на безплатна демонстрация при вас, във вторник в 15:00.";
+    expect(parseSay(JSON.stringify({ say: [medium] }))).toEqual([medium]);
+    // Прекалено дълга: спира в края на цяло изречение.
+    const long = parseSay(JSON.stringify({ say: ["Първо изречение е тук. ".repeat(30)] }))[0]!;
+    expect(long.length).toBeLessThanOrEqual(400);
+    expect(long.endsWith(".")).toBe(true);
+    expect(long).not.toContain("…");
+  });
+
+  it("руските думи стават български, руски букви – вариантът отпада", () => {
+    expect(toBulgarian("Потому что е удобно, сейчас ще ви кажа.")).toBe("Защото е удобно, сега ще ви кажа.");
+    expect(toBulgarian("Ние сме тук потому вие питате")).toBe("Ние сме тук затова вие питате");
+    expect(toBulgarian("Потребител")).toBe("Потребител"); // не пипа части от думи
+    expect(parseSay('{"say":["Это очень хорошо.","Добре е."]}')).toEqual(["Добре е."]);
+  });
+
+  it("отговаря и на изказване (следващата стъпка), с 2 варианта", async () => {
+    const { SYSTEM_PROMPT } = await import("./index");
+    expect(SYSTEM_PROMPT).toContain("Разказва за себе си");
+    expect(SYSTEM_PROMPT).toContain("Върни 2 варианта");
   });
 
   it("без разговор пише „(начало)“", () => {

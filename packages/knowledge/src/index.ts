@@ -4,4 +4,4 @@ export { aiFacts } from "./aiFacts";
 export { validatePack } from "./validate";
 export { codePattern, MentionFinder, type Mentions } from "./mentions";
 export { productCard, type ProductCard } from "./card";
-export { validateMethodPack, type MethodPack, type Nudge, type Objection, type TalkRatioRules, type Tip } from "./method";
+export { validateMethodPack, type MethodPack, type Nudge, type Objection, type Playbook, type TalkRatioRules, type Tip } from "./method";

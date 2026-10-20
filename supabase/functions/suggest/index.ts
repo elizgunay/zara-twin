@@ -33,12 +33,40 @@ export interface Deps {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_FACTS = 12_000;
+const MAX_FACTS = 16_000;
 const MAX_TURNS = 6;
 const MAX_TEXT = 400;
-/** Репликите се четат на един поглед: до 2 изречения по 160 знака. */
+/** До 2 реплики. Не се режат по средата: само прекалено дълга спира в края на цяло изречение. */
 const MAX_SAY = 2;
-const MAX_SAY_LENGTH = 160;
+const MAX_SAY_LENGTH = 400;
+
+/**
+ * Моделът понякога смесва руски думи („потому“). Честите се сменят с българските; реплика с
+ * чисто руски букви (ы, э, ё) се пропуска.
+ */
+const RUSSIAN: [string, string][] = [
+  ["потому что", "защото"], ["поэтому", "затова"], ["потому", "затова"], ["сейчас", "сега"], ["очень", "много"],
+  ["конечно", "разбира се"], ["тоже", "също"], ["только", "само"], ["если", "ако"], ["который", "който"],
+  ["которые", "които"], ["нужно", "трябва"], ["можно", "може"], ["хорошо", "добре"], ["спасибо", "благодаря"],
+  ["здесь", "тук"], ["всегда", "винаги"], ["вопрос", "въпрос"], ["сегодня", "днес"], ["завтра", "утре"],
+];
+const RUSSIAN_LETTERS = /[ыэё]/iu;
+
+export function toBulgarian(text: string): string {
+  let out = text;
+  for (const [ru, bg] of RUSSIAN) {
+    out = out.replace(new RegExp(`(?<!\\p{L})${ru}(?!\\p{L})`, "giu"), (m) => (m[0] === m[0]!.toUpperCase() ? bg[0]!.toUpperCase() + bg.slice(1) : bg));
+  }
+  return out;
+}
+
+/** Над лимита: до края на последното цяло изречение, без „…“. */
+function wholeSentences(text: string): string {
+  if (text.length <= MAX_SAY_LENGTH) return text;
+  const cut = text.slice(0, MAX_SAY_LENGTH);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+  return end > 0 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "");
+}
 
 export function parseRequest(value: unknown): SuggestRequest | null {
   if (typeof value !== "object" || value === null) return null;
@@ -58,15 +86,20 @@ export function parseRequest(value: unknown): SuggestRequest | null {
 
 export const SYSTEM_PROMPT = `Ти си Copilot на продавач по време на разговор с клиент. Продавачът чете подсказката на екрана и я казва дословно.
 
-Правила:
-- Отговаряй само на български, в 1 или 2 кратки изречения (до 160 знака всяко), готови за казване на глас, на „вие“.
-- Ползвай САМО фактите на фирмата по-долу. Не измисляй цени, срокове, отстъпки, модели или условия.
-- Ако нужният факт липсва: „Ще ви го уточня в офертата до утре в 12.“
-- Бъди уверен и настоятелен: насочвай към безплатна демонстрация с конкретен ден и час.
-- Без съвети към продавача, без „кажете му…“: само думите към клиента.
-- Ако клиентът не пита и не възразява (поздрав, разказ, „добре“), върни празен списък.
+Според това, което клиентът току-що каза:
+- Пита нещо: отговори от фактите.
+- Разказва за себе си или за обекта си: кратко потвърждение и следващият въпрос по сценария (виж на коя стъпка е разговорът).
+- Колебае се или възразява: една реплика, която връща към демонстрация с ден и час.
+- Само поздрав, „добре“, „аха“ или неразбираем откъс: празен списък.
 
-Отговорът е JSON: {"say": ["изречение 1", "изречение 2"]} или {"say": []}.`;
+Правила:
+- Само на правилен български, на „вие“, готово за казване на глас. Никакви руски думи („потому“, „сейчас“, „очень“): само български („затова“, „сега“, „много“).
+- Всяка реплика е 1–2 кратки, завършени изречения (до около 160 знака).
+- Върни 2 варианта: първият е най-добрият, вторият е различен подход (напр. въпрос вместо твърдение).
+- Ползвай САМО фактите на фирмата. Не измисляй цени, срокове, отстъпки, модели или условия. Ако факт липсва: „Ще ви го уточня в офертата до утре в 12.“
+- Уверено и настоятелно, по правилата на сценария. Без съвети към продавача („кажете му…“): само думите към клиента.
+
+Отговорът е JSON: {"say": ["вариант 1", "вариант 2"]} или {"say": []}.`;
 
 export function userPrompt(request: SuggestRequest): string {
   const context = request.turns.map((t) => `${t.speaker === "client" ? "Клиент" : "Продавач"}: ${t.text}`).join("\n");
@@ -92,9 +125,9 @@ export function parseSay(raw: string): string[] {
   return say
     .filter((s): s is string => typeof s === "string")
     .map((s) => s.replace(/\s+/g, " ").trim())
-    .filter((s) => s.length > 0)
-    .slice(0, MAX_SAY)
-    .map((s) => (s.length <= MAX_SAY_LENGTH ? s : `${s.slice(0, MAX_SAY_LENGTH - 1).replace(/\s+\S*$/, "")}…`));
+    .filter((s) => s.length > 0 && !RUSSIAN_LETTERS.test(s))
+    .map((s) => wholeSentences(toBulgarian(s)))
+    .slice(0, MAX_SAY);
 }
 
 export async function handle(jwt: string | null, body: unknown, deps: Deps): Promise<{ status: number; body: SuggestResponse }> {
@@ -162,7 +195,7 @@ if (typeof Deno !== "undefined") {
         body: JSON.stringify({
           model: Deno!.env.get("MISTRAL_MODEL") || MISTRAL_MODEL,
           temperature: 0.2,
-          max_tokens: 200,
+          max_tokens: 400,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

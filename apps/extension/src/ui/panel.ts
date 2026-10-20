@@ -439,10 +439,10 @@ const TEMPLATE = /* html */ `
   /* Най-новата подсказка е отгоре и изпъква; по-старите са бледи и по-дребни. */
   .hints .hint:first-child { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
   .hints .hint:not(:first-child) { opacity: 0.55; padding: 5px 10px; }
-  /* По-старите: само заглавието и един ред от репликата, за да не избутват разговора. */
+  /* По-старите: заглавието и основната реплика цяла (по-дребно), без резервната, за да не избутват разговора. */
   .hints .hint:not(:first-child) ul, .hints .hint:not(:first-child) .say:not(.main), .hints .hint:not(:first-child) a { display: none; }
   .hints .hint:not(:first-child) h2 { margin: 0; }
-  .hints .hint:not(:first-child) .say.main { font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hints .hint:not(:first-child) .say.main { font-size: 12px; font-weight: 500; margin-top: 2px; }
   .hint ul { margin: 0; padding-left: 16px; color: #d2d6db; }
   .hint li { margin: 2px 0; }
   .hint .say { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: #d7c4f5; }

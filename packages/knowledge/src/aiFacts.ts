@@ -1,3 +1,4 @@
+import type { MethodPack } from "./method";
 import type { KnowledgePack } from "./types";
 
 /**
@@ -5,11 +6,11 @@ import type { KnowledgePack } from "./types";
  * Само от пакета: модели с цена (тези, които реално се предлагат), условията, готовите отговори
  * и какво липсва, за да казва „ще ви го уточня“, вместо да гадае.
  */
-const MAX_LENGTH = 11_000;
+const MAX_LENGTH = 14_000;
 /** Характеристиките, по които клиентите питат най-често. */
 const KEY_SPECS = /товароносимост|минимален проход|живот на батерията|зареждане|езици|размери/i;
 
-export function aiFacts(pack: KnowledgePack): string {
+export function aiFacts(pack: KnowledgePack, method?: MethodPack): string {
   const lines: string[] = [`Фирма: ${pack.business.name}. ${pack.business.description}`];
 
   const offered = pack.products.filter((p) => p.price);
@@ -42,6 +43,12 @@ export function aiFacts(pack: KnowledgePack): string {
   }
 
   if (pack.missing.length > 0) lines.push("", `Нямаме данни за: ${pack.missing.join("; ")}.`);
+
+  // Сценарият на разговора: за да предложи следващата стъпка и на изказване, не само на въпрос.
+  const book = method?.playbook;
+  if (book) {
+    lines.push("", `Сценарий на разговора. Цел: ${book.goal}`, ...book.steps, `Правила: ${book.rules.join(" ")}`);
+  }
 
   const text = lines.join("\n");
   return text.length <= MAX_LENGTH ? text : text.slice(0, MAX_LENGTH);
