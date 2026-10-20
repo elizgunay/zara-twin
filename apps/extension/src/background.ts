@@ -17,7 +17,9 @@ import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
-import { syncPending } from "./cloud/cloud";
+import { aiSuggest, syncPending } from "./cloud/cloud";
+import { aiFacts } from "@zara-twin/knowledge";
+import { pack } from "./pack";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
 import { resolveCloudStt, SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
@@ -72,6 +74,14 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     saveReport(message.report, message.lines).then(sendResponse);
     return true;
   }
+  if (message.type === "ai-suggest") {
+    // Само от таба на срещата, в която тече Copilot.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    aiSuggest(message.question, message.turns, AI_FACTS).then(sendResponse, (error: unknown) =>
+      sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+    );
+    return true;
+  }
   if (message.type === "logs-request") {
     if (sender.tab === undefined) return;
     collectLogs().then(sendResponse);
@@ -93,6 +103,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
  * Опитите за прихващане: първо само звук, после звук + картина (както в официалния пример
  * на Chrome). Всеки опит взима ново разрешение: streamId е за едно ползване и за няколко секунди.
  */
+/** Фактите на фирмата за AI отговорите: от вградения пакет, веднъж. */
+const AI_FACTS = aiFacts(pack);
+
 const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];
 
 async function startSession(tabId: number): Promise<void> {
@@ -182,7 +195,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" | "ai-suggest" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();

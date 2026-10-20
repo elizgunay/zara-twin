@@ -17,6 +17,8 @@ export interface Hint {
   sourceUrl?: string;
   /** Разпознато по смисъл (локален модел), а не по фраза от пакета. Панелът го отбелязва. */
   byMeaning?: boolean;
+  /** Съставено от AI модел от фактите на фирмата (няма готова карта). Панелът го отбелязва. */
+  byAi?: boolean;
 }
 
 export interface HintEngineOptions {

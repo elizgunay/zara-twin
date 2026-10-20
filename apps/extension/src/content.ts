@@ -2,6 +2,7 @@ import { EchoFilter } from "@zara-twin/core";
 import {
   AnswerDetector,
   HintEngine,
+  isQuestion,
   meaningHints,
   NudgeDetector,
   ObjectionDetector,
@@ -18,6 +19,8 @@ import {
   isContentMessage,
   MAX_SAVED_LINES,
   type BackgroundMessage,
+  AI_MAX_TEXT,
+  AI_MAX_TURNS,
   type LogsResponse,
   type OffscreenMessage,
   type OffscreenResponse,
@@ -25,6 +28,8 @@ import {
   type TranscriptLine,
 } from "./shared/messages";
 import { UtteranceMerger } from "./transcripts/merge";
+import type { AiSuggestion } from "./cloud/cloud";
+import { AI_ANSWERS_KEY } from "./meaning/setting";
 import { SAVING_ENABLED_KEY } from "./transcripts/store";
 import { CopilotPanel, isPanelPrefs } from "./ui/panel";
 
@@ -63,6 +68,10 @@ function freshAssistants() {
     /** Текущото изречение на клиента вече има подсказка по фраза: по смисъл не се пита. */
     lineHinted: false,
     meaningTimer: undefined as ReturnType<typeof setTimeout> | undefined,
+    /** AI отговор: чака ли се, кога е питан последно, показана ли е грешката. */
+    aiPending: false,
+    aiAt: 0,
+    aiErrorShown: false,
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
@@ -73,6 +82,8 @@ function freshAssistants() {
 
 let meeting = freshAssistants();
 let testMode = false;
+/** AI отговорите (Опции → AI отговори). По подразбиране включени; без вход в таблото не работят. */
+let aiEnabled = true;
 let reportTimer: ReturnType<typeof setInterval> | undefined;
 /** Обобщението се обновява всяка минута: ако табът се затвори внезапно, остава почти пълно. */
 const REPORT_EVERY_MS = 60_000;
@@ -154,8 +165,9 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         panel.setMeeting(info);
         if (meeting.lines.length === 0) meeting.startedAt = Date.now();
         if (!meeting.recorder && info) meeting.recorder = new MeetingRecorder(info.id, meeting.startedAt);
-        void chrome.storage.local.get([SAVING_ENABLED_KEY, TEST_MODE_KEY]).then(
+        void chrome.storage.local.get([SAVING_ENABLED_KEY, TEST_MODE_KEY, AI_ANSWERS_KEY]).then(
           (stored) => {
+            aiEnabled = stored[AI_ANSWERS_KEY] !== false;
             panel.setSaveAvailable(stored[SAVING_ENABLED_KEY] === true);
             testMode = stored[TEST_MODE_KEY] === true;
             panel.setTestMode(testMode);
@@ -238,14 +250,60 @@ function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
     void chrome.runtime.sendMessage(request).then(
       (response: OffscreenResponse | undefined) => {
         // Срещата е свършила или вече има подсказка по фраза за това изречение.
-        if (meeting !== current || current.lineHinted || !response?.ok || !response.match) return;
-        const hints = meaningHints(response.match, current.answers, current.objections);
-        if (hints.length > 0) current.lineHinted = true;
-        hints.forEach(showHint);
+        if (meeting !== current || current.lineHinted) return;
+        const hints = response?.ok && response.match ? meaningHints(response.match, current.answers, current.objections) : [];
+        if (hints.length > 0) {
+          current.lineHinted = true;
+          hints.forEach(showHint);
+          return;
+        }
+        askAi(text, current);
       },
-      () => {},
+      () => askAi(text, current),
     );
   }, MEANING_PAUSE_MS);
+}
+
+/** Между две питания на AI: безплатният план на модела приема около 1 заявка в секунда. */
+const AI_GAP_MS = 3_000;
+const words = (text: string) => text.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
+
+/**
+ * Последната стъпка: AI отговор от фактите на фирмата (Mistral, ЕС), когато нито фраза, нито
+ * смисълът не са дали карта. Само за въпрос или по-дълго изречение: поздрави и „добре“ не се пращат.
+ */
+function askAi(text: string, current: typeof meeting): void {
+  if (!aiEnabled || current.lineHinted || current.aiPending) return;
+  if (!isQuestion(text) && words(text) < 8) return;
+  if (Date.now() - current.aiAt < AI_GAP_MS) return;
+  current.aiPending = true;
+  current.aiAt = Date.now();
+  // Контекст: последните реплики преди това изречение, съкратени.
+  const before = current.lines.slice(-AI_MAX_TURNS - 1, -1).map((line) => ({
+    speaker: line.speaker === "owner" ? ("seller" as const) : ("client" as const),
+    text: line.text.slice(0, AI_MAX_TEXT),
+  }));
+  const request: BackgroundMessage = { type: "ai-suggest", question: text.slice(0, AI_MAX_TEXT), turns: before };
+  void chrome.runtime.sendMessage(request).then(
+    (response: AiSuggestion | undefined) => {
+      current.aiPending = false;
+      if (meeting !== current || current.lineHinted) return;
+      if (!response?.ok) {
+        // Веднъж на среща: защо няма AI отговори (няма вход, липсва ключ…).
+        if (response && !current.aiErrorShown) {
+          current.aiErrorShown = true;
+          panel.setNotice("info", `AI отговорите не работят: ${response.error}`);
+        }
+        return;
+      }
+      if (response.say.length === 0) return;
+      current.lineHinted = true;
+      showHint({ key: `ai:${Date.now()}`, kind: "answer", title: "Отговор", say: response.say, lines: [], byAi: true });
+    },
+    () => {
+      current.aiPending = false;
+    },
+  );
 }
 
 // Табът се затваря или презарежда по време на срещата: последно обновяване на дневника.

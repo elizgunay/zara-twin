@@ -62,7 +62,7 @@ describe("HintEngine", () => {
     const engine = new HintEngine({ ...pack, answers: [] });
     const [lease] = say(engine, "Може ли на лизинг или под наем?");
     expect(lease).toMatchObject({ key: "policy:purchase" });
-    expect(lease!.lines[0]).toMatch(/само за покупка/);
+    expect(lease!.lines[0]).toMatch(/месец под наем/);
   });
 
   it("наем с готов отговор в пакета: оставя го на AnswerDetector (без двойна карта)", () => {

@@ -14,7 +14,7 @@ import { formatDuration, formatOffset, type MeetingReport } from "../meetings/re
 import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
 import { BUILT_IN_SPEECHMATICS_KEY } from "../stt/builtInKey";
 import { MeaningService } from "../meaning/meaningService";
-import { effectiveMeaning, isMeaningSetting, MEANING_MODEL_KEY, type MeaningSetting } from "../meaning/setting";
+import { AI_ANSWERS_KEY, effectiveMeaning, isMeaningSetting, MEANING_MODEL_KEY, type MeaningSetting } from "../meaning/setting";
 import {
   effectiveKey,
   effectiveMode,
@@ -469,3 +469,15 @@ meaningPrepare.addEventListener("click", () => {
 });
 
 void loadMeaning();
+
+// AI отговори: включени по подразбиране (без вход в таблото не работят).
+const aiBox = document.querySelector<HTMLInputElement>("#ai-answers")!;
+const aiStatus = document.querySelector<HTMLElement>("#ai-status")!;
+void chrome.storage.local.get(AI_ANSWERS_KEY).then((stored) => {
+  aiBox.checked = stored[AI_ANSWERS_KEY] !== false;
+});
+aiBox.addEventListener("change", async () => {
+  await chrome.storage.local.set({ [AI_ANSWERS_KEY]: aiBox.checked });
+  aiStatus.textContent = aiBox.checked ? "Включени. Важи от следващото включване на Copilot." : "Изключени.";
+  aiStatus.className = "ok";
+});

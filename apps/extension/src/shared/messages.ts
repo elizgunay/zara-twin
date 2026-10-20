@@ -45,7 +45,13 @@ export type BackgroundMessage =
   /** От панела: запазване на текста от срещата (бутон „Запази“), само на този компютър. */
   | { type: "save-transcript"; meetingCode: string; startedAt: number; lines: TranscriptLine[] }
   /** От панела: обобщението и текстът на срещата, автоматично всяка минута и в края ѝ. */
-  | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] };
+  | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] }
+  /** От панела: въпрос на клиента без готова карта → AI отговор от фактите на фирмата. */
+  | { type: "ai-suggest"; question: string; turns: { speaker: "client" | "seller"; text: string }[] };
+
+/** Колко реплики преди въпроса отиват към AI (за контекст), и колко дълги. */
+export const AI_MAX_TURNS = 4;
+export const AI_MAX_TEXT = 300;
 
 export interface TranscriptLine {
   speaker: SpeakerRole;
@@ -160,6 +166,17 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       );
     case "save-report":
       return isMeetingReport(value.report) && isTranscriptLines(value.lines);
+    case "ai-suggest":
+      return (
+        typeof value.question === "string" &&
+        value.question.trim().length >= 3 &&
+        value.question.length <= AI_MAX_TEXT &&
+        Array.isArray(value.turns) &&
+        value.turns.length <= AI_MAX_TURNS &&
+        value.turns.every(
+          (t: unknown) => isRecord(t) && (t.speaker === "client" || t.speaker === "seller") && typeof t.text === "string" && t.text.length <= AI_MAX_TEXT,
+        )
+      );
     case "calendar-busy":
       return (
         Number.isFinite(value.start) &&

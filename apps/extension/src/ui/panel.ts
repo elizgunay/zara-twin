@@ -324,6 +324,14 @@ export class CopilotPanel {
 
     const title = this.doc.createElement("h2");
     title.textContent = hint.title;
+    if (hint.byAi) {
+      // Съставено от AI: продавачът да провери с поглед, преди да го каже.
+      const tag = this.doc.createElement("span");
+      tag.className = "by-meaning";
+      tag.title = "Съставено от AI от фактите на фирмата (няма готова карта)";
+      tag.textContent = "AI";
+      title.append(" ", tag);
+    }
     if (hint.byMeaning) {
       // Разпознато по смисъл, не по точна фраза: продавачът да е готов, че може да е неточно.
       const tag = this.doc.createElement("span");

@@ -17,3 +17,6 @@ export function isMeaningSetting(value: unknown): value is MeaningSetting {
 export function effectiveMeaning(stored: unknown): MeaningSetting {
   return isMeaningSetting(stored) ? stored : DEFAULT_MEANING;
 }
+
+/** AI отговори (Mistral, ЕС) по време на среща: false = изключени. Липсва = включени. */
+export const AI_ANSWERS_KEY = "aiAnswers";

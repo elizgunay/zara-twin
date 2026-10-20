@@ -4,6 +4,7 @@ import { productCard } from "./card";
 import { codePattern, MentionFinder } from "./mentions";
 import { validatePack } from "./validate";
 import { sttVocabulary } from "./vocabulary";
+import { aiFacts } from "./aiFacts";
 
 const pack = validatePack(rawPack);
 const finder = new MentionFinder(pack);
@@ -44,6 +45,18 @@ describe("пакетът на Zara Robotics", () => {
     // Пълните имена на продаваните модели остават; редки имена без произношение – не.
     expect(vocab.some((v) => v.content === "Keenon Dinerbot T9")).toBe(true);
     expect(vocab.some((v) => /Keenmow|XMAN/.test(v.content))).toBe(false);
+  });
+});
+
+describe("фактите за AI отговорите", () => {
+  it("продаваните модели с цена, условията, готовите отговори и какво липсва", () => {
+    const facts = aiFacts(pack);
+    expect(facts).toContain("Keenon Dinerbot T8 (T8): 8 000 € без ДДС");
+    expect(facts).toContain("Минимален проход: 55 см");
+    expect(facts).toContain("Гаранция: Гаранция до 24 месеца.");
+    expect(facts).toContain("Нямаме данни за:");
+    expect(facts).not.toContain("Keenmow"); // без цена: не се предлага активно
+    expect(facts.length).toBeLessThan(11_000);
   });
 });
 

@@ -176,3 +176,30 @@ function humanError(message: string): string {
   if (/Failed to fetch|NetworkError/i.test(message)) return "Няма връзка с таблото. Проверете интернета.";
   return message;
 }
+
+export interface AiTurn {
+  speaker: "client" | "seller";
+  text: string;
+}
+
+export type AiSuggestion = { ok: true; say: string[] } | { ok: false; error: string };
+
+/**
+ * AI отговор (Edge Function suggest, Mistral в ЕС). Само с вход в таблото и избрана фирма:
+ * ключът за модела е на сървъра, а функцията пуска само членове на фирмата.
+ */
+export async function aiSuggest(question: string, turns: AiTurn[], facts: string): Promise<AiSuggestion> {
+  if (!cloudConfigured) return { ok: false, error: "Таблото не е настроено." };
+  const { data } = await db().auth.getSession();
+  if (!data.session) return { ok: false, error: "Няма вход в таблото (Опции → Табло)." };
+  let orgId: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
+  if (typeof orgId !== "string") orgId = (await cloudStatus()).orgId;
+  if (typeof orgId !== "string") return { ok: false, error: "Не е избрана фирма." };
+  const { data: body, error } = await db().functions.invoke<AiSuggestion>("suggest", { body: { orgId, facts, turns, question } });
+  if (error) {
+    // Отговорът на функцията (напр. „Липсва MISTRAL_API_KEY“) е в context на грешката.
+    const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    return { ok: false, error: (detail as { error?: string } | null)?.error ?? error.message };
+  }
+  return body ?? { ok: false, error: "Празен отговор." };
+}
