@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generatePassword, handle, type Admin, type Role } from "./index";
+import { adminKey, generatePassword, handle, type Admin, type Role } from "./index";
 
 const ORG_A = "00000000-0000-4000-8000-00000000a000";
 const ORG_B = "00000000-0000-4000-8000-00000000b000";
@@ -82,6 +82,12 @@ describe("manage-users", () => {
     for (const body of [null, {}, { action: "create", orgId: ORG_A, email: "без-маймунка", role: "seller" }, { action: "create", orgId: ORG_A, email: "a@b.bg", role: "admin" }, { action: "list", orgId: "1" }]) {
       expect((await handle(OWNER_A, body, f.admin)).status, JSON.stringify(body)).toBe(400);
     }
+  });
+
+  it("главният ключ: старият или новият формат на Supabase", () => {
+    expect(adminKey((n) => ({ SUPABASE_SERVICE_ROLE_KEY: "legacy" })[n])).toBe("legacy");
+    expect(adminKey((n) => ({ SUPABASE_SECRET_KEYS: '{"default":"sb_secret_x"}' })[n])).toBe("sb_secret_x");
+    expect(adminKey(() => undefined)).toBeNull();
   });
 
   it("паролата: 14 знака, без лесни за бъркане символи, различна всеки път", () => {

@@ -117,9 +117,30 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+/**
+ * Главният ключ на проекта: старият SUPABASE_SERVICE_ROLE_KEY или новият формат
+ * SUPABASE_SECRET_KEYS (JSON, напр. {"default":"sb_secret_…"}). Supabase слага един от двата сам.
+ */
+export function adminKey(env: (name: string) => string | undefined): string | null {
+  const legacy = env("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+  try {
+    const keys: unknown = JSON.parse(env("SUPABASE_SECRET_KEYS") ?? "");
+    if (keys && typeof keys === "object") {
+      const first = Object.values(keys as Record<string, unknown>).find((v) => typeof v === "string" && v.length > 0);
+      if (typeof first === "string") return first;
+    }
+  } catch {
+    // няма нов формат
+  }
+  return null;
+}
+
 if (typeof Deno !== "undefined") {
   const { createClient } = await import("npm:@supabase/supabase-js@2.117.2");
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+  const key = adminKey((name) => Deno!.env.get(name));
+  if (!key) throw new Error("Липсва главният ключ на проекта (SUPABASE_SERVICE_ROLE_KEY или SUPABASE_SECRET_KEYS).");
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const admin: Admin = {
