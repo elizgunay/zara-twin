@@ -5,8 +5,8 @@ import type { Hint, SegmentInput } from "./engine";
  * Подсказки при възражения, без AI модел: метод (как да се отговори) + профил
  * (конкретните условия на бизнеса). Реагира само на думите на събеседника.
  *
- * Ограничение, което е съзнателно: разпознаването е по фрази и ще пропуска
- * перифразирани възражения. Следващото ниво (с AI модел) ще ги разбира по смисъл.
+ * Разпознаването тук е по фрази и пропуска перифразирани възражения. Тях ги хваща
+ * разпознаването по смисъл (meaning.ts, локален модел), чрез show(id).
  */
 export interface ObjectionOptions {
   /** Едно и също възражение не се повтаря 3 минути. */
@@ -43,29 +43,41 @@ export class ObjectionDetector {
     const hints: Hint[] = [];
     for (const { objection, patterns } of this.matchers) {
       if (!patterns.some((pattern) => matchesWithoutNegation(pattern, segment.text))) continue;
-      const key = `objection:${objection.id}`;
-      const now = this.now();
-      const last = this.shownAt.get(key);
-      if (last !== undefined && now - last < this.cooldownMs) {
-        // Клиентът повтаря същото: веднъж на среща показваме по-настоятелните реплики.
-        // Пауза от 20 s, за да не се брои едно и също изречение, разделено на две части.
-        if (objection.escalate && !this.escalated.has(objection.id) && now - last >= ESCALATE_GAP_MS) {
-          this.escalated.add(objection.id);
-          this.shownAt.set(key, now);
-          hints.push({ key: `${key}:again`, kind: "objection", title: `${objection.label} – пак`, say: objection.escalate, lines: [] });
-        }
-        continue;
-      }
-      this.shownAt.set(key, now);
-      hints.push({
-        key,
-        kind: "objection",
-        title: objection.label,
-        say: objection.say,
-        lines: (objection.tips ?? []).map((tip) => this.render(tip)),
-      });
+      const hint = this.emit(objection);
+      if (hint) hints.push(hint);
     }
     return hints;
+  }
+
+  /** Възражението по id, напр. разпознато по смисъл. Със същите паузи и „– пак“ при повторение. */
+  show(id: string): Hint[] {
+    const found = this.matchers.find((m) => m.objection.id === id);
+    const hint = found && this.emit(found.objection);
+    return hint ? [hint] : [];
+  }
+
+  private emit(objection: Objection): Hint | null {
+    const key = `objection:${objection.id}`;
+    const now = this.now();
+    const last = this.shownAt.get(key);
+    if (last !== undefined && now - last < this.cooldownMs) {
+      // Клиентът повтаря същото: веднъж на среща показваме по-настоятелните реплики.
+      // Пауза от 20 s, за да не се брои едно и също изречение, разделено на две части.
+      if (objection.escalate && !this.escalated.has(objection.id) && now - last >= ESCALATE_GAP_MS) {
+        this.escalated.add(objection.id);
+        this.shownAt.set(key, now);
+        return { key: `${key}:again`, kind: "objection", title: `${objection.label} – пак`, say: objection.escalate, lines: [] };
+      }
+      return null;
+    }
+    this.shownAt.set(key, now);
+    return {
+      key,
+      kind: "objection",
+      title: objection.label,
+      say: objection.say,
+      lines: (objection.tips ?? []).map((tip) => this.render(tip)),
+    };
   }
 
   private render(tip: Tip): string {

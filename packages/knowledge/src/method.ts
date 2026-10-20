@@ -14,6 +14,11 @@ export interface MethodPack {
    * без ден и час). По избор: от реалните разговори видяхме, че срещата често свършва така.
    */
   nudges?: Nudge[];
+  /**
+   * Реплики без въпрос или възражение („Добре.“, „Чувате ли ме?“, „Не е скъпо.“). Разпознаването
+   * по смисъл ги ползва като „нищо особено“: ако изречението е най-близо до тях, подсказка няма.
+   */
+  neutralExamples?: string[];
   /** Колко да говори продавачът. По избор: без него се ползват стойностите по подразбиране. */
   talkRatio?: TalkRatioRules;
 }
@@ -35,6 +40,8 @@ export interface Objection {
   triggers: string[];
   /** 1–2 готови изречения, които продавачът казва дословно. Първото е основното. */
   say: string[];
+  /** Цели изречения на клиента със същия смисъл, но други думи. За разпознаване по смисъл. По избор. */
+  examples?: string[];
   /** 1–2 по-настоятелни реплики, ако клиентът повтори същото възражение в същата среща. */
   escalate?: string[];
   /** 0–1 кратко напомняне (факт от профила), показва се дребно под репликите. */
@@ -56,6 +63,12 @@ export interface Tip {
   policyTopic?: string;
 }
 
+/** Примерните изречения: по избор, но ако ги има – непразни и кратки. */
+export function validExamples(examples: unknown): boolean {
+  if (examples === undefined) return true;
+  return Array.isArray(examples) && examples.every((e) => typeof e === "string" && e.trim().length > 0 && e.length <= 200);
+}
+
 export function validateMethodPack(value: unknown): MethodPack {
   const pack = value as MethodPack;
   const problems: string[] = [];
@@ -74,6 +87,7 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (!objection.say?.length || objection.say.length > 2) problems.push(`„${objection.id}“: трябват 1–2 реплики (повече не се четат по време на разговор).`);
     if (objection.escalate !== undefined && (objection.escalate.length === 0 || objection.escalate.length > 2)) problems.push(`„${objection.id}“: трябват 1–2 настоятелни реплики.`);
     if ([...(objection.say ?? []), ...(objection.escalate ?? [])].some((line) => line.length > 140)) problems.push(`„${objection.id}“: репликата е твърде дълга (до 140 знака).`);
+    if (!validExamples(objection.examples)) problems.push(`„${objection.id}“: примерните изречения трябва да са до 200 знака.`);
     if ((objection.tips?.length ?? 0) > 1) problems.push(`„${objection.id}“: най-много едно напомняне.`);
   }
   for (const nudge of pack.nudges ?? []) {
@@ -81,6 +95,7 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (!nudge.triggers?.length || nudge.triggers.some((t) => t !== t.toLowerCase())) problems.push(`„${nudge.id}“: фразите трябва да са с малки букви.`);
     if (!nudge.say?.length || nudge.say.length > 2 || nudge.say.some((s) => s.length > 140)) problems.push(`„${nudge.id}“: трябват 1–2 реплики до 140 знака.`);
   }
+  if (!validExamples(pack.neutralExamples)) problems.push("neutralExamples: изреченията трябва да са до 200 знака.");
   const talk = pack.talkRatio;
   if (talk !== undefined) {
     if (!(talk.maxOwnerShare > 0 && talk.maxOwnerShare < 1)) problems.push("talkRatio.maxOwnerShare трябва да е между 0 и 1.");

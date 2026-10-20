@@ -13,6 +13,8 @@ import { MeetingLog, REPORTS_KEY } from "../meetings/log";
 import { formatDuration, formatOffset, type MeetingReport } from "../meetings/report";
 import { meetingToText, RETENTION_CHOICES, SAVING_ENABLED_KEY, TranscriptStore, type SavedMeeting } from "../transcripts/store";
 import { BUILT_IN_SPEECHMATICS_KEY } from "../stt/builtInKey";
+import { MeaningService } from "../meaning/meaningService";
+import { effectiveMeaning, isMeaningSetting, MEANING_MODEL_KEY, type MeaningSetting } from "../meaning/setting";
 import {
   effectiveKey,
   effectiveMode,
@@ -413,3 +415,57 @@ cloudOrg.addEventListener("change", async () => {
 });
 
 void loadCloud();
+
+// Разбиране по смисъл: изборът на модел и предварителното сваляне.
+const meaningInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="meaning-mode"]'));
+const meaningStatus = document.querySelector<HTMLElement>("#meaning-status")!;
+const meaningPrepare = document.querySelector<HTMLButtonElement>("#meaning-prepare")!;
+
+function showMeaning(text: string, tone: "ok" | "err" | "" = ""): void {
+  meaningStatus.textContent = text;
+  meaningStatus.className = tone;
+}
+
+function selectedMeaning(): MeaningSetting {
+  const value = meaningInputs.find((input) => input.checked)?.value;
+  return isMeaningSetting(value) ? value : "off";
+}
+
+async function loadMeaning(): Promise<void> {
+  const current = effectiveMeaning((await chrome.storage.local.get(MEANING_MODEL_KEY))[MEANING_MODEL_KEY]);
+  for (const input of meaningInputs) input.checked = input.value === current;
+}
+
+document.querySelector("#meaning-save")!.addEventListener("click", async () => {
+  await chrome.storage.local.set({ [MEANING_MODEL_KEY]: selectedMeaning() });
+  showMeaning("Запазено. Важи от следващото включване на Copilot.", "ok");
+});
+
+meaningPrepare.addEventListener("click", () => {
+  const model = selectedMeaning();
+  if (model === "off") return showMeaning("Изберете модел.", "err");
+  meaningPrepare.disabled = true;
+  showMeaning("Зарежда се…");
+  const service = new MeaningService(model, {
+    onProgress: (percent) => showMeaning(`Сваля се моделът: ${percent}%`),
+    onIndexing: (done, total) => showMeaning(`Подготвят се фразите: ${done} от ${total}`),
+    onReady: (sentences, ms) => {
+      showMeaning(`Готово: ${sentences} фрази за ${Math.round(ms / 1000)} s. Следващите срещи тръгват бързо.`, "ok");
+      const probeStarted = Date.now();
+      void service.match("Колко ще ми излезе цялата работа?").then((match) => {
+        const seconds = ((Date.now() - probeStarted) / 1000).toFixed(1);
+        const found = match ? match.id : "няма съвпадение";
+        showMeaning(`${meaningStatus.textContent} Проба „Колко ще ми излезе цялата работа?“ → ${found} (${seconds} s).`, "ok");
+        service.stop();
+        meaningPrepare.disabled = false;
+      });
+    },
+    onError: (text) => {
+      showMeaning(`Не се зареди: ${text}`, "err");
+      service.stop();
+      meaningPrepare.disabled = false;
+    },
+  });
+});
+
+void loadMeaning();

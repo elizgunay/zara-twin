@@ -106,6 +106,21 @@
       <div id="stt-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
     </section>
     <section style="margin-bottom:16px">
+      <h2>Разбиране по смисъл</h2>
+      <p>Когато клиентът пита с други думи („Колко ще ми излезе?“ вместо „Колко струва?“), Copilot разпознава смисъла и показва готовия отговор от пакета, с етикет „по смисъл“. Безплатно, на компютъра: изреченията от разговора не се пращат никъде. Моделът се сваля веднъж.</p>
+      <fieldset style="border:0;padding:0;margin:0">
+        <label style="display:block;margin:6px 0"><input type="radio" name="meaning-mode" value="large"> Точен модел (около 540 MB, по подразбиране)</label>
+        <label style="display:block;margin:6px 0"><input type="radio" name="meaning-mode" value="small"> Лек модел (около 110 MB, хваща по-малко)</label>
+        <label style="display:block;margin:6px 0"><input type="radio" name="meaning-mode" value="off"> Изключено (само готовите фрази)</label>
+      </fieldset>
+      <div class="actions">
+        <button id="meaning-save" class="primary" type="button">Запази</button>
+        <button id="meaning-prepare" class="secondary" type="button">Подготви сега</button>
+      </div>
+      <p style="margin-top:8px">„Подготви сега“ сваля модела и подготвя фразите предварително, за да е готов още в началото на първата среща. Оставете страницата отворена, докато пише „Готово“.</p>
+      <div id="meaning-status" role="status" style="font-weight:600;margin-top:12px;min-height:1.5em"></div>
+    </section>
+    <section style="margin-bottom:16px">
       <h2>Запазени срещи</h2>
       <p>Текстът на всяка среща се пази <strong>автоматично</strong>: на този компютър и в таблото, ако сте влезли. Без звук. Изтрива се след избрания срок. Уведомете участниците, че разговорът се записва.</p>
       <label style="display:block;margin:6px 0 12px"><input type="checkbox" id="saving-enabled"> Показвай и бутона „Запази“ в панела (не е нужен: текстът се пази и без него)</label>

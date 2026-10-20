@@ -1,4 +1,5 @@
 import type { AudioSourceKind, SpeakerRole } from "@zara-twin/core";
+import { MEANING_MODELS, type MeaningMatch, type MeaningModelId } from "@zara-twin/hints";
 import { isMeetingReport, type MeetingReport } from "../meetings/report";
 import { isSttChoice, type SttChoice } from "../stt/choices";
 import { isCloudStt, type CloudStt } from "../stt/cloud";
@@ -67,13 +68,16 @@ const MAX_CALENDAR_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Към offscreen документа. */
 export type OffscreenMessage =
   /** withVideo: искаме и картината (като официалния пример на Chrome), когато само звук не тръгва. */
-  | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean; cloud?: CloudStt }
+  /** meaning: модел за разбиране по смисъл; без него – изключено. */
+  | { type: "offscreen-start"; streamId: string; stt: SttChoice; withVideo?: boolean; cloud?: CloudStt; meaning?: MeaningModelId }
   | { type: "offscreen-stop" }
+  /** От панела: изречение на клиента без съвпадение по фраза → тема по смисъл (или null). */
+  | { type: "meaning-match"; text: string }
   | { type: "offscreen-logs" };
 
 /** Проблемът с микрофона идва с отговора: отделно съобщение пристига, преди сесията да е записана, и се губи. */
 export type MicProblem = { code: CaptureErrorCode; detail: string };
-export type OffscreenResponse = { ok: true; mic?: MicProblem; logs?: string[] } | { ok: false; error: string };
+export type OffscreenResponse = { ok: true; mic?: MicProblem; logs?: string[]; match?: MeaningMatch | null } | { ok: false; error: string };
 
 export type LogsResponse = { lines: string[] };
 
@@ -177,8 +181,11 @@ export function isOffscreenMessage(value: unknown): value is OffscreenMessage {
         value.streamId.length > 0 &&
         isSttChoice(value.stt) &&
         (value.withVideo === undefined || typeof value.withVideo === "boolean") &&
-        (value.cloud === undefined || isCloudStt(value.cloud))
+        (value.cloud === undefined || isCloudStt(value.cloud)) &&
+        (value.meaning === undefined || (typeof value.meaning === "string" && Object.hasOwn(MEANING_MODELS, value.meaning)))
       );
+    case "meaning-match":
+      return isSegmentText(value.text) && (value.text as string).length > 0;
     case "offscreen-stop":
     case "offscreen-logs":
       return true;

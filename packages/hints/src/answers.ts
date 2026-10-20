@@ -35,13 +35,25 @@ export class AnswerDetector {
     for (const { answer, patterns } of this.matchers) {
       if (hints.length >= MAX_PER_SEGMENT) break;
       if (!patterns.some((pattern) => pattern.test(segment.text))) continue;
-      const key = `answer:${answer.id}`;
-      const now = this.now();
-      const last = this.shownAt.get(key);
-      if (last !== undefined && now - last < this.cooldownMs) continue;
-      this.shownAt.set(key, now);
-      hints.push({ key, kind: "answer", title: answer.label, say: answer.say, lines: [], sourceUrl: answer.sourceUrl });
+      const hint = this.emit(answer);
+      if (hint) hints.push(hint);
     }
     return hints;
+  }
+
+  /** Отговорът по id, напр. когато въпросът е разпознат по смисъл. Със същата пауза срещу повторения. */
+  show(id: string): Hint[] {
+    const found = this.matchers.find((m) => m.answer.id === id);
+    const hint = found && this.emit(found.answer);
+    return hint ? [hint] : [];
+  }
+
+  private emit(answer: Answer): Hint | null {
+    const key = `answer:${answer.id}`;
+    const now = this.now();
+    const last = this.shownAt.get(key);
+    if (last !== undefined && now - last < this.cooldownMs) return null;
+    this.shownAt.set(key, now);
+    return { key, kind: "answer", title: answer.label, say: answer.say, lines: [], sourceUrl: answer.sourceUrl };
   }
 }

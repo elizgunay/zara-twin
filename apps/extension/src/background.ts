@@ -21,6 +21,7 @@ import { syncPending } from "./cloud/cloud";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
 import { resolveCloudStt, SPEECHMATICS_KEY_STORAGE_KEY, STT_MODE_STORAGE_KEY, type CloudStt } from "./stt/cloud";
 import { isSttChoice, STT_CHOICE_STORAGE_KEY, type SttChoice } from "./stt/choices";
+import { effectiveMeaning, MEANING_MODEL_KEY } from "./meaning/setting";
 
 // Service worker: управлява сесията. Иконата на разширението е единственият начин
 // за старт и стоп. Това е изрично действие на собственика и точно то позволява
@@ -103,10 +104,11 @@ async function startSession(tabId: number): Promise<void> {
     await ensureOffscreen();
     const stt = await sttChoice();
     const cloud = await readCloudStt();
+    const meaning = effectiveMeaning((await chrome.storage.local.get(MEANING_MODEL_KEY))[MEANING_MODEL_KEY]);
     let response: OffscreenResponse | undefined;
     for (const { withVideo } of CAPTURE_ATTEMPTS) {
       const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo, ...(cloud && { cloud }) };
+      const start: OffscreenMessage = { type: "offscreen-start", streamId, stt, withVideo, ...(cloud && { cloud }), ...(meaning !== "off" && { meaning }) };
       response = (await chrome.runtime.sendMessage(start)) as OffscreenResponse | undefined;
       log("background", "отговор от offscreen", { withVideo, response });
       if (response?.ok) break;

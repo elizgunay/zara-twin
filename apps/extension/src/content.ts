@@ -1,5 +1,14 @@
 import { EchoFilter } from "@zara-twin/core";
-import { AnswerDetector, HintEngine, NudgeDetector, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
+import {
+  AnswerDetector,
+  HintEngine,
+  meaningHints,
+  NudgeDetector,
+  ObjectionDetector,
+  ScheduleAssistant,
+  TalkRatioTracker,
+  type Hint,
+} from "@zara-twin/hints";
 import { TEST_MODE_KEY } from "./meetings/log";
 import { MeetingRecorder } from "./meetings/report";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
@@ -10,6 +19,8 @@ import {
   MAX_SAVED_LINES,
   type BackgroundMessage,
   type LogsResponse,
+  type OffscreenMessage,
+  type OffscreenResponse,
   type SaveTranscriptResponse,
   type TranscriptLine,
 } from "./shared/messages";
@@ -31,6 +42,11 @@ const talkRules = { maxOwnerShare: 0.65, windowMinutes: 3, monologueSeconds: 60,
 const TALK_REFRESH_MS = 1_000;
 /** Адресът на таблото (от .env при изграждане) за бутона „Отвори в таблото“ след срещата. */
 const DASHBOARD_URL: string = __DASHBOARD_URL__;
+/**
+ * Разбиране по смисъл: изчакваме толкова след последното парче на клиента, за да е цяло
+ * изречението, и питаме модела само ако фразите от пакета не са дали отговор или възражение.
+ */
+const MEANING_PAUSE_MS = 900;
 
 /** Всичко, което помни какво е показано в текущата среща. Нова среща = чиста памет. */
 function freshAssistants() {
@@ -44,6 +60,9 @@ function freshAssistants() {
     talkShownAt: 0,
     echo: new EchoFilter(),
     merger: new UtteranceMerger(),
+    /** Текущото изречение на клиента вече има подсказка по фраза: по смисъл не се пита. */
+    lineHinted: false,
+    meaningTimer: undefined as ReturnType<typeof setTimeout> | undefined,
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
@@ -151,6 +170,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         const report = meeting.recorder?.report(meeting.talk.session(), Date.now(), testMode);
         stopReports();
         saveReport();
+        clearTimeout(meeting.meaningTimer);
         panel.setRecording(false);
         panel.clearHints();
         meeting = freshAssistants();
@@ -194,20 +214,39 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       // Възраженията и роботите се търсят в цялото изречение („трябва да си“ + „помисля“).
       const sentence = { ...message, text: line.text };
-      for (const hint of [
-        ...meeting.objections.onSegment(sentence),
-        ...meeting.answers.onSegment(sentence),
-        ...meeting.nudges.onSegment(sentence),
-        ...meeting.hints.onSegment(sentence),
-      ]) {
+      const direct = [...meeting.objections.onSegment(sentence), ...meeting.answers.onSegment(sentence)];
+      for (const hint of [...direct, ...meeting.nudges.onSegment(sentence), ...meeting.hints.onSegment(sentence)]) {
         showHint(hint);
       }
+      if (message.speaker === "counterpart") askMeaningLater(line.text, line.merged, direct.length > 0);
       // Уговорката има свой прозорец от последните реплики: подава се само новото парче.
       void meeting.schedule.onSegment(message).then((found) => found.forEach(showHint));
       break;
     }
   }
 });
+
+/** Когато клиентът спре да говори и фразите не са хванали нищо: тема по смисъл (локален модел). */
+function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
+  const current = meeting;
+  if (!merged) current.lineHinted = false;
+  if (hinted) current.lineHinted = true;
+  clearTimeout(current.meaningTimer);
+  if (current.lineHinted) return;
+  current.meaningTimer = setTimeout(() => {
+    const request: OffscreenMessage = { type: "meaning-match", text };
+    void chrome.runtime.sendMessage(request).then(
+      (response: OffscreenResponse | undefined) => {
+        // Срещата е свършила или вече има подсказка по фраза за това изречение.
+        if (meeting !== current || current.lineHinted || !response?.ok || !response.match) return;
+        const hints = meaningHints(response.match, current.answers, current.objections);
+        if (hints.length > 0) current.lineHinted = true;
+        hints.forEach(showHint);
+      },
+      () => {},
+    );
+  }, MEANING_PAUSE_MS);
+}
 
 // Табът се затваря или презарежда по време на срещата: последно обновяване на дневника.
 window.addEventListener("pagehide", () => {

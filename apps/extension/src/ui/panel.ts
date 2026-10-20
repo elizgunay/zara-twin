@@ -324,6 +324,14 @@ export class CopilotPanel {
 
     const title = this.doc.createElement("h2");
     title.textContent = hint.title;
+    if (hint.byMeaning) {
+      // Разпознато по смисъл, не по точна фраза: продавачът да е готов, че може да е неточно.
+      const tag = this.doc.createElement("span");
+      tag.className = "by-meaning";
+      tag.title = "Разпознато по смисъл (локален модел), не по точна фраза";
+      tag.textContent = "по смисъл";
+      title.append(" ", tag);
+    }
     card.append(title);
 
     // Готовите реплики се четат на един поглед: едър шрифт, в кавички, първата е основната.
@@ -419,6 +427,7 @@ const TEMPLATE = /* html */ `
   .hint.answer .say { color: #c8ecd3; }
   .hint.calendar-busy { border-left-color: #f28b82; background: #3a2526; }
   .hint h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; }
+  .hint h2 .by-meaning { font-size: 10px; font-weight: 500; color: #c4c7c5; border: 1px solid #5f6368; border-radius: 4px; padding: 0 4px; vertical-align: 1px; }
   /* Най-новата подсказка е отгоре и изпъква; по-старите са бледи и по-дребни. */
   .hints .hint:first-child { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
   .hints .hint:not(:first-child) { opacity: 0.55; padding: 5px 10px; }

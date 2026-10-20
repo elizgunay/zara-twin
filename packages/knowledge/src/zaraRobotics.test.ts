@@ -46,6 +46,15 @@ describe("пакетът на Zara Robotics", () => {
   });
 });
 
+describe("примерни изречения за разпознаване по смисъл", () => {
+  it("всеки отговор има примери, а грешни примери спират пакета", () => {
+    expect(pack.answers!.every((a) => (a.examples?.length ?? 0) >= 3)).toBe(true);
+    const broken = structuredClone(rawPack) as { answers: { examples?: unknown }[] };
+    broken.answers[0]!.examples = ["", 5];
+    expect(() => validatePack(broken)).toThrow(/примерните изречения/);
+  });
+});
+
 describe("разпознаване на модели в разговора", () => {
   it("разпознава кодове в различни изписвания", () => {
     expect(ids("Колко чисти C40S на час?")).toEqual(["kleenbot-c40s"]);

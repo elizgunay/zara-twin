@@ -7,6 +7,8 @@
   "dependencies": {
     "@zara-twin/core": "0.1.0",
     "@zara-twin/knowledge": "0.1.0",
-    "@zara-twin/stt-whisper": "0.1.0"
+    "@zara-twin/stt-whisper": "0.1.0",
+    "@zara-twin/hints": "0.1.0",
+    "@huggingface/transformers": "3.8.1"
   }
 }

@@ -27,7 +27,8 @@
     "pilot-package": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/pilot-package.ps1",
     "bench:speechmatics": "tsx tools/stt-bench/src/speechmatics.ts",
     "pilot-package:with-key": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/pilot-package.ps1 -WithKey",
-    "bench:recordings": "tsx tools/stt-bench/src/transcribe-recordings.ts"
+    "bench:recordings": "tsx tools/stt-bench/src/transcribe-recordings.ts",
+    "bench:meaning": "tsx tools/stt-bench/src/meaning-bench.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

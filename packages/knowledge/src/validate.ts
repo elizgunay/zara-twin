@@ -1,3 +1,4 @@
+import { validExamples } from "./method";
 import type { KnowledgePack } from "./types";
 
 /**
@@ -51,6 +52,7 @@ export function validatePack(value: unknown): KnowledgePack {
     if (!answer.triggers?.length || answer.triggers.some((t) => t !== t.toLowerCase())) problems.push(`${where}: фразите трябва да са с малки букви.`);
     // Като при възраженията: по време на разговор се чете само кратко.
     if (!answer.say?.length || answer.say.length > 2 || answer.say.some((s) => s.length > 140)) problems.push(`${where}: трябват 1–2 изречения до 140 знака.`);
+    if (!validExamples(answer.examples)) problems.push(`${where}: примерните изречения трябва да са до 200 знака.`);
     if (!isUrl(answer.sourceUrl)) problems.push(`${where}: липсва източник (https://…).`);
   }
 

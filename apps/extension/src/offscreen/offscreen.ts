@@ -18,6 +18,8 @@ import type { CloudStt } from "../stt/cloud";
 import { CloudTranscription } from "./cloudTranscription";
 import type { TranscriptionEvents } from "./transcription";
 import { WorkerTranscription } from "./workerTranscription";
+import { MeaningService } from "../meaning/meaningService";
+import type { MeaningModelId } from "@zara-twin/hints";
 
 // Offscreen документ: невидима страница на разширението, единственото място в MV3,
 // където може да се ползва getUserMedia за звука на таба. Service worker-ът я създава
@@ -30,6 +32,10 @@ interface CaptureSession {
 }
 
 let session: CaptureSession | null = null;
+/** Моделът за смисъл: живее, докато трае срещата (offscreen документът се затваря след нея). */
+let meaning: MeaningService | null = null;
+/** От кеша моделът тръгва за около 20 s; по-дълго значи сваляне или първо смятане на фразите. */
+const SLOW_START_MS = 30_000;
 const chunkLog = throttledCounter("offscreen парчета звук към worker-а");
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
@@ -39,12 +45,23 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     done({ ok: true, logs: logLines() });
     return;
   }
+  if (message.type === "meaning-match") {
+    if (!meaning) {
+      done({ ok: true, match: null });
+      return;
+    }
+    void meaning.match(message.text).then((match) => done({ ok: true, match }));
+    return true;
+  }
   if (message.type === "offscreen-start") {
+    if (message.meaning) startMeaning(message.meaning);
     start(message.streamId, message.stt, message.withVideo === true, message.cloud).then(
       (mic) => done({ ok: true, ...(mic && { mic }) }),
       (error: unknown) => done({ ok: false, error: describe(error) }),
     );
   } else {
+    meaning?.stop();
+    meaning = null;
     stop().then(() => done({ ok: true }));
   }
   return true; // отговорът е асинхронен
@@ -112,6 +129,39 @@ async function start(streamId: string, stt: SttChoice, withVideo: boolean, cloud
   else transcription.start(stt, sources);
   log("offscreen", "разпознаването стартира за", sources);
   return mic;
+}
+
+/**
+ * Зарежда модела за смисъл паралелно със звука. Първия път се сваля (стотици MB) и фразите
+ * от пакета се смятат: показваме напредъка. После тръгва за секунди и мълчи.
+ */
+function startMeaning(model: MeaningModelId): void {
+  if (meaning) return;
+  const started = Date.now();
+  // Напредък се съобщава и при четене от кеша (няколко секунди). Показваме го само ако е бавно,
+  // т.е. моделът наистина се сваля или фразите се смятат (първия път).
+  const slow = () => Date.now() - started > SLOW_START_MS;
+  let shown = false;
+  const status = (text: string) => {
+    shown = true;
+    send({ type: "offscreen-status", tone: "info", text });
+  };
+  meaning = new MeaningService(model, {
+    onProgress: (percent) => {
+      if (slow()) status(`Разбиране по смисъл: сваля се моделът (само първия път) – ${percent}%`);
+    },
+    onIndexing: (done, total) => {
+      if (slow() && (done === total || done % 80 < 16)) status(`Разбиране по смисъл: подготвят се фразите – ${done} от ${total}`);
+    },
+    onReady: (sentences, ms) => {
+      log("offscreen", "разбиране по смисъл: готово", { sentences, ms });
+      if (shown) status("Разбирането по смисъл е готово.");
+    },
+    onError: (text) => {
+      log("offscreen", "разбиране по смисъл: грешка", text);
+      status(`Разбирането по смисъл не тръгна (подсказките по фрази работят): ${text}`);
+    },
+  });
 }
 
 async function stop(): Promise<void> {

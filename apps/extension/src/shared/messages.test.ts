@@ -73,6 +73,14 @@ describe("isOffscreenMessage", () => {
     expect(isOffscreenMessage({ type: "offscreen-stop" })).toBe(true);
   });
 
+  it("разбиране по смисъл: само известен модел и непразно изречение", () => {
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", meaning: "large" })).toBe(true);
+    expect(isOffscreenMessage({ type: "offscreen-start", streamId: "abc", stt: "auto", meaning: "huge" })).toBe(false);
+    expect(isOffscreenMessage({ type: "meaning-match", text: "Колко ще ми излезе?" })).toBe(true);
+    expect(isOffscreenMessage({ type: "meaning-match", text: "" })).toBe(false);
+    expect(isOffscreenMessage({ type: "meaning-match", text: "а".repeat(3000) })).toBe(false);
+  });
+
   it("отказва всичко останало", () => {
     expect(isOffscreenMessage(null)).toBe(false);
     expect(isOffscreenMessage("offscreen-stop")).toBe(false);

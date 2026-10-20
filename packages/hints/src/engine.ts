@@ -15,6 +15,8 @@ export interface Hint {
   /** Готови изречения за казване дословно (при възражения). Показват се с едър шрифт над lines. */
   say?: string[];
   sourceUrl?: string;
+  /** Разпознато по смисъл (локален модел), а не по фраза от пакета. Панелът го отбелязва. */
+  byMeaning?: boolean;
 }
 
 export interface HintEngineOptions {
