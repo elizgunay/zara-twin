@@ -1,5 +1,5 @@
 import { EchoFilter } from "@zara-twin/core";
-import { AnswerDetector, HintEngine, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
+import { AnswerDetector, HintEngine, NudgeDetector, ObjectionDetector, ScheduleAssistant, TalkRatioTracker, type Hint } from "@zara-twin/hints";
 import { TEST_MODE_KEY } from "./meetings/log";
 import { MeetingRecorder } from "./meetings/report";
 import { ExtensionCalendarProvider } from "./calendar/extensionCalendar";
@@ -38,6 +38,7 @@ function freshAssistants() {
     hints: new HintEngine(pack),
     objections: new ObjectionDetector(method, pack),
     answers: new AnswerDetector(pack),
+    nudges: new NudgeDetector(method),
     schedule: new ScheduleAssistant(calendar),
     talk: new TalkRatioTracker({ rules: talkRules }),
     talkShownAt: 0,
@@ -196,6 +197,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       for (const hint of [
         ...meeting.objections.onSegment(sentence),
         ...meeting.answers.onSegment(sentence),
+        ...meeting.nudges.onSegment(sentence),
         ...meeting.hints.onSegment(sentence),
       ]) {
         showHint(hint);

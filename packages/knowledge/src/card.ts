@@ -42,9 +42,11 @@ export function productCard(product: Product, limit = 4): ProductCard {
     if (picked.length >= Math.min(limit, 3)) break;
     if (!picked.includes(label)) picked.push(label);
   }
+  const specLines = picked.map((label) => `${label}: ${all.get(label)}`);
   return {
     title: product.name,
-    lines: picked.map((label) => `${label}: ${all.get(label)}`),
+    // Цената е първа: в разговорите това е въпросът, който идва най-често.
+    lines: product.price ? [`Цена: ${product.price}`, ...specLines.slice(0, Math.max(0, limit - 1))] : specLines,
     sourceUrl: product.sourceUrl,
   };
 }

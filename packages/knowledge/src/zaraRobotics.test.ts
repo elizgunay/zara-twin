@@ -3,6 +3,7 @@ import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
 import { productCard } from "./card";
 import { codePattern, MentionFinder } from "./mentions";
 import { validatePack } from "./validate";
+import { sttVocabulary } from "./vocabulary";
 
 const pack = validatePack(rawPack);
 const finder = new MentionFinder(pack);
@@ -22,8 +23,26 @@ describe("пакетът на Zara Robotics", () => {
     }
   });
 
-  it("изрежда какво липсва (цени, отстъпки)", () => {
-    expect(pack.missing).toContain("Цени и ценоразпис");
+  it("изрежда какво липсва (цени за другите модели, отстъпки)", () => {
+    expect(pack.missing).toContain("Цени за моделите извън T8, T9 и GreetingBot Mini");
+    expect(pack.missing).toContain("Граници на отстъпките");
+  });
+
+  it("цените от собственика са първи в картата", () => {
+    const t8 = pack.products.find((p) => p.code === "T8")!;
+    expect(t8.price).toBe("8 000 € без ДДС");
+    expect(productCard(t8).lines[0]).toBe("Цена: 8 000 € без ДДС");
+    expect(productCard(t8).lines).toHaveLength(4);
+  });
+
+  it("речникът за говора: марките с произношение, без кодове с цифри", () => {
+    const vocab = sttVocabulary(pack);
+    expect(vocab).toContainEqual({ content: "Zara Robotics", sounds_like: ["зара роботикс", "зара роботика"] });
+    expect(vocab.some((v) => v.content === "Keenon")).toBe(true);
+    // „C55“, „W3“ сами по себе си не: правят от числата модели.
+    expect(vocab.some((v) => /^\S*\d\S*$/.test(v.content))).toBe(false);
+    // Пълните имена остават.
+    expect(vocab.some((v) => v.content === "Keenon Dinerbot T9")).toBe(true);
   });
 });
 

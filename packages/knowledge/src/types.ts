@@ -16,6 +16,11 @@ export interface KnowledgePack {
   faq: FaqEntry[];
   /** Готови отговори на чести въпроси на клиента: показват се като изречения за казване. */
   answers?: Answer[];
+  /**
+   * Думи, които разпознаването на говор да очаква (имена на фирми и марки), с това как
+   * звучат на български. Кодове с цифри („C55“) не: те карат числата („55 сантиметра“) да стават модели.
+   */
+  vocabulary?: VocabularyTerm[];
   /** Какво още не знаем. Copilot-ът казва „няма данни“, вместо да гадае. */
   missing: string[];
   /**
@@ -51,6 +56,8 @@ export interface Product {
   summary: string;
   /** Групи → характеристика → стойност, точно както са в източника. */
   specs: Record<string, Record<string, string>>;
+  /** Цена, както я казва бизнесът, напр. „8 000 € без ДДС“. Показва се първа в картата. */
+  price?: string;
   sourceUrl: string;
 }
 
@@ -73,6 +80,12 @@ export interface Answer {
   /** 1–2 изречения за казване дословно (до 140 знака). */
   say: string[];
   sourceUrl: string;
+}
+
+export interface VocabularyTerm {
+  content: string;
+  /** Как се изговаря, напр. „зара роботикс“. */
+  soundsLike?: string[];
 }
 
 export interface FaqEntry {

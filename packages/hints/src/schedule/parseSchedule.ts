@@ -31,7 +31,7 @@ const PARTS_OF_DAY: { pattern: RegExp; label: string; from: number; to: number }
 ];
 
 const INTENT = new RegExp(
-  `${B}(срещ[аи]|да\\s+се\\s+(?:видим|чуем|срещнем)|оглед|демонстраци|обаждане|разговор|удобно|свобод|ангажимент|да\\s+дойд|да\\s+мин[ае]|зает|заета|елате|ела|дойдете|заповядайте|наминете|посетете)`,
+  `${B}(срещ[аи]|да\\s+се\\s+(?:видим|чуем|срещнем|чуваме|видиме)|да\\s+седнем|оглед|демонстраци|обаждане|разговор|удобно|свобод|ангажимент|да\\s+дойд|да\\s+мин[ае]|зает|заета|елате|ела|дойдете|заповядайте|наминете|посетете)`,
   "iu",
 );
 
@@ -43,6 +43,8 @@ const WEEKDAY = new RegExp(
 const NEXT_WEEK = new RegExp(`${B}(?:следващата|другата)\\s+седмица${E}`, "iu");
 // „21 октомври“, „21-ви октомври“ и „21 ви октомври“ (така го пише разпознаването на говор).
 const MONTH_DATE = new RegExp(`${B}(\\d{1,2})(?:[-\\s]?(?:ви|ри|ти|ми))?\\s+(${MONTHS.join("|")})${E}`, "iu");
+// „на 22-ри“, „на 5-ти“ без месец: този месец, а ако денят е минал — следващия.
+const DAY_ONLY = new RegExp(`${B}на\\s+(\\d{1,2})[-\\s]?(?:ви|ри|ти|ми)${E}`, "iu");
 const NUMERIC_DATE = new RegExp(`${B}на\\s+(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{4}))?${E}`, "iu");
 // „в 10“, „в 10:30“, „в 10.30“, „в 10 и 30“, „в 10 и половина“, „към 9 часа“
 const TIME = new RegExp(
@@ -113,6 +115,16 @@ function resolveDay(text: string, now: Date): Date | null {
     if (month >= 0 && month < 12) {
       const year = numeric[3] ? Number(numeric[3]) : null;
       return year ? new Date(year, month, Number(numeric[1])) : futureDate(today, Number(numeric[1]), month);
+    }
+  }
+
+  const dayOnly = DAY_ONLY.exec(text);
+  if (dayOnly) {
+    const day = Number(dayOnly[1]);
+    if (day >= 1 && day <= 31) {
+      let date = new Date(today.getFullYear(), today.getMonth(), day);
+      if (date < today || date.getDate() !== day) date = new Date(today.getFullYear(), today.getMonth() + 1, day);
+      return date;
     }
   }
 

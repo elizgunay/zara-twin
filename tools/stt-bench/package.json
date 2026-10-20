@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@zara-twin/core": "0.1.0",
+    "@zara-twin/knowledge": "0.1.0",
     "@zara-twin/stt-whisper": "0.1.0"
   }
 }

@@ -9,6 +9,11 @@ export interface MethodPack {
   kind: "method";
   language: string;
   objections: Objection[];
+  /**
+   * Думи на самия продавач, след които трябва конкретна стъпка („ще се опитам“, „ще ви пратя“
+   * без ден и час). По избор: от реалните разговори видяхме, че срещата често свършва така.
+   */
+  nudges?: Nudge[];
   /** Колко да говори продавачът. По избор: без него се ползват стойностите по подразбиране. */
   talkRatio?: TalkRatioRules;
 }
@@ -36,6 +41,15 @@ export interface Objection {
   tips?: Tip[];
 }
 
+export interface Nudge {
+  id: string;
+  label: string;
+  /** Фрази на продавача. Малки букви. */
+  triggers: string[];
+  /** 1–2 изречения за казване вместо неясното обещание (до 140 знака). */
+  say: string[];
+}
+
 export interface Tip {
   text: string;
   /** Ако е зададено, към съвета се добавя политиката от профила с тази тема (напр. „Гаранция“). */
@@ -61,6 +75,11 @@ export function validateMethodPack(value: unknown): MethodPack {
     if (objection.escalate !== undefined && (objection.escalate.length === 0 || objection.escalate.length > 2)) problems.push(`„${objection.id}“: трябват 1–2 настоятелни реплики.`);
     if ([...(objection.say ?? []), ...(objection.escalate ?? [])].some((line) => line.length > 140)) problems.push(`„${objection.id}“: репликата е твърде дълга (до 140 знака).`);
     if ((objection.tips?.length ?? 0) > 1) problems.push(`„${objection.id}“: най-много едно напомняне.`);
+  }
+  for (const nudge of pack.nudges ?? []) {
+    if (!nudge.id || !nudge.label) problems.push("Подсказка за продавача без id или заглавие.");
+    if (!nudge.triggers?.length || nudge.triggers.some((t) => t !== t.toLowerCase())) problems.push(`„${nudge.id}“: фразите трябва да са с малки букви.`);
+    if (!nudge.say?.length || nudge.say.length > 2 || nudge.say.some((s) => s.length > 140)) problems.push(`„${nudge.id}“: трябват 1–2 реплики до 140 знака.`);
   }
   const talk = pack.talkRatio;
   if (talk !== undefined) {

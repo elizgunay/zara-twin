@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { assertEuRegion } from "@zara-twin/core";
+import { sttVocabulary, validatePack } from "@zara-twin/knowledge";
 import rawPack from "../../../knowledge-packs/zara-robotics/pack.json" with { type: "json" };
 
 // Текст от реални записи (mp3/m4a/wav/mp4) през Speechmatics в ЕС, както го чува Copilot:
@@ -33,16 +34,9 @@ assertEuRegion("speechmatics", region);
 const batchUrl = `https://${region}.asr.api.speechmatics.com/v2`;
 const auth = { Authorization: `Bearer ${apiKey}` };
 
-/** Същият речник като в разширението (cloudTranscription.vocabulary) + допълнителни думи от файл. */
+/** Същият речник като в разширението (sttVocabulary от пакета) + допълнителни думи от файл. */
 function vocabulary(): { content: string; sounds_like?: string[] }[] {
-  const pack = rawPack as { business: { name: string }; families: { name: string }[]; products: { name: string; code?: string }[] };
-  const words = new Set<string>([pack.business.name]);
-  for (const family of pack.families) words.add(family.name);
-  for (const product of pack.products) {
-    words.add(product.name);
-    if (product.code) words.add(product.code);
-  }
-  const items: { content: string; sounds_like?: string[] }[] = [...words].filter((w) => w.length >= 2 && w.length <= 64).map((content) => ({ content }));
+  const items: { content: string; sounds_like?: string[] }[] = sttVocabulary(validatePack(rawPack));
   if (extraVocabPath) {
     // Ред: „дума“ или „дума | как звучи 1 | как звучи 2“.
     for (const line of readFileSync(extraVocabPath, "utf8").split(/\r?\n/)) {

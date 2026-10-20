@@ -1,4 +1,5 @@
 import { assertEuRegion, AutoGain, TARGET_SAMPLE_RATE, type AudioChunk, type AudioSourceKind, type SpeakerRole } from "@zara-twin/core";
+import { sttVocabulary, type SttVocabularyItem } from "@zara-twin/knowledge";
 import { pack } from "../pack";
 import { log, throttledCounter } from "../shared/log";
 import {
@@ -238,14 +239,9 @@ export class CloudTranscription {
 }
 
 /** Имената от пакета със знания (фирма, серии, модели), за да не се изкривяват. */
-function vocabulary(): { content: string }[] {
-  const words = new Set<string>([pack.business.name]);
-  for (const family of pack.families) words.add(family.name);
-  for (const product of pack.products) {
-    words.add(product.name);
-    if (product.code) words.add(product.code);
-  }
-  return [...words].filter((word) => word.length >= 2 && word.length <= 64).slice(0, 500).map((content) => ({ content }));
+/** Речникът от пакета: имена на фирми и марки с произношение, без кодове с цифри (виж sttVocabulary). */
+function vocabulary(): SttVocabularyItem[] {
+  return sttVocabulary(pack).slice(0, 500);
 }
 
 function describe(error: unknown): string {

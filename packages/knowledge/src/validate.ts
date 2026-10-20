@@ -35,6 +35,7 @@ export function validatePack(value: unknown): KnowledgePack {
     if (!/^[a-z]+\d+[a-z]*$/i.test(product.code)) problems.push(`${where}: кодът трябва да е букви + цифри, напр. C40S.`);
     if (!familyIds.has(product.familyId)) problems.push(`${where}: непозната серия „${product.familyId}“.`);
     if (!isUrl(product.sourceUrl)) problems.push(`${where}: липсва източник (https://…).`);
+    if (product.price !== undefined && (!isText(product.price) || product.price.length > 60)) problems.push(`${where}: цената е празна или твърде дълга.`);
     seenIds.add(product.id);
     seenCodes.add(code);
   }
