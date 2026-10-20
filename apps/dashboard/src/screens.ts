@@ -356,36 +356,69 @@ export function settingsScreen(ctx: Context): HTMLElement {
 
   if (isOwner) {
     const people = h("div", { class: "stack" });
+    // Новата парола се показва тук веднъж: собственикът я копира и я дава на колегата лично.
+    const secret = h("div", { class: "stack" });
+    const showPassword = (result: api.NewPassword, title: string) => {
+      const value = h("code", { class: "secret" }, result.password);
+      const copy = h("button", { type: "button", class: "ghost" }, "Копирай");
+      copy.addEventListener("click", () => {
+        void navigator.clipboard.writeText(`${result.email}\n${result.password}`).then(() => (copy.textContent = "Копирано"), () => (copy.textContent = "Маркирайте и копирайте"));
+      });
+      secret.replaceChildren(h("div", { class: "card created" },
+        h("strong", {}, title),
+        h("p", {}, `Имейл: ${result.email}`),
+        h("div", { class: "row" }, h("span", {}, "Парола:"), value, copy),
+        h("p", { class: "muted" }, "Паролата се показва само сега. Дайте я на колегата лично (не в общ чат), заедно с адреса на таблото. За Copilot: Опции → Табло → същите имейл и парола."),
+        h("button", { type: "button", class: "ghost", onclick: () => secret.replaceChildren() }, "Готово, скрий")));
+    };
+
     const email = h("input", { type: "email", id: "invite-email", placeholder: "колега@zararobotics.com", autocomplete: "off" }) as HTMLInputElement;
     const role = h("select", { id: "invite-role" },
       ...(["seller", "catalog_editor", "support", "owner"] as Role[]).map((r) => h("option", { value: r }, ROLE_LABEL[r]))) as HTMLSelectElement;
     root.append(section("Хора и роли",
-      h("p", { class: "muted" }, "Поканата важи за имейла. Създайте акаунт със същия имейл и парола в Supabase (Authentication → Users → Add user, с „Auto confirm“) и дайте паролата на колегата. Продавачът вижда само своите срещи; редакторът на каталога и поддръжката не виждат срещите и паметта."),
+      h("p", { class: "muted" }, "Създайте потребител тук: акаунтът получава парола, която давате на колегата. Имейл не се праща. Продавачът вижда само своите срещи; редакторът на каталога и поддръжката не виждат срещите и паметта; собственикът вижда и управлява всичко."),
       people,
+      secret,
       h("div", { class: "row wrap" },
         h("label", { for: "invite-email" }, "Имейл", email),
         h("label", { for: "invite-role" }, "Роля", role),
-        action("Покани", async () => {
+        action("Създай потребител", async () => {
           if (!isEmail(email.value)) throw new Error("Въведете валиден имейл.");
-          await api.invite(ctx.org.orgId, email.value, role.value as Role, ctx.userId);
-          ctx.refresh();
+          const result = await api.createPerson(ctx.org.orgId, email.value, role.value as Role);
+          email.value = "";
+          showPassword(result, result.existed ? "Акаунтът вече съществуваше: добавен е във фирмата с нова парола." : "Потребителят е създаден.");
+          void reloadPeople();
         }),
       ),
     ));
-    void loading(people, async () => {
-      const [members, invitations] = await Promise.all([api.listMembers(ctx.org.orgId), api.listInvitations(ctx.org.orgId)]);
+
+    const reloadPeople = () => loading(people, async () => {
+      const invitations = await api.listInvitations(ctx.org.orgId);
+      // Списъкът с имейлите идва от функцията на сървъра; без нея: старият списък без имейли.
+      let rows: { userId: string; label: string; role: Role }[];
+      let note: HTMLElement | null = null;
+      try {
+        rows = (await api.listPeople(ctx.org.orgId)).map((p) => ({ userId: p.userId, label: p.userId === ctx.userId ? `Вие (${p.email ?? ctx.email})` : p.email ?? "без имейл", role: p.role }));
+      } catch (error) {
+        note = h("p", { class: "status err" }, humanError(error));
+        rows = (await api.listMembers(ctx.org.orgId)).map((m) => ({ userId: m.user_id, label: m.user_id === ctx.userId ? `Вие (${ctx.email})` : `Член от ${formatDateTime(m.created_at)}`, role: m.role }));
+      }
       return [
-        h("ul", { class: "list" }, ...members.map((m) => h("li", {},
-          h("span", {}, m.user_id === ctx.userId ? `Вие (${ctx.email})` : `Член от ${formatDateTime(m.created_at)}`),
+        note,
+        h("ul", { class: "list" }, ...rows.map((m) => h("li", {},
+          h("span", { class: "fact" }, m.label),
           h("span", { class: "chip" }, ROLE_LABEL[m.role]),
-          m.user_id === ctx.userId ? null : confirmAction("Махни", "Човекът губи достъп до таблото.", async () => { await api.removeMember(ctx.org.orgId, m.user_id); ctx.refresh(); }),
+          note ? null : action("Нова парола", async () => showPassword(await api.resetPassword(ctx.org.orgId, m.userId), "Новата парола е готова. Старата вече не важи.")  , "ghost"),
+          m.userId === ctx.userId ? null : confirmAction("Махни", "Човекът губи достъп до таблото и до записа на срещи в таблото.", async () => { await api.removeMember(ctx.org.orgId, m.userId); ctx.refresh(); }),
         ))),
         invitations.length
-          ? h("ul", { class: "list" }, ...invitations.map((i) => h("li", {}, h("span", {}, `Покана: ${i.email}`), h("span", { class: "chip" }, ROLE_LABEL[i.role]),
-              action("Отмени", async () => { await api.cancelInvitation(i.id); ctx.refresh(); }, "ghost"))))
+          ? h("div", { class: "stack" }, h("p", { class: "muted" }, "Стари покани (без акаунт). Създайте потребителя отгоре или отменете поканата."),
+              h("ul", { class: "list" }, ...invitations.map((i) => h("li", {}, h("span", { class: "fact" }, `Покана: ${i.email}`), h("span", { class: "chip" }, ROLE_LABEL[i.role]),
+                action("Отмени", async () => { await api.cancelInvitation(i.id); ctx.refresh(); }, "ghost")))))
           : null,
       ].filter((n): n is HTMLElement => n !== null);
     });
+    void reloadPeople();
   }
   return root;
 }

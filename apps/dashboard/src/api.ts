@@ -178,6 +178,51 @@ export async function listMembers(orgId: string): Promise<MemberRow[]> {
   return check(await db().from("members").select("user_id, role, created_at").eq("org_id", orgId).order("created_at")) as MemberRow[];
 }
 
+// ---------- Хората: през функцията manage-users на сървъра (тя държи главния ключ) ----------
+
+export interface PersonRow {
+  userId: string;
+  email: string | null;
+  role: Role;
+  createdAt: string;
+}
+
+export interface NewPassword {
+  email: string;
+  password: string;
+  existed: boolean;
+}
+
+async function manageUsers<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await db().functions.invoke("manage-users", { body });
+  if (error) {
+    // Функцията връща обяснение в тялото дори при отказ (403, 409…).
+    const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+    const detail = (await context?.json?.().catch(() => null)) as { error?: string } | null;
+    if (detail?.error) throw new Error(detail.error);
+    if (/Failed to send|not found|404/i.test(error.message)) {
+      throw new Error("Функцията manage-users още не е качена в Supabase (docs/setup/supabase.md, раздел 7).");
+    }
+    throw new Error(error.message);
+  }
+  const result = data as { ok: boolean; error?: string } & T;
+  if (!result.ok) throw new Error(result.error ?? "Неуспешно действие.");
+  return result;
+}
+
+export async function listPeople(orgId: string): Promise<PersonRow[]> {
+  return (await manageUsers<{ members: PersonRow[] }>({ action: "list", orgId })).members;
+}
+
+/** Създава акаунт с генерирана парола и го добавя във фирмата. Паролата се показва само веднъж. */
+export async function createPerson(orgId: string, email: string, role: Role): Promise<NewPassword> {
+  return manageUsers<NewPassword>({ action: "create", orgId, email: email.trim().toLowerCase(), role });
+}
+
+export async function resetPassword(orgId: string, userId: string): Promise<NewPassword> {
+  return manageUsers<NewPassword>({ action: "reset", orgId, userId });
+}
+
 export async function listInvitations(orgId: string): Promise<InvitationRow[]> {
   return check(await db().from("invitations").select("id, email, role, created_at").eq("org_id", orgId).order("created_at")) as InvitationRow[];
 }
