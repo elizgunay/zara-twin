@@ -41,8 +41,9 @@ describe("пакетът на Zara Robotics", () => {
     expect(vocab.some((v) => v.content === "Keenon")).toBe(true);
     // „C55“, „W3“ сами по себе си не: правят от числата модели.
     expect(vocab.some((v) => /^\S*\d\S*$/.test(v.content))).toBe(false);
-    // Пълните имена остават.
+    // Пълните имена на продаваните модели остават; редки имена без произношение – не.
     expect(vocab.some((v) => v.content === "Keenon Dinerbot T9")).toBe(true);
+    expect(vocab.some((v) => /Keenmow|XMAN/.test(v.content))).toBe(false);
   });
 });
 

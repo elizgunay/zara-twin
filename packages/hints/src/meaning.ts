@@ -129,11 +129,15 @@ export function meaningHints(match: MeaningMatch, answers: AnswerDetector, objec
 
 /** Тагът „нали?“ / „нали така?“ в края не прави изречението въпрос. */
 const TAG_QUESTION = /,?\s*нали(?:\s+така)?\s*\?\s*$/iu;
-const QUESTION_START = /^(?:а\s+|и\s+|ами\s+)?(?:колко|как|кога|какв\p{L}*|кой|коя|кое|кои|къде|защо|дали|има\s+ли|може\s+ли|можете\s+ли)(?!\p{L})/iu;
+// Облакът често пише въпроса без „?“ („На каква цена са“), затова и по думите.
+const QUESTION_START =
+  /^(?:\p{L}+,\s*)?(?:а\s+|и\s+|ами\s+)?(?:(?:на|за|с|със|в|от|до|по)\s+)?(?:колко|как|кога|какв\p{L}*|кой|коя|кое|кои|къде|защо|дали|разкажете|кажете|обяснете|покажете)(?!\p{L})/iu;
+// „Има ли гаранция“, „Говори ли български“: частицата „ли“.
+const LI = /(?<!\p{L})ли(?!\p{L})/iu;
 
 export function isQuestion(text: string): boolean {
   const trimmed = text.trim().replace(TAG_QUESTION, ".");
-  return /\?/.test(trimmed) || QUESTION_START.test(trimmed);
+  return /\?/.test(trimmed) || QUESTION_START.test(trimmed) || LI.test(trimmed);
 }
 
 function dot(a: number[], b: number[]): number {

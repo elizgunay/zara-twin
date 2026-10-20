@@ -68,6 +68,10 @@ describe("разпознаване по смисъл", () => {
     expect(isQuestion("Колко ще ни излезе всичко?")).toBe(true);
     expect(isQuestion("Колко ще ни излезе всичко")).toBe(true);
     expect(isQuestion("Виждал съм ги на доста места, нали?")).toBe(false);
+    expect(isQuestion("На каква цена са")).toBe(true);
+    expect(isQuestion("Има ли гаранция")).toBe(true);
+    expect(isQuestion("Миглена, разкажете нещо повече за роботите")).toBe(true);
+    expect(isQuestion("Другото кефи хората.")).toBe(false);
     const index = await MeaningIndex.build(intents, fakeEmbed(vocabulary));
     expect(await index.match("Цялата сума ще ни излезе голяма.")).toBeNull();
   });

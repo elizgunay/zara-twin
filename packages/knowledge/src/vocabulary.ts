@@ -7,6 +7,10 @@ import type { KnowledgePack } from "./types";
  * Без самостоятелни кодове с цифри: от реални разговори видяхме, че „C55“, „C30“, „S300“, „W3“
  * в речника карат числата да стават модели („55 сантиметра“ → „C55 сантиметра“) и изскачат
  * карти за роботи, за които никой не говори. Кодовете се разпознават и без речника („Т9“, „т 9“).
+ *
+ * Чужди имена без произношение („Keenmow“, „XMAN“) също не влизат: при шум облакът „чува“ тях
+ * (тест на 20.10.2026: „Keenmow“ от шума в микрофона → карта за косачка). Затова: серии само с
+ * произношение и само моделите с цена (тези, които реално се предлагат).
  */
 export interface SttVocabularyItem {
   content: string;
@@ -28,8 +32,9 @@ export function sttVocabulary(pack: KnowledgePack): SttVocabularyItem[] {
     items.set(text.toLowerCase(), sounds.length ? { content: text, sounds_like: sounds } : { content: text });
   };
   add(pack.business.name);
-  for (const family of pack.families) add(family.name);
-  for (const product of pack.products) add(product.name);
+  const pronounced = new Set((pack.vocabulary ?? []).filter((t) => t.soundsLike?.length).map((t) => t.content.toLowerCase()));
+  for (const family of pack.families) if (pronounced.has(family.name.toLowerCase())) add(family.name);
+  for (const product of pack.products) if (product.price) add(product.name);
   for (const term of pack.vocabulary ?? []) add(term.content, term.soundsLike);
   return [...items.values()].slice(0, MAX_ITEMS);
 }
