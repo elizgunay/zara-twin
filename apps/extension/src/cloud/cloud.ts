@@ -75,24 +75,24 @@ export async function cloudStatus(): Promise<CloudStatus> {
   const { data } = await db().auth.getSession();
   const user = data.session?.user;
   if (!user) return { configured: true, email: null, orgs: [], orgId: null };
-  const { data: rows, error } = await db().from("members").select("org_id, role, orgs(name)").eq("user_id", user.id);
+  const { data: rows, error } = await db().from("members").select("org_id, role, orgs(name, created_at)").eq("user_id", user.id);
   if (error) throw new Error(humanError(error.message));
-  const orgs = ((rows ?? []) as unknown as { org_id: string; role: string; orgs: { name: string } | null }[]).map((r) => ({
-    id: r.org_id,
-    name: r.orgs?.name ?? "",
-    role: r.role,
-  }));
+  // Най-старата фирма първа: случайно създадена втора фирма не взима срещите.
+  const orgs = ((rows ?? []) as unknown as { org_id: string; role: string; orgs: { name: string; created_at: string } | null }[])
+    .sort((a, b) => (a.orgs?.created_at ?? "").localeCompare(b.orgs?.created_at ?? ""))
+    .map((r) => ({ id: r.org_id, name: r.orgs?.name ?? "", role: r.role }));
   return { configured: true, email: user.email ?? null, orgs, orgId: await pickOrg(orgs) };
 }
 
 /**
- * Фирмата, към която отиват срещите: избраната, иначе единствената. Без това срещите
- * не стигаха до таблото, ако човек е влязъл в разширението преди фирмата да е създадена.
+ * Фирмата, към която отиват срещите: избраната в Опции, иначе най-старата (orgs са подредени).
+ * Без това срещите не стигаха до таблото, ако човек е влязъл преди фирмата да е създадена
+ * или е създал втора фирма по грешка.
  */
 async function pickOrg(orgs: CloudOrg[]): Promise<string | null> {
   const stored: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
   if (orgs.some((o) => o.id === stored)) return stored as string;
-  if (orgs.length !== 1) return null;
+  if (orgs.length === 0) return null;
   await chrome.storage.local.set({ [CLOUD_ORG_KEY]: orgs[0]!.id });
   return orgs[0]!.id;
 }

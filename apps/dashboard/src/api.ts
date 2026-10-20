@@ -66,9 +66,12 @@ export async function signOut(): Promise<void> {
 export async function myMemberships(userId: string): Promise<Membership[]> {
   await db().rpc("accept_invitations");
   const rows = check(
-    await db().from("members").select("org_id, role, orgs(name, retention_days)").eq("user_id", userId),
-  ) as unknown as { org_id: string; role: Role; orgs: { name: string; retention_days: number } | null }[];
-  return rows.map((r) => ({ orgId: r.org_id, role: r.role, orgName: r.orgs?.name ?? "", retentionDays: r.orgs?.retention_days ?? 30 }));
+    await db().from("members").select("org_id, role, orgs(name, retention_days, created_at)").eq("user_id", userId),
+  ) as unknown as { org_id: string; role: Role; orgs: { name: string; retention_days: number; created_at: string } | null }[];
+  // Най-старата фирма първа: случайно създадена втора (празна) фирма не се отваря по подразбиране.
+  return rows
+    .sort((a, b) => (a.orgs?.created_at ?? "").localeCompare(b.orgs?.created_at ?? ""))
+    .map((r) => ({ orgId: r.org_id, role: r.role, orgName: r.orgs?.name ?? "", retentionDays: r.orgs?.retention_days ?? 30 }));
 }
 
 export async function createOrg(name: string): Promise<void> {

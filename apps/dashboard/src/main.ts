@@ -11,6 +11,25 @@ let session: Session | null = null;
 let memberships: Membership[] = [];
 let orgId: string | null = null;
 
+const ORG_KEY = "zaraDashboardOrg";
+
+/** Само удобство за този браузър: коя фирма е избрана последно. Без нея: най-старата. */
+function readRememberedOrg(): string | null {
+  try {
+    return localStorage.getItem(ORG_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberOrg(id: string): void {
+  try {
+    localStorage.setItem(ORG_KEY, id);
+  } catch {
+    // частен прозорец или забранено хранилище: просто не се помни
+  }
+}
+
 function show(...nodes: Node[]): void {
   app.replaceChildren(...nodes);
 }
@@ -66,7 +85,11 @@ async function loadMemberships(): Promise<void> {
     return;
   }
   if (!memberships.length) return createOrgScreen();
-  if (!orgId || !memberships.some((m) => m.orgId === orgId)) orgId = memberships[0]!.orgId;
+  // Последно избраната фирма (на този браузър), иначе най-старата.
+  if (!orgId || !memberships.some((m) => m.orgId === orgId)) {
+    const remembered = readRememberedOrg();
+    orgId = memberships.some((m) => m.orgId === remembered) ? remembered : memberships[0]!.orgId;
+  }
   render();
 }
 
@@ -80,7 +103,7 @@ function render(): void {
   const nav = h("nav", { class: "tabs", "aria-label": "Екрани" },
     ...allowed.map((s) => h("a", { href: `#/${s}`, class: s === screen ? "tab current" : "tab", "aria-current": s === screen ? "page" : undefined }, SCREEN_LABEL[s])));
   const orgPicker = memberships.length > 1
-    ? h("select", { id: "org-pick", "aria-label": "Фирма", onchange: (e: Event) => { orgId = (e.target as HTMLSelectElement).value; render(); } },
+    ? h("select", { id: "org-pick", "aria-label": "Фирма", onchange: (e: Event) => { orgId = (e.target as HTMLSelectElement).value; rememberOrg(orgId); render(); } },
         ...memberships.map((m) => h("option", { value: m.orgId, selected: m.orgId === org.orgId }, m.orgName)))
     : h("span", { class: "org" }, org.orgName);
 
