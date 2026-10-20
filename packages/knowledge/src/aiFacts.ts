@@ -24,6 +24,13 @@ export function aiFacts(pack: KnowledgePack): string {
     }
   }
 
+  // Останалите модели: само какво правят, без цена (клиентът пита и за тях, напр. „робот за почистване“).
+  const others = pack.products.filter((p) => !p.price);
+  if (others.length > 0) {
+    lines.push("", "Други модели (цена: по запитване, уточнява се в офертата):");
+    for (const product of others) lines.push(`- ${product.name} (${product.code}): ${product.summary}`);
+  }
+
   if (pack.policies.length > 0) {
     lines.push("", "Условия:");
     for (const policy of pack.policies) lines.push(`- ${policy.topic}: ${policy.text}`);

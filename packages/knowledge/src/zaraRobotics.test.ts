@@ -55,7 +55,9 @@ describe("фактите за AI отговорите", () => {
     expect(facts).toContain("Минимален проход: 55 см");
     expect(facts).toContain("Гаранция: Гаранция до 24 месеца.");
     expect(facts).toContain("Нямаме данни за:");
-    expect(facts).not.toContain("Keenmow"); // без цена: не се предлага активно
+    // Моделите без цена са с описание, но без цифри за цена.
+    expect(facts).toContain("Други модели (цена: по запитване");
+    expect(facts).toContain("Keenon Kleenbot C40S (C40S): Робот 5-в-1");
     expect(facts.length).toBeLessThan(11_000);
   });
 });

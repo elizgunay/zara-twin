@@ -77,9 +77,14 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (message.type === "ai-suggest") {
     // Само от таба на срещата, в която тече Copilot.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
-    aiSuggest(message.question, message.turns, AI_FACTS).then(sendResponse, (error: unknown) =>
-      sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
-    );
+    aiSuggest(message.question, message.turns, AI_FACTS)
+      .catch((error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : String(error) }))
+      .then((result) => {
+        log("background", "AI отговор", result.ok ? `${result.say.length} изречения` : result.error);
+        // Последният резултат остава на компютъра (без текста на разговора): за диагностика след теста.
+        void chrome.storage.local.set({ [AI_LAST_KEY]: { at: Date.now(), ok: result.ok, ...(result.ok ? { said: result.say.length } : { error: result.error }) } });
+        sendResponse(result);
+      });
     return true;
   }
   if (message.type === "logs-request") {
@@ -105,6 +110,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
  */
 /** Фактите на фирмата за AI отговорите: от вградения пакет, веднъж. */
 const AI_FACTS = aiFacts(pack);
+const AI_LAST_KEY = "aiLastResult";
 
 const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];
 

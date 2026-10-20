@@ -116,7 +116,8 @@ declare const Deno: { env: { get(name: string): string | undefined }; serve(hand
 
 /** Сървърът на Mistral в ЕС (данните се обработват в ЕС, Р22). */
 export const MISTRAL_URL = "https://api.eu.mistral.ai/v1/chat/completions";
-export const MISTRAL_MODEL = "mistral-small-latest";
+// mistral-small е с тесен безплатен лимит (20 000 токена/мин, видяхме 429); ministral-14b: 937 500.
+export const MISTRAL_MODEL = "ministral-14b-2512";
 const TIMEOUT_MS = 8_000;
 
 const CORS = {
