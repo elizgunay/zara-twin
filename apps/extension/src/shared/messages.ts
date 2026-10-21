@@ -57,6 +57,35 @@ export interface TranscriptLine {
   speaker: SpeakerRole;
   text: string;
   at: number;
+  /** Картите, които Copilot показа за този ред: за преглед в таблото след срещата. */
+  cards?: LineCard[];
+}
+
+/** Кратко копие на подсказката: заглавие, репликите и откъде е дошла. */
+export interface LineCard {
+  title: string;
+  say?: string[];
+  /** phrase = готова карта, meaning = по смисъл, ai = съставена от AI. */
+  via: "phrase" | "meaning" | "ai";
+}
+
+export const MAX_CARDS_PER_LINE = 4;
+const VIA: ReadonlySet<unknown> = new Set(["phrase", "meaning", "ai"]);
+
+function isLineCards(value: unknown): boolean {
+  if (value === undefined) return true;
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_CARDS_PER_LINE &&
+    value.every(
+      (card: unknown) =>
+        isRecord(card) &&
+        typeof card.title === "string" &&
+        card.title.length <= 120 &&
+        VIA.has(card.via) &&
+        (card.say === undefined || (Array.isArray(card.say) && card.say.length <= 2 && card.say.every((s: unknown) => typeof s === "string" && s.length <= 400))),
+    )
+  );
 }
 
 export type SaveTranscriptResponse = { ok: true; count: number; retentionDays: number } | { ok: false; error: string };
@@ -115,7 +144,9 @@ function isTranscriptLines(value: unknown): value is TranscriptLine[] {
   return (
     Array.isArray(value) &&
     value.length <= MAX_SAVED_LINES &&
-    value.every((line: unknown) => isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at))
+    value.every(
+      (line: unknown) => isRecord(line) && SPEAKERS.has(line.speaker) && isSegmentText(line.text) && Number.isFinite(line.at) && isLineCards(line.cards),
+    )
   );
 }
 

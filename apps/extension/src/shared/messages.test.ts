@@ -60,6 +60,22 @@ describe("isBackgroundMessage", () => {
   });
 });
 
+describe("картите към редовете от разговора", () => {
+  const report = (lines: unknown) => ({ type: "save-transcript", meetingCode: "abc-defg-hij", startedAt: 1, lines });
+  it("приема заглавие, до 2 реплики и откъде е картата", () => {
+    const card = { title: "Отговор", say: ["Минусът е равният под.", "Какъв е подът?"], via: "ai" };
+    expect(isBackgroundMessage(report([{ speaker: "counterpart", text: "Минусите?", at: 1, cards: [card] }]))).toBe(true);
+    expect(isBackgroundMessage(report([{ speaker: "counterpart", text: "Минусите?", at: 1 }]))).toBe(true);
+  });
+  it("отказва странни карти", () => {
+    const line = (cards: unknown) => report([{ speaker: "counterpart", text: "x", at: 1, cards }]);
+    expect(isBackgroundMessage(line([{ title: "x", via: "magic" }]))).toBe(false);
+    expect(isBackgroundMessage(line([{ title: "x", via: "ai", say: ["a", "b", "c"] }]))).toBe(false);
+    expect(isBackgroundMessage(line(Array(5).fill({ title: "x", via: "phrase" })))).toBe(false);
+    expect(isBackgroundMessage(line("не е списък"))).toBe(false);
+  });
+});
+
 describe("AI отговор (ai-suggest)", () => {
   it("кратък въпрос и до 6 реплики контекст", () => {
     const turns = [{ speaker: "client", text: "Здравейте" }];

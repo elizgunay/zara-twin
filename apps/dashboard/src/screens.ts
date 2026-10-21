@@ -3,7 +3,7 @@ import rawPack from "../../../knowledge-packs/zara-robotics/pack.json";
 import * as api from "./api";
 import { action, confirmAction, empty, h, humanError } from "./dom";
 import { daysLeft, formatDateTime, groupMemories, isEmail, ROLE_LABEL, type Membership, type Role } from "./model";
-import { duration, filterReports, objectionCounts, offset, scoreTone, sellerLabels, stats, weeklyScores, type ReportKind, type ReportRow } from "./reports";
+import { duration, filterReports, objectionCounts, offset, scoreTone, sellerLabels, stats, weeklyScores, type LineCard, type ReportKind, type ReportRow } from "./reports";
 
 // Екраните на таблото. Всеки връща елемент и сам зарежда данните си; refresh() го рисува отново.
 
@@ -215,15 +215,28 @@ function conversation(r: ReportRow, retentionDays: number): HTMLElement {
   }
   const start = new Date(r.started_at).getTime();
   const box = h("div", { class: "transcript", hidden: true },
-    ...lines.map((line) => h("p", {},
-      h("span", { class: "mono muted" }, `${offset(line.at - start)} `),
-      h("strong", {}, line.speaker === "owner" ? "Вие: " : "Клиент: "), line.text)));
+    ...lines.flatMap((line) => [
+      h("p", {},
+        h("span", { class: "mono muted" }, `${offset(line.at - start)} `),
+        h("strong", {}, line.speaker === "owner" ? "Вие: " : "Клиент: "), line.text),
+      // Какво показа Copilot за този ред: за преглед след срещата.
+      ...(Array.isArray(line.cards) ? line.cards : []).map(lineCard),
+    ]));
   const toggle = h("button", { type: "button", class: "ghost" }, `Покажи разговора (${lines.length} реда)`);
   toggle.addEventListener("click", () => {
     box.hidden = !box.hidden;
     toggle.textContent = box.hidden ? `Покажи разговора (${lines.length} реда)` : "Скрий разговора";
   });
   return h("div", { class: "stack" }, h("div", { class: "row" }, toggle), box);
+}
+
+const VIA_LABEL: Record<string, string> = { phrase: "готова карта", meaning: "по смисъл", ai: "AI" };
+
+function lineCard(card: LineCard): HTMLElement {
+  const say = Array.isArray(card.say) ? card.say.filter((s) => typeof s === "string") : [];
+  return h("div", { class: `line-card ${card.via === "ai" ? "ai" : ""}` },
+    h("div", {}, h("span", { class: "chip" }, VIA_LABEL[card.via] ?? "карта"), " ", h("strong", {}, String(card.title ?? ""))),
+    ...say.map((text, i) => h("p", { class: i === 0 ? "say main" : "say" }, `„${text}“`)));
 }
 
 /** Старите записани разговори (бутон „Запази“): показват се само ако има такива. */

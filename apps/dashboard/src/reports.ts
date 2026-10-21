@@ -19,7 +19,21 @@ export interface ReportRow {
   next_step: { label: string; atMs: number } | null;
   notes: string[];
   /** Текстът на разговора (миграция 0004). Празен след срока на фирмата. */
-  lines?: { speaker: "owner" | "counterpart"; text: string; at: number }[];
+  lines?: TranscriptLine[];
+}
+
+/** Карта, която Copilot показа за реда: заглавие, репликите и откъде (готова, по смисъл, AI). */
+export interface LineCard {
+  title: string;
+  say?: string[];
+  via: "phrase" | "meaning" | "ai";
+}
+
+export interface TranscriptLine {
+  speaker: "owner" | "counterpart";
+  text: string;
+  at: number;
+  cards?: LineCard[];
 }
 
 export interface ReportStats {

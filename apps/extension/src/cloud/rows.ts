@@ -22,7 +22,7 @@ export interface ReportRow {
   next_step: MeetingReport["nextStep"];
   notes: string[];
   /** Текстът на разговора (миграция 0004); трие се след срока на фирмата. */
-  lines: { speaker: "owner" | "counterpart"; text: string; at: number }[];
+  lines: { speaker: "owner" | "counterpart"; text: string; at: number; cards?: { title: string; say?: string[]; via: "phrase" | "meaning" | "ai" }[] }[];
 }
 
 /** Уникален ключ на срещата в базата: същата среща се обновява, не се дублира. */

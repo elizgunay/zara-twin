@@ -10,6 +10,8 @@ export interface SavedLine {
   text: string;
   /** Милисекунди от епохата. */
   at: number;
+  /** Картите, които Copilot показа за реда (заглавие, реплики, откъде). */
+  cards?: { title: string; say?: string[]; via: "phrase" | "meaning" | "ai" }[];
 }
 
 export interface SavedMeeting {

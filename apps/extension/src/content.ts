@@ -17,6 +17,7 @@ import { GoogleMeetAdapter } from "./meet/googleMeetAdapter";
 import { method, pack } from "./pack";
 import {
   isContentMessage,
+  MAX_CARDS_PER_LINE,
   MAX_SAVED_LINES,
   type BackgroundMessage,
   AI_MAX_TEXT,
@@ -90,8 +91,10 @@ let reportTimer: ReturnType<typeof setInterval> | undefined;
 /** Обобщението се обновява всяка минута: ако табът се затвори внезапно, остава почти пълно. */
 const REPORT_EVERY_MS = 60_000;
 
-function showHint(hint: Hint): void {
+/** forText: изречението, на което отговаря картата (AI и смисъл идват след секунда-две). */
+function showHint(hint: Hint, forText?: string): void {
   panel.showHint(hint);
+  attachCard(hint, forText);
   meeting.recorder?.onHint(hint, Date.now());
 }
 
@@ -115,6 +118,29 @@ function stopReports(): void {
   clearInterval(reportTimer);
   reportTimer = undefined;
 }
+/** Копие на картата към реда от разговора: в таблото се вижда какво е подсказал Copilot. */
+function attachCard(hint: Hint, forText?: string): void {
+  const lines = meeting.lines;
+  let line = lines[lines.length - 1];
+  if (!line) return;
+  if (forText) {
+    // Последните няколко реда: изречението може да е продължило (слепено) след питането.
+    for (let i = lines.length - 1; i >= Math.max(0, lines.length - 10); i--) {
+      if (lines[i]!.text.startsWith(forText)) {
+        line = lines[i]!;
+        break;
+      }
+    }
+  }
+  const cards = (line.cards ??= []);
+  if (cards.length >= MAX_CARDS_PER_LINE) return;
+  cards.push({
+    title: hint.title.slice(0, 120),
+    ...(hint.say?.length && { say: hint.say.slice(0, 2).map((text) => text.slice(0, 400)) }),
+    via: hint.byAi ? "ai" : hint.byMeaning ? "meaning" : "phrase",
+  });
+}
+
 const panel = new CopilotPanel({
   onClose: () => {
     const message: BackgroundMessage = { type: "panel-closed" };
@@ -234,7 +260,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       }
       if (message.speaker === "counterpart") askMeaningLater(line.text, line.merged, direct.length > 0);
       // Уговорката има свой прозорец от последните реплики: подава се само новото парче.
-      void meeting.schedule.onSegment(message).then((found) => found.forEach(showHint));
+      void meeting.schedule.onSegment(message).then((found) => found.forEach((hint) => showHint(hint)));
       break;
     }
   }
@@ -261,7 +287,7 @@ function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
         if (hints.length > 0) {
           current.lineHinted = true;
           current.aiNext = null;
-          hints.forEach(showHint);
+          hints.forEach((hint) => showHint(hint, text));
           return;
         }
         askAi(text, current);
@@ -313,7 +339,7 @@ function askAi(text: string, current: typeof meeting): void {
       }
       if (response.say.length === 0) return;
       current.lineHinted = true;
-      showHint({ key: `ai:${Date.now()}`, kind: "answer", title: "Отговор", say: response.say, lines: [], byAi: true });
+      showHint({ key: `ai:${Date.now()}`, kind: "answer", title: "Отговор", say: response.say, lines: [], byAi: true }, text);
     },
     () => {
       current.aiPending = false;

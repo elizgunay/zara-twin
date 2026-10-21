@@ -18,7 +18,10 @@ const rows: ReportRow[] = Array.from({ length: 14 }, (_, i) => {
     products: i % 2 ? ["Keenon Dinerbot T9"] : ["Keenon Kleenbot C40S", "Keenon Kleenbot C55"],
     next_step: good ? { label: "четвъртък, 10:00", atMs: 22 * 60_000 } : null,
     lines: i === 0 ? [
-      { speaker: "counterpart", text: "Звучи интересно, но трябва да си помисля.", at: start + 12 * 60_000 },
+      { speaker: "counterpart", text: "Звучи интересно, но трябва да си помисля.", at: start + 12 * 60_000,
+        cards: [{ title: "„Трябва да си помисля“", via: "phrase", say: ["Разбирам. Обикновено, когато човек иска да помисли, нещо конкретно го спира. Какво е при вас?", "Ако решим това сега, продължаваме ли?"] }] },
+      { speaker: "counterpart", text: "Какви са минусите на роботите?", at: start + 12 * 60_000 + 3_000,
+        cards: [{ title: "Отговор", via: "ai", say: ["Минусът е, че иска равен под и поне 55 см проход. Затова идваме на безплатен оглед.", "Какъв е подът при вас?"] }] },
       { speaker: "owner", text: "Разбирам. Какво точно искате да обмислите?", at: start + 12 * 60_000 + 6_000 },
       { speaker: "counterpart", text: "Може ли в четвъртък в 10 да дойдете?", at: start + 21 * 60_000 },
     ] : [],
