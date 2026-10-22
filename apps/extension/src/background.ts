@@ -77,12 +77,19 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (message.type === "ai-suggest") {
     // Само от таба на срещата, в която тече Copilot.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    const asked = Date.now();
     aiSuggest(message.question, message.turns, AI_FACTS, message.lastSpeaker)
       .catch((error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : String(error) }))
       .then((result) => {
         log("background", "AI отговор", result.ok ? `${result.say.length} изречения` : result.error);
         // Последният резултат остава на компютъра (без текста на разговора): за диагностика след теста.
-        void chrome.storage.local.set({ [AI_LAST_KEY]: { at: Date.now(), ok: result.ok, ...(result.ok ? { said: result.say.length } : { error: result.error }) } });
+        const timing = { totalMs: Date.now() - asked, ...(result.ok && result.modelMs !== undefined && { modelMs: result.modelMs }) };
+        void chrome.storage.local.set({ [AI_LAST_KEY]: { at: Date.now(), ok: result.ok, ...timing, ...(result.ok ? { said: result.say.length } : { error: result.error }) } });
+        // Последните 20 времена (без текст): колко е моделът и колко е пътят до сървъра.
+        void chrome.storage.local.get(AI_TIMES_KEY).then((stored) => {
+          const times = Array.isArray(stored[AI_TIMES_KEY]) ? (stored[AI_TIMES_KEY] as unknown[]) : [];
+          return chrome.storage.local.set({ [AI_TIMES_KEY]: [...times.slice(-19), { at: Date.now(), ...timing }] });
+        });
         sendResponse(result);
       });
     return true;
@@ -111,6 +118,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 /** Фактите на фирмата за AI отговорите: от вградения пакет, веднъж. */
 const AI_FACTS = aiFacts(pack, method);
 const AI_LAST_KEY = "aiLastResult";
+const AI_TIMES_KEY = "aiTimes";
 
 const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];
 

@@ -26,7 +26,8 @@ export interface SuggestRequest {
 }
 
 /** stage: на коя стъпка от сценария е разговорът (1 = първата), ако моделът я е определил. */
-export type SuggestResponse = { ok: true; say: string[]; stage?: number } | { ok: false; error: string };
+/** modelMs: колко време отне моделът (за измерване къде отива времето). */
+export type SuggestResponse = { ok: true; say: string[]; stage?: number; modelMs?: number } | { ok: false; error: string };
 
 /** Каквото функцията иска отвън; в тестовете се подменя. */
 export interface Deps {
@@ -158,8 +159,9 @@ export async function handle(jwt: string | null, body: unknown, deps: Deps): Pro
   if (!request) return deny(400, "Невалидна заявка.");
   // Ключът е на фирмата: ползват го само нейните хора.
   if (!(await deps.isMember(request.orgId, caller.id))) return deny(403, "Не сте член на тази фирма.");
+  const started = Date.now();
   const raw = await deps.complete(SYSTEM_PROMPT, userPrompt(request));
-  return { status: 200, body: { ok: true, ...parseReply(raw) } };
+  return { status: 200, body: { ok: true, ...parseReply(raw), modelMs: Date.now() - started } };
 }
 
 // ---------- Mistral и Supabase (изпълнява се само на сървъра, в Deno) ----------
@@ -215,7 +217,8 @@ if (typeof Deno !== "undefined") {
         body: JSON.stringify({
           model: Deno!.env.get("MISTRAL_MODEL") || MISTRAL_MODEL,
           temperature: 0.2,
-          max_tokens: 400,
+          // Репликите са кратки: по-нисък таван = по-бърз отговор (400 знака ≈ 150–200 токена).
+          max_tokens: 250,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

@@ -183,7 +183,7 @@ export interface AiTurn {
 }
 
 /** stage: на коя стъпка от сценария е разговорът (1 = първата), ако AI я е определил. */
-export type AiSuggestion = { ok: true; say: string[]; stage?: number } | { ok: false; error: string };
+export type AiSuggestion = { ok: true; say: string[]; stage?: number; modelMs?: number } | { ok: false; error: string };
 
 /**
  * AI отговор (Edge Function suggest, Mistral в ЕС). Само с вход в таблото и избрана фирма:

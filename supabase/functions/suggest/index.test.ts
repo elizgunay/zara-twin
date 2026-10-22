@@ -27,7 +27,8 @@ describe("AI отговор (Edge Function suggest)", () => {
     expect((await handle(USER, { ...body, orgId: OTHER }, d)).status).toBe(403);
     expect(calls).toHaveLength(0); // без достъп моделът не се пита
     const ok = await handle(USER, body, d);
-    expect(ok).toEqual({ status: 200, body: { ok: true, say: ["Минусът е, че иска равен под. Затова идваме на оглед безплатно."] } });
+    expect(ok).toMatchObject({ status: 200, body: { ok: true, say: ["Минусът е, че иска равен под. Затова идваме на оглед безплатно."] } });
+    expect((ok.body as { modelMs?: number }).modelMs).toBeGreaterThanOrEqual(0);
   });
 
   it("моделът получава фактите, разговора и въпроса", async () => {
@@ -75,7 +76,7 @@ describe("AI отговор (Edge Function suggest)", () => {
   it("води разговора: стъпката от сценария и реплика и след продавача", async () => {
     const { d, calls } = deps('{"stage": 3, "say": ["Разкажете ми повече за вечерите."]}');
     const ok = await handle(USER, { ...body, question: "Ще ви задам няколко въпроса.", lastSpeaker: "seller" }, d);
-    expect(ok.body).toEqual({ ok: true, say: ["Разкажете ми повече за вечерите."], stage: 3 });
+    expect(ok.body).toMatchObject({ ok: true, say: ["Разкажете ми повече за вечерите."], stage: 3 });
     expect(calls[0]).toContain("Продавачът току-що каза");
     expect(parseRequest({ ...body, lastSpeaker: "boss" })).toBeNull();
     expect(parseRequest(body)?.lastSpeaker).toBe("client");
