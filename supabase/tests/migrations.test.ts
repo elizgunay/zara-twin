@@ -98,6 +98,39 @@ describe("база на таблото (Supabase)", () => {
     await db.close();
   }, 60_000);
 
+  it("клиенти и памет (0005): цялата фирма вижда, поддръжката и другата фирма не; срок 2 години", async () => {
+    const db = new PGlite();
+    await db.exec(SUPABASE_STUB);
+    for (const m of ["0001_dashboard", "0002_meeting_reports", "0003_test_meetings", "0004_meeting_text", "0005_clients"]) {
+      await db.exec(read(`../migrations/${m}.sql`));
+    }
+    await db.exec(read("../migrations/0005_clients.sql")); // повторно пускане не чупи
+    const results = await db.exec(read("./0005_clients.sql"));
+    expect((results.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ПАМЕТТА Е ЗАЩИТЕНА");
+    // Старите проверки минават и след 0005.
+    const reports = await db.exec(read("./0002_reports.sql"));
+    expect((reports.at(-1)?.rows.at(0) as Record<string, string>)["резултат"]).toBe("ДНЕВНИКЪТ Е ЗАЩИТЕН");
+
+    // Срок: клиент без среща от 2 години се трие (с паметта), нов остава.
+    await db.exec(`
+      insert into public.orgs (id, name) values ('00000000-0000-4000-8000-00000000a000', 'А');
+      insert into public.clients (id, org_id, name, created_at, last_meeting_at) values
+        ('00000000-0000-4000-8000-0000000c0001', '00000000-0000-4000-8000-00000000a000', 'Стар', now() - interval '3 years', now() - interval '25 months'),
+        ('00000000-0000-4000-8000-0000000c0002', '00000000-0000-4000-8000-00000000a000', 'Нов', now() - interval '3 years', now() - interval '23 months');
+      insert into public.client_facts (org_id, client_id, fact) values ('00000000-0000-4000-8000-00000000a000', '00000000-0000-4000-8000-0000000c0001', 'стар факт');
+    `);
+    await db.query("select public.purge_expired_clients()");
+    const left = await db.query<{ name: string }>("select name from public.clients order by name");
+    expect(left.rows).toEqual([{ name: "Нов" }]);
+    expect((await db.query<{ n: number }>("select count(*)::int as n from public.client_facts")).rows[0]!.n).toBe(0);
+    // Факт към клиент от друга фирма не може.
+    await db.exec(`insert into public.orgs (id, name) values ('00000000-0000-4000-8000-00000000b000', 'Б');`);
+    await expect(
+      db.exec(`insert into public.client_facts (org_id, client_id, fact) values ('00000000-0000-4000-8000-00000000b000', '00000000-0000-4000-8000-0000000c0002', 'x')`),
+    ).rejects.toThrow(/foreign key/);
+    await db.close();
+  }, 60_000);
+
   it("продавач, който чете чужди срещи, спира проверката на 0002", async () => {
     const db = new PGlite();
     await db.exec(SUPABASE_STUB);
