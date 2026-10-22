@@ -47,6 +47,7 @@ export function isPanelPrefs(value: unknown): value is PanelPrefs {
  * се вмъква само чрез textContent, никога като HTML.
  */
 export class CopilotPanel {
+  private stageNames: string[] = [];
   private readonly host: HTMLElement;
   private readonly root: ShadowRoot;
   private readonly transcript: HTMLElement;
@@ -256,6 +257,31 @@ export class CopilotPanel {
     bar.classList.toggle("over", ownerShare > maxOwnerShare);
   }
 
+  /** Стъпките на сценария (кратките имена); без тях лентата е скрита. */
+  setStages(names: string[]): void {
+    this.stageNames = names;
+    const dots = this.part("stage-dots");
+    dots.replaceChildren(
+      ...names.map((name) => {
+        const dot = this.doc.createElement("span");
+        dot.title = name;
+        return dot;
+      }),
+    );
+    this.part("stages").hidden = names.length === 0;
+  }
+
+  /** Текущата стъпка (0 = първата): предишните са взети, текущата свети. */
+  setStage(index: number): void {
+    const names = this.stageNames;
+    if (names.length === 0) return;
+    const current = Math.max(0, Math.min(names.length - 1, index));
+    Array.from(this.part("stage-dots").children).forEach((dot, i) => {
+      dot.className = i < current ? "done" : i === current ? "now" : "";
+    });
+    this.part("stage-name").textContent = `Стъпка ${current + 1} от ${names.length} · ${names[current]}`;
+  }
+
   /** Бутонът „Запази“ се вижда само ако запазването е включено в Опции. */
   setSaveAvailable(available: boolean): void {
     this.part("save").hidden = !available;
@@ -417,6 +443,12 @@ const TEMPLATE = /* html */ `
   .meter { height: 6px; border-radius: 3px; background: #3c4352; overflow: hidden; }
   .meter > div { height: 100%; width: 0; background: #81c995; transition: width 90ms linear; }
   .talk { padding: 10px 12px 0; font-size: 12px; color: #bdc1c6; }
+  .stages { padding: 8px 12px 0; font-size: 12px; color: #bdc1c6; }
+  .stage-dots { display: flex; gap: 3px; margin-bottom: 4px; }
+  .stage-dots span { flex: 1; height: 5px; border-radius: 3px; background: #3c4352; }
+  .stage-dots span.done { background: #81c995; }
+  .stage-dots span.now { background: #fdd663; }
+  .stage-name { font-weight: 600; color: #e8eaed; }
   .talk-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
   .talk-bar { height: 6px; border-radius: 3px; background: #8ab4f8; overflow: hidden; }
   .talk-bar > div { height: 100%; width: 50%; background: #81c995; transition: width 300ms; }
@@ -492,6 +524,10 @@ const TEMPLATE = /* html */ `
   <div class="talk" data-part="talk" hidden>
     <div class="talk-head"><span title="Последните 3 минути">Говорене</span><span data-part="talk-text"></span></div>
     <div class="talk-bar"><div data-part="talk-owner"></div></div>
+  </div>
+  <div class="stages" data-part="stages" hidden>
+    <div class="stage-dots" data-part="stage-dots"></div>
+    <span class="stage-name" data-part="stage-name">Стъпка 1 · очаква разговора</span>
   </div>
   <textarea class="logs" data-part="logs-box" readonly hidden></textarea>
   <div class="hints" data-part="hints" aria-live="polite" aria-label="Подсказки"></div>

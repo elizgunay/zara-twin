@@ -1,4 +1,4 @@
-import { EchoFilter } from "@zara-twin/core";
+import { EchoFilter, type SpeakerRole } from "@zara-twin/core";
 import {
   AnswerDetector,
   HintEngine,
@@ -48,11 +48,8 @@ const talkRules = { maxOwnerShare: 0.65, windowMinutes: 3, monologueSeconds: 60,
 const TALK_REFRESH_MS = 1_000;
 /** Адресът на таблото (от .env при изграждане) за бутона „Отвори в таблото“ след срещата. */
 const DASHBOARD_URL: string = __DASHBOARD_URL__;
-/**
- * Разбиране по смисъл: изчакваме толкова след последното парче на клиента, за да е цяло
- * изречението, и питаме модела само ако фразите от пакета не са дали отговор или възражение.
- */
-const MEANING_PAUSE_MS = 900;
+/** Мълчание след последното парче: тогава Copilot казва какво следва (решение на собственика: 1 s). */
+const PAUSE_MS = 1_000;
 
 /** Всичко, което помни какво е показано в текущата среща. Нова среща = чиста памет. */
 function freshAssistants() {
@@ -74,7 +71,7 @@ function freshAssistants() {
     aiAt: 0,
     aiErrorShown: false,
     /** Изречение, чакащо реда си към AI (лимитът на безплатния план). */
-    aiNext: null as string | null,
+    aiNext: null as { speaker: SpeakerRole; text: string } | null,
     /** Целият текст от срещата (панелът показва само последните 50 реда). Пази се само при „Запази“. */
     lines: [] as TranscriptLine[],
     startedAt: Date.now(),
@@ -174,6 +171,8 @@ const panel = new CopilotPanel({
   },
 });
 panel.mount();
+// Лентата със стъпките: кратките имена от сценария в метода („1. Отваряне: …“ → „Отваряне“).
+panel.setStages((method.playbook?.steps ?? []).map((step) => step.replace(/^\d+\.\s*/, "").split(":")[0]!.trim()));
 // Мястото на панела и разгънатият разговор от предишната среща.
 void chrome.storage.local.get(PANEL_PREFS_KEY).then(
   (stored) => {
@@ -254,11 +253,12 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       if (message.latencyMs !== undefined) panel.setSttLatency(message.latencyMs);
       // Възраженията и роботите се търсят в цялото изречение („трябва да си“ + „помисля“).
       const sentence = { ...message, text: line.text };
-      const direct = [...meeting.objections.onSegment(sentence), ...meeting.answers.onSegment(sentence)];
-      for (const hint of [...direct, ...meeting.nudges.onSegment(sentence), ...meeting.hints.onSegment(sentence)]) {
+      const direct = [...meeting.objections.onSegment(sentence), ...meeting.answers.onSegment(sentence), ...meeting.nudges.onSegment(sentence)];
+      for (const hint of [...direct, ...meeting.hints.onSegment(sentence)]) {
         showHint(hint);
       }
-      if (message.speaker === "counterpart") askMeaningLater(line.text, line.merged, direct.length > 0);
+      // След 1 s пауза: следващата реплика (за клиента и за самия продавач).
+      askLater(message.speaker, line.text, line.merged, direct.length > 0);
       // Уговорката има свой прозорец от последните реплики: подава се само новото парче.
       void meeting.schedule.onSegment(message).then((found) => found.forEach((hint) => showHint(hint)));
       break;
@@ -266,8 +266,11 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
   }
 });
 
-/** Когато клиентът спре да говори и фразите не са хванали нищо: тема по смисъл (локален модел). */
-function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
+/**
+ * Пауза от 1 s след последното парче на когото и да е от двамата: тогава Copilot казва какво
+ * следва. Готовата карта (по фраза) печели и AI не се пита за този ред.
+ */
+function askLater(speaker: SpeakerRole, text: string, merged: boolean, hinted: boolean): void {
   const current = meeting;
   if (!merged) current.lineHinted = false;
   if (hinted) {
@@ -277,41 +280,43 @@ function askMeaningLater(text: string, merged: boolean, hinted: boolean): void {
   }
   clearTimeout(current.meaningTimer);
   if (current.lineHinted) return;
-  current.meaningTimer = setTimeout(() => {
+  current.meaningTimer = setTimeout(() => onPause(speaker, text, current), PAUSE_MS);
+}
+
+function onPause(speaker: SpeakerRole, text: string, current: typeof meeting): void {
+  if (meeting !== current || current.lineHinted) return;
+  // Клиентът: проверката по смисъл и AI тръгват едновременно; първата карта печели.
+  if (speaker === "counterpart") {
     const request: OffscreenMessage = { type: "meaning-match", text };
     void chrome.runtime.sendMessage(request).then(
       (response: OffscreenResponse | undefined) => {
-        // Срещата е свършила или вече има подсказка по фраза за това изречение.
         if (meeting !== current || current.lineHinted) return;
         const hints = response?.ok && response.match ? meaningHints(response.match, current.answers, current.objections) : [];
-        if (hints.length > 0) {
-          current.lineHinted = true;
-          current.aiNext = null;
-          hints.forEach((hint) => showHint(hint, text));
-          return;
-        }
-        askAi(text, current);
+        if (hints.length === 0) return;
+        current.lineHinted = true;
+        current.aiNext = null;
+        hints.forEach((hint) => showHint(hint, text));
       },
-      () => askAi(text, current),
+      () => {},
     );
-  }, MEANING_PAUSE_MS);
+  }
+  askAi(speaker, text, current);
 }
 
-/** Между две питания на AI: безплатният план на модела приема около 1 заявка в секунда. */
-const AI_GAP_MS = 3_000;
+/** Между две питания на AI: ministral-8b на безплатния план приема около 3 заявки в секунда. */
+const AI_GAP_MS = 1_000;
 const words = (text: string) => text.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
 
 /**
- * Последната стъпка: AI реплика от фактите и сценария (Mistral, ЕС), когато нито фраза, нито смисълът
- * не са дали карта. За всяко изречение на клиента от 3 думи: въпрос → отговор, разказ → следващият
- * въпрос по сценария, колебание → към демо с дата. „Добре“, „Здравейте“ не се пращат.
- * Ако AI още мисли по предишното, новото изречение чака и тръгва веднага след него (само последното).
+ * AI води разговора по сценария (Mistral, ЕС): след клиента → отговор или следващият въпрос, след
+ * продавача → следващата му реплика. Връща и стъпката от сценария за лентата горе в панела.
+ * „Добре“, „Здравейте“ не се пращат. Ако AI още мисли, новото изречение чака (само последното).
  */
-function askAi(text: string, current: typeof meeting): void {
+function askAi(speaker: SpeakerRole, text: string, current: typeof meeting): void {
   if (!aiEnabled || current.lineHinted) return;
-  if (words(text) < 3 && !isQuestion(text)) return;
+  if (words(text) < 3 && !(speaker === "counterpart" && isQuestion(text))) return;
   if (current.aiPending || Date.now() - current.aiAt < AI_GAP_MS) {
-    current.aiNext = text;
+    current.aiNext = { speaker, text };
     if (!current.aiPending) setTimeout(() => flushAi(current), AI_GAP_MS - (Date.now() - current.aiAt));
     return;
   }
@@ -323,12 +328,17 @@ function askAi(text: string, current: typeof meeting): void {
     speaker: line.speaker === "owner" ? ("seller" as const) : ("client" as const),
     text: line.text.slice(0, AI_MAX_TEXT),
   }));
-  const request: BackgroundMessage = { type: "ai-suggest", question: text.slice(0, AI_MAX_TEXT), turns: before };
+  const request: BackgroundMessage = {
+    type: "ai-suggest",
+    question: text.slice(0, AI_MAX_TEXT),
+    turns: before,
+    lastSpeaker: speaker === "owner" ? "seller" : "client",
+  };
   void chrome.runtime.sendMessage(request).then(
     (response: AiSuggestion | undefined) => {
       current.aiPending = false;
       setTimeout(() => flushAi(current), AI_GAP_MS);
-      if (meeting !== current || current.lineHinted) return;
+      if (meeting !== current) return;
       if (!response?.ok) {
         // Веднъж на среща: защо няма AI отговори (няма вход, липсва ключ…).
         if (response && !current.aiErrorShown) {
@@ -337,9 +347,12 @@ function askAi(text: string, current: typeof meeting): void {
         }
         return;
       }
-      if (response.say.length === 0) return;
+      // Стъпката се обновява винаги, дори ако за реда вече има готова карта.
+      if (response.stage !== undefined) panel.setStage(response.stage - 1);
+      if (current.lineHinted || response.say.length === 0) return;
       current.lineHinted = true;
-      showHint({ key: `ai:${Date.now()}`, kind: "answer", title: "Отговор", say: response.say, lines: [], byAi: true }, text);
+      const title = speaker === "owner" ? "Следваща реплика" : "Отговор";
+      showHint({ key: `ai:${Date.now()}`, kind: "answer", title, say: response.say, lines: [], byAi: true }, text);
     },
     () => {
       current.aiPending = false;
@@ -353,9 +366,9 @@ function flushAi(current: typeof meeting): void {
   const next = current.aiNext;
   if (!next || meeting !== current || current.aiPending) return;
   current.aiNext = null;
-  // Чакалото изречение е последното на клиента: ако междувременно е получило карта, не се праща.
+  // Чакалото изречение е последното: ако междувременно е получило карта, aiNext е изчистен.
   current.lineHinted = false;
-  askAi(next, current);
+  askAi(next.speaker, next.text, current);
 }
 
 // Табът се затваря или презарежда по време на срещата: последно обновяване на дневника.

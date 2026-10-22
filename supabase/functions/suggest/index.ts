@@ -1,5 +1,6 @@
-// AI отговор по време на среща: когато клиентът пита нещо, за което пакетът няма готова карта,
-// езиков модел (Mistral, сървър в ЕС, Р22) съставя 1–2 изречения САМО от фактите на фирмата.
+// AI реплика по време на среща: след всяко изречение (на клиента или на продавача) и кратка пауза,
+// когато пакетът няма готова карта, езиков модел (Mistral, сървър в ЕС, Р22) води разговора по
+// сценария: казва на коя стъпка е и дава 1–2 изречения САМО от фактите на фирмата.
 // Работи на сървъра на Supabase (Edge Function): ключът за Mistral е тук (MISTRAL_API_KEY),
 // никога в разширението. Пита само член на фирмата с вход от разширението (Опции → Табло).
 //
@@ -18,11 +19,14 @@ export interface SuggestRequest {
   facts: string;
   /** Последните реплики преди въпроса, за контекст. */
   turns: Turn[];
-  /** Изречението на клиента, на което търсим отговор. */
+  /** Последното изречение в разговора, след което търсим следващата реплика на продавача. */
   question: string;
+  /** Кой го каза: клиентът (отговор) или самият продавач (следващата стъпка). По подразбиране клиентът. */
+  lastSpeaker: "client" | "seller";
 }
 
-export type SuggestResponse = { ok: true; say: string[] } | { ok: false; error: string };
+/** stage: на коя стъпка от сценария е разговорът (1 = първата), ако моделът я е определил. */
+export type SuggestResponse = { ok: true; say: string[]; stage?: number } | { ok: false; error: string };
 
 /** Каквото функцията иска отвън; в тестовете се подменя. */
 export interface Deps {
@@ -81,16 +85,23 @@ export function parseRequest(value: unknown): SuggestRequest | null {
     if ((turn?.speaker !== "client" && turn?.speaker !== "seller") || typeof turn.text !== "string" || turn.text.length > MAX_TEXT) return null;
     turns.push({ speaker: turn.speaker, text: turn.text });
   }
-  return { orgId: r.orgId, facts: r.facts, turns, question: r.question.trim() };
+  if (r.lastSpeaker !== undefined && r.lastSpeaker !== "client" && r.lastSpeaker !== "seller") return null;
+  return { orgId: r.orgId, facts: r.facts, turns, question: r.question.trim(), lastSpeaker: r.lastSpeaker ?? "client" };
 }
 
 export const SYSTEM_PROMPT = `Ти си Copilot на продавач по време на разговор с клиент. Продавачът чете подсказката на екрана и я казва дословно.
 
-Според това, което клиентът току-що каза:
+Ти водиш разговора по сценария: винаги знаеш на коя стъпка е и какво трябва да каже продавачът сега.
+
+Ако последен е говорил клиентът:
 - Пита нещо: отговори от фактите.
-- Разказва за себе си или за обекта си: кратко потвърждение и следващият въпрос по сценария (виж на коя стъпка е разговорът).
+- Разказва за себе си или за обекта си: кратко потвърждение и следващият въпрос по сценария.
 - Колебае се или възразява: една реплика, която връща към демонстрация с ден и час.
-- Само поздрав, „добре“, „аха“ или неразбираем откъс: празен списък.
+- Само поздрав, „добре“, „аха“ или неразбираем откъс: продължи разговора със следващия въпрос по сценария.
+
+Ако последен е говорил продавачът и настъпи пауза:
+- Предложи следващата му реплика по сценария: следващия въпрос или следващата стъпка. Ако е пропуснал стъпка (напр. цена без обобщение), върни го към нея.
+- Ако продавачът току-що е задал въпрос и чака отговор: празен списък (не го прекъсвай).
 
 Правила:
 - Само на правилен български, на „вие“, готово за казване на глас. Никакви руски думи („потому“, „сейчас“, „очень“): само български („затова“, „сега“, „много“).
@@ -99,35 +110,43 @@ export const SYSTEM_PROMPT = `Ти си Copilot на продавач по вр�
 - Ползвай САМО фактите на фирмата. Не измисляй цени, срокове, отстъпки, модели или условия. Ако факт липсва: „Ще ви го уточня в офертата до утре в 12.“
 - Уверено и настоятелно, по правилата на сценария. Без съвети към продавача („кажете му…“): само думите към клиента.
 
-Отговорът е JSON: {"say": ["вариант 1", "вариант 2"]} или {"say": []}.`;
+Отговорът е JSON: {"stage": номер на стъпката от сценария, на която е разговорът (1, 2, …), "say": ["вариант 1", "вариант 2"]} или {"stage": номер, "say": []}.`;
 
 export function userPrompt(request: SuggestRequest): string {
   const context = request.turns.map((t) => `${t.speaker === "client" ? "Клиент" : "Продавач"}: ${t.text}`).join("\n");
-  return `Факти на фирмата:\n${request.facts}\n\nРазговорът досега:\n${context || "(начало)"}\n\nКлиентът току-що каза: „${request.question}“`;
+  const who = request.lastSpeaker === "seller" ? "Продавачът току-що каза" : "Клиентът току-що каза";
+  return `Факти на фирмата:\n${request.facts}\n\nРазговорът досега:\n${context || "(начало)"}\n\n${who}: „${request.question}“`;
 }
 
-/** Само кратки готови изречения: моделът понякога връща повече или по-дълго. */
-export function parseSay(raw: string): string[] {
+/** Отговорът на модела: репликите (кратки, на български) и стъпката от сценария (1–20), ако я има. */
+export function parseReply(raw: string): { say: string[]; stage?: number } {
   let value: unknown;
   try {
     value = JSON.parse(raw);
   } catch {
     const match = /\{[\s\S]*\}/.exec(raw);
-    if (!match) return [];
+    if (!match) return { say: [] };
     try {
       value = JSON.parse(match[0]);
     } catch {
-      return [];
+      return { say: [] };
     }
   }
-  const say = (value as { say?: unknown })?.say;
-  if (!Array.isArray(say)) return [];
-  return say
-    .filter((s): s is string => typeof s === "string")
-    .map((s) => s.replace(/\s+/g, " ").trim())
-    .filter((s) => s.length > 0 && !RUSSIAN_LETTERS.test(s))
-    .map((s) => wholeSentences(toBulgarian(s)))
-    .slice(0, MAX_SAY);
+  const reply = (value ?? {}) as { say?: unknown; stage?: unknown };
+  const stage = Number(reply.stage);
+  const say = Array.isArray(reply.say)
+    ? reply.say
+        .filter((s): s is string => typeof s === "string")
+        .map((s) => s.replace(/\s+/g, " ").trim())
+        .filter((s) => s.length > 0 && !RUSSIAN_LETTERS.test(s))
+        .map((s) => wholeSentences(toBulgarian(s)))
+        .slice(0, MAX_SAY)
+    : [];
+  return Number.isInteger(stage) && stage >= 1 && stage <= 20 ? { say, stage } : { say };
+}
+
+export function parseSay(raw: string): string[] {
+  return parseReply(raw).say;
 }
 
 export async function handle(jwt: string | null, body: unknown, deps: Deps): Promise<{ status: number; body: SuggestResponse }> {
@@ -140,7 +159,7 @@ export async function handle(jwt: string | null, body: unknown, deps: Deps): Pro
   // Ключът е на фирмата: ползват го само нейните хора.
   if (!(await deps.isMember(request.orgId, caller.id))) return deny(403, "Не сте член на тази фирма.");
   const raw = await deps.complete(SYSTEM_PROMPT, userPrompt(request));
-  return { status: 200, body: { ok: true, say: parseSay(raw) } };
+  return { status: 200, body: { ok: true, ...parseReply(raw) } };
 }
 
 // ---------- Mistral и Supabase (изпълнява се само на сървъра, в Deno) ----------
@@ -149,8 +168,9 @@ declare const Deno: { env: { get(name: string): string | undefined }; serve(hand
 
 /** Сървърът на Mistral в ЕС (данните се обработват в ЕС, Р22). */
 export const MISTRAL_URL = "https://api.eu.mistral.ai/v1/chat/completions";
-// mistral-small е с тесен безплатен лимит (20 000 токена/мин, видяхме 429); ministral-14b: 937 500.
-export const MISTRAL_MODEL = "ministral-14b-2512";
+// mistral-small е с тесен безплатен лимит (20 000 токена/мин, видяхме 429). ministral-8b е по-бърз
+// и приема 3 заявки/s (14b: 0,5/s): нужно, когато Copilot води разговора след всяка пауза.
+export const MISTRAL_MODEL = "ministral-8b-2512";
 const TIMEOUT_MS = 8_000;
 
 const CORS = {

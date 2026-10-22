@@ -47,7 +47,7 @@ export type BackgroundMessage =
   /** От панела: обобщението и текстът на срещата, автоматично всяка минута и в края ѝ. */
   | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] }
   /** От панела: въпрос на клиента без готова карта → AI отговор от фактите на фирмата. */
-  | { type: "ai-suggest"; question: string; turns: { speaker: "client" | "seller"; text: string }[] };
+  | { type: "ai-suggest"; question: string; turns: { speaker: "client" | "seller"; text: string }[]; lastSpeaker?: "client" | "seller" };
 
 /** Колко реплики преди въпроса отиват към AI (за контекст), и колко дълги. */
 export const AI_MAX_TURNS = 6;
@@ -202,6 +202,7 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
         typeof value.question === "string" &&
         value.question.trim().length >= 3 &&
         value.question.length <= AI_MAX_TEXT &&
+        (value.lastSpeaker === undefined || value.lastSpeaker === "client" || value.lastSpeaker === "seller") &&
         Array.isArray(value.turns) &&
         value.turns.length <= AI_MAX_TURNS &&
         value.turns.every(

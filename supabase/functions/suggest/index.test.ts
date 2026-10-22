@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
+import { handle, parseReply, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
 
 const ORG = "00000000-0000-4000-8000-00000000a000";
 const OTHER = "00000000-0000-4000-8000-00000000b000";
@@ -70,6 +70,18 @@ describe("AI отговор (Edge Function suggest)", () => {
     const { SYSTEM_PROMPT } = await import("./index");
     expect(SYSTEM_PROMPT).toContain("Разказва за себе си");
     expect(SYSTEM_PROMPT).toContain("Върни 2 варианта");
+  });
+
+  it("води разговора: стъпката от сценария и реплика и след продавача", async () => {
+    const { d, calls } = deps('{"stage": 3, "say": ["Разкажете ми повече за вечерите."]}');
+    const ok = await handle(USER, { ...body, question: "Ще ви задам няколко въпроса.", lastSpeaker: "seller" }, d);
+    expect(ok.body).toEqual({ ok: true, say: ["Разкажете ми повече за вечерите."], stage: 3 });
+    expect(calls[0]).toContain("Продавачът току-що каза");
+    expect(parseRequest({ ...body, lastSpeaker: "boss" })).toBeNull();
+    expect(parseRequest(body)?.lastSpeaker).toBe("client");
+    // Странна стъпка се пропуска, репликите остават.
+    expect(parseReply('{"stage": "x", "say": ["Добре е."]}')).toEqual({ say: ["Добре е."] });
+    expect(parseReply('{"stage": 99, "say": []}')).toEqual({ say: [] });
   });
 
   it("без разговор пише „(начало)“", () => {

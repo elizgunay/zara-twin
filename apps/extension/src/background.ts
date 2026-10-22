@@ -77,7 +77,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (message.type === "ai-suggest") {
     // Само от таба на срещата, в която тече Copilot.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
-    aiSuggest(message.question, message.turns, AI_FACTS)
+    aiSuggest(message.question, message.turns, AI_FACTS, message.lastSpeaker)
       .catch((error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : String(error) }))
       .then((result) => {
         log("background", "AI отговор", result.ok ? `${result.say.length} изречения` : result.error);
