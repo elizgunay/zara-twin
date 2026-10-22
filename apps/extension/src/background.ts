@@ -17,7 +17,7 @@ import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
-import { aiSuggest, createCloudClient, listClients, syncPending } from "./cloud/cloud";
+import { aiSuggest, createCloudClient, listClients, remember, syncPending } from "./cloud/cloud";
 import { aiFacts } from "@zara-twin/knowledge";
 import { method, pack } from "./pack";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
@@ -72,6 +72,18 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     // Само от таба на същата среща в Meet.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") !== message.report.meetingCode) return;
     saveReport(message.report, message.lines).then(sendResponse);
+    return true;
+  }
+  if (message.type === "remember") {
+    // Само от таба на същата среща в Meet.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    remember(message.clientId, message.meetingCode, message.startedAt, message.lines)
+      .catch((error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : String(error) }))
+      .then((result) => {
+        log("background", "памет след среща", result.ok ? `${result.proposed} предложения` : result.error);
+        void chrome.storage.local.set({ [REMEMBER_LAST_KEY]: { at: Date.now(), ...result } });
+        sendResponse(result);
+      });
     return true;
   }
   if (message.type === "clients-list" || message.type === "client-create") {
@@ -129,6 +141,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 const AI_FACTS = aiFacts(pack, method);
 const AI_LAST_KEY = "aiLastResult";
 const AI_TIMES_KEY = "aiTimes";
+/** Последният резултат от паметта след среща (без текст): за диагностика. */
+const REMEMBER_LAST_KEY = "rememberLast";
 
 const CAPTURE_ATTEMPTS = [{ withVideo: false }, { withVideo: true }];
 
@@ -219,7 +233,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" | "ai-suggest" | "clients-list" | "client-create" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" | "ai-suggest" | "clients-list" | "client-create" | "remember" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();

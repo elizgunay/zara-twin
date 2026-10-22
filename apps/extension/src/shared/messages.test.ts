@@ -60,6 +60,16 @@ describe("isBackgroundMessage", () => {
   });
 });
 
+describe("памет след среща (remember)", () => {
+  it("клиент по id, кодът на срещата и репликите; странни данни се отказват", () => {
+    const ok = { type: "remember", clientId: "00000000-0000-4000-8000-0000000c0001", meetingCode: "abc-defg-hij", startedAt: 1, lines: [{ speaker: "client", text: "Имаме ресторант." }] };
+    expect(isBackgroundMessage(ok)).toBe(true);
+    expect(isBackgroundMessage({ ...ok, clientId: "Ресторант" })).toBe(false);
+    expect(isBackgroundMessage({ ...ok, lines: [{ speaker: "owner", text: "x" }] })).toBe(false);
+    expect(isBackgroundMessage({ ...ok, lines: Array(2_001).fill(ok.lines[0]) })).toBe(false);
+  });
+});
+
 describe("клиентите (полето „Клиент“)", () => {
   it("списък и нов клиент по име; празно или дълго име се отказва", () => {
     expect(isBackgroundMessage({ type: "clients-list" })).toBe(true);

@@ -242,3 +242,25 @@ export async function createCloudClient(name: string, city?: string): Promise<Cl
   if (error) throw new Error(humanError(error.message));
   return data as CloudClient;
 }
+
+export type RememberResult = { ok: true; proposed: number } | { ok: false; error: string };
+
+/**
+ * Памет след среща (функция remember, Mistral в ЕС): разговорът отива към сървъра, който предлага
+ * факти за клиента; те чакат одобрение в таблото (Р33).
+ */
+export async function remember(
+  clientId: string,
+  meetingCode: string,
+  startedAt: number,
+  lines: { speaker: "client" | "seller"; text: string }[],
+): Promise<RememberResult> {
+  const orgId = await currentOrg();
+  if (!orgId) return { ok: false, error: "Няма вход в таблото (Опции → Табло)." };
+  const { data: body, error } = await db().functions.invoke<RememberResult>("remember", { body: { orgId, clientId, meetingCode, startedAt, lines } });
+  if (error) {
+    const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    return { ok: false, error: (detail as { error?: string } | null)?.error ?? error.message };
+  }
+  return body ?? { ok: false, error: "Празен отговор." };
+}

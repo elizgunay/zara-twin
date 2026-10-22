@@ -120,6 +120,38 @@ function stopReports(): void {
   clearInterval(reportTimer);
   reportTimer = undefined;
 }
+/** Колко чакаме след края на срещата: обобщението ѝ да стигне до таблото, за връзката факт → среща. */
+const REMEMBER_DELAY_MS = 4_000;
+
+/**
+ * Край на среща с избран клиент: разговорът отива към сървъра, който предлага факти за паметта
+ * (Р31). Те чакат одобрение в таблото (Р33); тук само съобщаваме колко са.
+ */
+function proposeMemory(ended: typeof meeting): void {
+  const client = ended.client;
+  const code = adapter.currentMeeting()?.id ?? ended.recorder?.report(ended.talk.session(), Date.now(), testMode).meetingCode;
+  if (!client || !code || ended.lines.length === 0) return;
+  const request: BackgroundMessage = {
+    type: "remember",
+    clientId: client.id,
+    meetingCode: code,
+    startedAt: ended.startedAt,
+    lines: ended.lines.slice(-2_000).map((line) => ({ speaker: line.speaker === "owner" ? "seller" : "client", text: line.text })),
+  };
+  setTimeout(() => {
+    void chrome.runtime.sendMessage(request).then(
+      (response: { ok: boolean; proposed?: number; error?: string } | undefined) => {
+        if (!response) return;
+        if (response.ok && (response.proposed ?? 0) > 0) {
+          panel.setNotice("info", `Паметта за „${client.name}“: ${response.proposed} нови факта чакат одобрение в таблото.`);
+          panel.show();
+        } else if (!response.ok) panel.setNotice("info", `Паметта не се записа: ${response.error}`);
+      },
+      () => {},
+    );
+  }, REMEMBER_DELAY_MS);
+}
+
 /** Клиентите на фирмата за полето „Клиент“ (само имената и градовете, в паметта на таба). */
 let knownClients: PanelClient[] = [];
 
@@ -250,6 +282,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         panel.show();
       } else {
         const report = meeting.recorder?.report(meeting.talk.session(), Date.now(), testMode);
+        proposeMemory(meeting);
         stopReports();
         saveReport();
         clearTimeout(meeting.meaningTimer);

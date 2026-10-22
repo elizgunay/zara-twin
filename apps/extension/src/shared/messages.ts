@@ -47,6 +47,8 @@ export type BackgroundMessage =
   /** От панела: обобщението и текстът на срещата, автоматично всяка минута и в края ѝ. */
   | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] }
   /** От панела: въпрос на клиента без готова карта → AI отговор от фактите на фирмата. */
+  /** В края на среща с клиент: разговорът за предложения за паметта (Р31). */
+  | { type: "remember"; clientId: string; meetingCode: string; startedAt: number; lines: { speaker: "client" | "seller"; text: string }[] }
   /** От панела: клиентите на фирмата за полето „Клиент“. */
   | { type: "clients-list" }
   /** От панела: нов клиент по име (Р32). */
@@ -207,6 +209,18 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       return isMeetingReport(value.report) && isTranscriptLines(value.lines);
     case "clients-list":
       return true;
+    case "remember":
+      return (
+        typeof value.clientId === "string" &&
+        /^[0-9a-f-]{36}$/i.test(value.clientId) &&
+        typeof value.meetingCode === "string" &&
+        value.meetingCode.length > 0 &&
+        value.meetingCode.length <= 64 &&
+        Number.isFinite(value.startedAt) &&
+        Array.isArray(value.lines) &&
+        value.lines.length <= 2_000 &&
+        value.lines.every((l: unknown) => isRecord(l) && (l.speaker === "client" || l.speaker === "seller") && isSegmentText(l.text))
+      );
     case "client-create":
       return typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 120;
     case "ai-suggest":
