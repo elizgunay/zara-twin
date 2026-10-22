@@ -17,7 +17,7 @@ import { log, logLines } from "./shared/log";
 import { SAVING_ENABLED_KEY, TranscriptStore } from "./transcripts/store";
 import { MeetingLog } from "./meetings/log";
 import type { MeetingReport } from "./meetings/report";
-import { aiSuggest, syncPending } from "./cloud/cloud";
+import { aiSuggest, createCloudClient, listClients, syncPending } from "./cloud/cloud";
 import { aiFacts } from "@zara-twin/knowledge";
 import { method, pack } from "./pack";
 import { BUILT_IN_SPEECHMATICS_KEY } from "./stt/builtInKey";
@@ -72,6 +72,16 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     // Само от таба на същата среща в Meet.
     if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") !== message.report.meetingCode) return;
     saveReport(message.report, message.lines).then(sendResponse);
+    return true;
+  }
+  if (message.type === "clients-list" || message.type === "client-create") {
+    // Само от таб с Meet: панелът там избира клиента за срещата.
+    if (sender.tab === undefined || parseMeetCode(sender.tab.url ?? "") === null) return;
+    const work =
+      message.type === "clients-list"
+        ? listClients().then((clients) => ({ ok: true as const, clients }))
+        : createCloudClient(message.name).then((client) => ({ ok: true as const, client }));
+    work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }));
     return true;
   }
   if (message.type === "ai-suggest") {
@@ -209,7 +219,7 @@ async function sttChoice(): Promise<SttChoice> {
 }
 
 async function handleMessage(
-  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" | "ai-suggest" }>,
+  message: Exclude<BackgroundMessage, { type: "calendar-busy" | "logs-request" | "save-transcript" | "save-report" | "ai-suggest" | "clients-list" | "client-create" }>,
   sender: chrome.runtime.MessageSender,
 ): Promise<void> {
   const tabId = await getSessionTab();

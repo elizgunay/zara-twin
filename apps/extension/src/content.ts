@@ -23,6 +23,8 @@ import {
   AI_MAX_TEXT,
   AI_MAX_TURNS,
   type LogsResponse,
+  type ClientCreateResponse,
+  type ClientsResponse,
   type OffscreenMessage,
   type OffscreenResponse,
   type SaveTranscriptResponse,
@@ -32,7 +34,7 @@ import { UtteranceMerger } from "./transcripts/merge";
 import type { AiSuggestion } from "./cloud/cloud";
 import { AI_ANSWERS_KEY } from "./meaning/setting";
 import { SAVING_ENABLED_KEY } from "./transcripts/store";
-import { CopilotPanel, isPanelPrefs } from "./ui/panel";
+import { CopilotPanel, isPanelPrefs, type PanelClient } from "./ui/panel";
 
 /** Мястото на панела и дали разговорът е разгънат (запомня се между срещите). */
 const PANEL_PREFS_KEY = "panelPrefs";
@@ -77,6 +79,8 @@ function freshAssistants() {
     startedAt: Date.now(),
     /** Обобщението за дневника; създава се, когато е ясен кодът на срещата. */
     recorder: null as MeetingRecorder | null,
+    /** Клиентът на срещата, избран в панела (Р32). */
+    client: null as PanelClient | null,
   };
 }
 
@@ -105,6 +109,7 @@ function saveReport(): void {
   if (!recorder) return;
   const now = Date.now();
   const report = recorder.report(meeting.talk.session(), now, testMode);
+  if (meeting.client) report.clientId = meeting.client.id;
   const talked = report.ownerMs + report.counterpartMs;
   if (now - report.startedAt < 60_000 || (talked < 10_000 && report.hints === 0)) return;
   const message: BackgroundMessage = { type: "save-report", report, lines: meeting.lines };
@@ -115,6 +120,28 @@ function stopReports(): void {
   clearInterval(reportTimer);
   reportTimer = undefined;
 }
+/** Клиентите на фирмата за полето „Клиент“ (само имената и градовете, в паметта на таба). */
+let knownClients: PanelClient[] = [];
+
+function loadClients(): void {
+  const request: BackgroundMessage = { type: "clients-list" };
+  void chrome.runtime.sendMessage(request).then(
+    (response: ClientsResponse | undefined) => {
+      if (!response?.ok) return panel.setClients(null);
+      knownClients = response.clients ?? [];
+      panel.setClients(response.clients);
+    },
+    () => panel.setClients(null),
+  );
+}
+
+/** Клиентът за срещата: веднага влиза в обобщението, което отива в таблото. */
+function pickClient(current: typeof meeting, client: PanelClient): void {
+  if (meeting !== current) return;
+  current.client = client;
+  saveReport();
+}
+
 /** Копие на картата към реда от разговора: в таблото се вижда какво е подсказал Copilot. */
 function attachCard(hint: Hint, forText?: string): void {
   const lines = meeting.lines;
@@ -166,6 +193,21 @@ const panel = new CopilotPanel({
     // Сменен по средата на срещата: записът на тази среща веднага взима новия етикет.
     saveReport();
   },
+  onClientPick: async (choice) => {
+    const request: BackgroundMessage = "id" in choice ? { type: "clients-list" } : { type: "client-create", name: choice.newName };
+    const current = meeting;
+    if ("id" in choice) {
+      // Съществуващ клиент: вече е в списъка на панела, не се пита сървърът.
+      const client = knownClients.find((c) => c.id === choice.id) ?? null;
+      if (client) pickClient(current, client);
+      return client;
+    }
+    const response = (await chrome.runtime.sendMessage(request).catch(() => undefined)) as ClientCreateResponse | undefined;
+    if (!response?.ok) return null;
+    knownClients = [...knownClients, response.client];
+    pickClient(current, response.client);
+    return response.client;
+  },
   onPrefsChange: (prefs) => {
     void chrome.storage.local.set({ [PANEL_PREFS_KEY]: prefs }).catch(() => {});
   },
@@ -202,6 +244,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
           () => panel.setSaveAvailable(false),
         );
         if (reportTimer === undefined) reportTimer = setInterval(saveReport, REPORT_EVERY_MS);
+        loadClients();
         panel.hideSummary();
         panel.setRecording(true);
         panel.show();
@@ -213,6 +256,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
         panel.setRecording(false);
         panel.clearHints();
         meeting = freshAssistants();
+        panel.setClient(null);
         // Веднага след срещата: обобщението в панела (затваря се с ×). Кратка проба на звука: нищо.
         if (report && report.endedAt - report.startedAt >= 60_000) {
           panel.showSummary(report, DASHBOARD_URL);

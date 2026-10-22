@@ -25,7 +25,19 @@ export interface PanelOptions {
   onTestMode?: (on: boolean) => void;
   /** Мястото на панела и дали разговорът е разгънат: пазят се за следващата среща. */
   onPrefsChange?: (prefs: PanelPrefs) => void;
+  /** Избор на клиента за срещата (Р32): съществуващ по id или нов по име. Връща избрания или null. */
+  onClientPick?: (choice: { id: string } | { newName: string }) => Promise<PanelClient | null>;
 }
+
+/** Клиент на фирмата, както се показва в полето „Клиент“. */
+export interface PanelClient {
+  id: string;
+  name: string;
+  city?: string | null;
+}
+
+/** Колко съвпадения се показват под полето. */
+const MAX_CLIENT_OPTIONS = 5;
 
 export interface PanelPrefs {
   transcriptOpen: boolean;
@@ -48,6 +60,7 @@ export function isPanelPrefs(value: unknown): value is PanelPrefs {
  */
 export class CopilotPanel {
   private stageNames: string[] = [];
+  private clients: PanelClient[] = [];
   private readonly host: HTMLElement;
   private readonly root: ShadowRoot;
   private readonly transcript: HTMLElement;
@@ -56,7 +69,7 @@ export class CopilotPanel {
   private lastLine: Text | null = null;
 
   constructor(
-    options: PanelOptions = {},
+    private readonly options: PanelOptions = {},
     private readonly doc: Document = document,
   ) {
     this.host = doc.createElement("zara-copilot-panel");
@@ -81,6 +94,7 @@ export class CopilotPanel {
       this.setTestMode(on);
       options.onTestMode?.(on);
     });
+    this.wireClientPicker();
     this.part("transcript-toggle").addEventListener("click", () => {
       this.setTranscriptOpen(!this.prefs.transcriptOpen);
       options.onPrefsChange?.({ ...this.prefs });
@@ -255,6 +269,77 @@ export class CopilotPanel {
     const bar = this.part("talk-owner");
     bar.style.width = `${owner}%`;
     bar.classList.toggle("over", ownerShare > maxOwnerShare);
+  }
+
+  /** Клиентите на фирмата за полето „Клиент“; null = няма вход в таблото и полето е скрито. */
+  setClients(list: PanelClient[] | null): void {
+    this.clients = list ?? [];
+    this.part("client").hidden = list === null;
+  }
+
+  /** Избраният клиент за срещата (видим през цялата среща) или празно поле за търсене. */
+  setClient(client: PanelClient | null): void {
+    const name = this.part("client-name");
+    const input = this.part("client-input") as HTMLInputElement;
+    name.textContent = client ? (client.city ? `${client.name} · ${client.city}` : client.name) : "";
+    name.hidden = client === null;
+    this.part("client-change").hidden = client === null;
+    input.hidden = client !== null;
+    input.value = "";
+    this.part("client-options").hidden = true;
+  }
+
+  private wireClientPicker(): void {
+    const input = this.part("client-input") as HTMLInputElement;
+    const options = this.part("client-options");
+    const pick = (choice: { id: string } | { newName: string }) => {
+      options.hidden = true;
+      input.disabled = true;
+      void (this.options.onClientPick?.(choice) ?? Promise.resolve(null))
+        .then((client) => {
+          if (client) {
+            if (!this.clients.some((c) => c.id === client.id)) this.clients = [...this.clients, client];
+            this.setClient(client);
+          } else this.setNotice("error", "Клиентът не беше записан. Проверете входа в Опции → Табло.");
+        })
+        .finally(() => {
+          input.disabled = false;
+        });
+    };
+    const render = () => {
+      const text = input.value.trim();
+      const query = text.toLowerCase();
+      const matches = query ? this.clients.filter((c) => c.name.toLowerCase().includes(query)).slice(0, MAX_CLIENT_OPTIONS) : [];
+      const exact = matches.some((c) => c.name.toLowerCase() === query);
+      const buttons = matches.map((client) => {
+        const button = this.doc.createElement("button");
+        button.type = "button";
+        button.textContent = client.city ? `${client.name} · ${client.city}` : client.name;
+        button.addEventListener("click", () => pick({ id: client.id }));
+        return button;
+      });
+      if (text && !exact) {
+        const add = this.doc.createElement("button");
+        add.type = "button";
+        add.className = "new";
+        add.textContent = `+ Нов: „${text.slice(0, 120)}“`;
+        add.addEventListener("click", () => pick({ newName: text.slice(0, 120) }));
+        buttons.push(add);
+      }
+      options.replaceChildren(...buttons);
+      options.hidden = buttons.length === 0;
+    };
+    input.addEventListener("input", render);
+    // Клавишите не стигат до Meet (там буквите са преки пътища, напр. за микрофона).
+    input.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Enter") (options.querySelector("button") as HTMLButtonElement | null)?.click();
+      if (event.key === "Escape") options.hidden = true;
+    });
+    this.part("client-change").addEventListener("click", () => {
+      this.setClient(null);
+      input.focus();
+    });
   }
 
   /** Стъпките на сценария (кратките имена); без тях лентата е скрита. */
@@ -435,6 +520,14 @@ const TEMPLATE = /* html */ `
   button:hover { background: #3c4352; color: #fff; }
   button:focus-visible { outline: 2px solid #8ab4f8; }
   .meta { padding: 8px 12px 0; color: #9aa0a6; font-size: 12px; }
+  .client { position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 12px 0; font-size: 12px; color: #9aa0a6; }
+  .client-name { color: #e8eaed; font-weight: 600; }
+  .client input { flex: 1; min-width: 0; font: inherit; color: #e8eaed; background: #11151c; border: 1px solid #3c4352; border-radius: 6px; padding: 4px 8px; }
+  .client input:focus { outline: none; border-color: #8ab4f8; }
+  .client-options { position: absolute; left: 62px; right: 12px; top: 32px; z-index: 2; display: grid; background: #263041; border: 1px solid #3c4352; border-radius: 6px; overflow: hidden; }
+  .client-options button { text-align: left; font: inherit; color: #e8eaed; background: transparent; border: 0; padding: 6px 8px; cursor: pointer; }
+  .client-options button:hover, .client-options button:first-child { background: #303b4f; }
+  .client-options button.new { color: #81c995; }
   .consent, .notice { margin: 8px 12px 0; padding: 8px 10px; border-radius: 8px; }
   .consent { background: #3b2f12; color: #fdd663; border-left: 3px solid #fdd663; }
   .notice.info { background: #1e3a5f; color: #aecbfa; border-left: 3px solid #8ab4f8; }
@@ -511,6 +604,13 @@ const TEMPLATE = /* html */ `
     <button type="button" data-part="close" aria-label="Спри и скрий панела" title="Спри и скрий">×</button>
   </header>
   <div class="meta" data-part="meeting">Няма активна среща</div>
+  <div class="client" data-part="client" hidden>
+    <span class="client-label">Клиент:</span>
+    <span class="client-name" data-part="client-name" hidden></span>
+    <button type="button" class="small" data-part="client-change" hidden>смени</button>
+    <input type="text" data-part="client-input" maxlength="120" autocomplete="off" spellcheck="false" placeholder="търсете или напишете ново име" aria-label="Клиент">
+    <div class="client-options" data-part="client-options" hidden></div>
+  </div>
   <div class="meta" data-part="stt" hidden></div>
   <div class="meta test-note" data-part="test-note" hidden>Тестова среща: записва се с етикет „Тест“.</div>
   <div class="consent">Уведомете участниците, че разговорът се записва като текст.</div>

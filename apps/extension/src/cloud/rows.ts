@@ -23,6 +23,8 @@ export interface ReportRow {
   notes: string[];
   /** Текстът на разговора (миграция 0004); трие се след срока на фирмата. */
   lines: { speaker: "owner" | "counterpart"; text: string; at: number; cards?: { title: string; say?: string[]; via: "phrase" | "meaning" | "ai" }[] }[];
+  /** Клиентът на срещата (миграция 0005); null = не е избран. */
+  client_id: string | null;
 }
 
 /** Уникален ключ на срещата в базата: същата среща се обновява, не се дублира. */
@@ -46,11 +48,12 @@ export function reportToRow(report: MeetingReport, orgId: string, userId: string
     next_step: report.nextStep,
     notes: report.notes,
     lines: lines.slice(-5000),
+    client_id: report.clientId ?? null,
   };
 }
 
 /** Полетата от по-новите миграции: ако базата още ги няма, срещата се праща без тях. */
-export const OPTIONAL_COLUMNS = ["lines", "is_test"] as const;
+export const OPTIONAL_COLUMNS = ["lines", "is_test", "client_id"] as const;
 
 /** Коя колона липсва в базата, по грешката на Supabase („Could not find the 'lines' column…“). */
 export function missingColumn(message: string): (typeof OPTIONAL_COLUMNS)[number] | null {

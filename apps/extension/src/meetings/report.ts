@@ -24,6 +24,8 @@ export interface MeetingReport {
   hints: number;
   /** Тестова среща (бутон „Тест“ в панела): записва се, но се показва отделно. */
   test?: boolean;
+  /** Клиентът, избран в панела (Р32); без него срещата не е вързана с клиент. */
+  clientId?: string;
   /** 1–10 по прости правила (виж scoreReport). */
   score: number;
   /** Кратки изводи за показване, най-важният първи. */
@@ -164,6 +166,7 @@ export function isMeetingReport(value: unknown): value is MeetingReport {
     isTime(r.monologues) &&
     isTime(r.hints) &&
     (r.test === undefined || typeof r.test === "boolean") &&
+    (r.clientId === undefined || (typeof r.clientId === "string" && /^[0-9a-f-]{36}$/i.test(r.clientId))) &&
     typeof r.score === "number" &&
     r.score >= 1 &&
     r.score <= 10 &&

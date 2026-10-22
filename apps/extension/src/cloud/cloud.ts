@@ -165,8 +165,8 @@ export async function syncPending(
   return result;
 }
 
-const MISSING_HINT: Record<string, string> = { lines: "текста на разговора", is_test: "етикета „Тест“" };
-const MIGRATION_FOR: Record<string, string> = { lines: "0004_meeting_text.sql", is_test: "0003_test_meetings.sql" };
+const MISSING_HINT: Record<string, string> = { lines: "текста на разговора", is_test: "етикета „Тест“", client_id: "клиента" };
+const MIGRATION_FOR: Record<string, string> = { lines: "0004_meeting_text.sql", is_test: "0003_test_meetings.sql", client_id: "0005_clients.sql" };
 
 function humanError(message: string): string {
   if (/row-level security|permission denied/i.test(message)) return "Нямате права: проверете дали сте поканени във фирмата.";
@@ -203,4 +203,42 @@ export async function aiSuggest(question: string, turns: AiTurn[], facts: string
     return { ok: false, error: (detail as { error?: string } | null)?.error ?? error.message };
   }
   return body ?? { ok: false, error: "Празен отговор." };
+}
+
+export interface CloudClient {
+  id: string;
+  name: string;
+  city: string | null;
+}
+
+/** Фирмата за клиентите: избраната, иначе най-старата (както при срещите). */
+async function currentOrg(): Promise<string | null> {
+  if (!cloudConfigured) return null;
+  const { data } = await db().auth.getSession();
+  if (!data.session) return null;
+  const stored: unknown = (await chrome.storage.local.get(CLOUD_ORG_KEY))[CLOUD_ORG_KEY];
+  if (typeof stored === "string") return stored;
+  return (await cloudStatus()).orgId;
+}
+
+/** Клиентите на фирмата за полето „Клиент“ (Р32). null = няма вход или фирма. */
+export async function listClients(): Promise<CloudClient[] | null> {
+  const orgId = await currentOrg();
+  if (!orgId) return null;
+  const { data, error } = await db().from("clients").select("id, name, city").eq("org_id", orgId).order("name").limit(1000);
+  if (error) throw new Error(humanError(error.message));
+  return (data ?? []) as CloudClient[];
+}
+
+/** Нов клиент от панела: само името (и по желание градът); останалото се допълва в таблото. */
+export async function createCloudClient(name: string, city?: string): Promise<CloudClient> {
+  const orgId = await currentOrg();
+  if (!orgId) throw new Error("Няма вход в таблото (Опции → Табло).");
+  const { data, error } = await db()
+    .from("clients")
+    .insert({ org_id: orgId, name: name.trim(), ...(city && { city: city.trim() }) })
+    .select("id, name, city")
+    .single();
+  if (error) throw new Error(humanError(error.message));
+  return data as CloudClient;
 }

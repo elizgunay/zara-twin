@@ -39,6 +39,16 @@ describe("текст и стари бази", () => {
   });
 });
 
+describe("клиентът на срещата (0005)", () => {
+  it("срещата отива с client_id; без клиент е null; старата база без колоната се разпознава", () => {
+    const report = new MeetingRecorder("abc-defg-hij", 0).report({ ownerMs: 0, counterpartMs: 0, ownerShare: null }, 60_000);
+    expect(reportToRow(report, "org-1", "user-1").client_id).toBeNull();
+    const withClient = { ...report, clientId: "00000000-0000-4000-8000-0000000c0001" };
+    expect(reportToRow(withClient, "org-1", "user-1").client_id).toBe("00000000-0000-4000-8000-0000000c0001");
+    expect(missingColumn("Could not find the 'client_id' column of 'meeting_reports' in the schema cache")).toBe("client_id");
+  });
+});
+
 describe("помощници", () => {
   it("приема адрес с /rest/v1/ и отказва http", () => {
     expect(projectOrigin("https://abc.supabase.co/rest/v1/")).toBe("https://abc.supabase.co");

@@ -47,6 +47,10 @@ export type BackgroundMessage =
   /** От панела: обобщението и текстът на срещата, автоматично всяка минута и в края ѝ. */
   | { type: "save-report"; report: MeetingReport; lines: TranscriptLine[] }
   /** От панела: въпрос на клиента без готова карта → AI отговор от фактите на фирмата. */
+  /** От панела: клиентите на фирмата за полето „Клиент“. */
+  | { type: "clients-list" }
+  /** От панела: нов клиент по име (Р32). */
+  | { type: "client-create"; name: string }
   | { type: "ai-suggest"; question: string; turns: { speaker: "client" | "seller"; text: string }[]; lastSpeaker?: "client" | "seller" };
 
 /** Колко реплики преди въпроса отиват към AI (за контекст), и колко дълги. */
@@ -92,6 +96,10 @@ export type SaveTranscriptResponse = { ok: true; count: number; retentionDays: n
 
 /** Най-много толкова реда в едно запазване (около 8 часа разговор). */
 export const MAX_SAVED_LINES = 5_000;
+
+/** Отговорите за клиентите: списъкът (null = няма вход) или новият клиент. */
+export type ClientsResponse = { ok: true; clients: { id: string; name: string; city: string | null }[] | null } | { ok: false; error: string };
+export type ClientCreateResponse = { ok: true; client: { id: string; name: string; city: string | null } } | { ok: false; error: string };
 
 export type CalendarBusyResponse =
   | { ok: true; busy: { start: number; end: number }[] }
@@ -197,6 +205,10 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
       );
     case "save-report":
       return isMeetingReport(value.report) && isTranscriptLines(value.lines);
+    case "clients-list":
+      return true;
+    case "client-create":
+      return typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 120;
     case "ai-suggest":
       return (
         typeof value.question === "string" &&

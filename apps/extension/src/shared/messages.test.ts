@@ -60,6 +60,15 @@ describe("isBackgroundMessage", () => {
   });
 });
 
+describe("клиентите (полето „Клиент“)", () => {
+  it("списък и нов клиент по име; празно или дълго име се отказва", () => {
+    expect(isBackgroundMessage({ type: "clients-list" })).toBe(true);
+    expect(isBackgroundMessage({ type: "client-create", name: "Ресторант Мома" })).toBe(true);
+    expect(isBackgroundMessage({ type: "client-create", name: "   " })).toBe(false);
+    expect(isBackgroundMessage({ type: "client-create", name: "а".repeat(121) })).toBe(false);
+  });
+});
+
 describe("картите към редовете от разговора", () => {
   const report = (lines: unknown) => ({ type: "save-transcript", meetingCode: "abc-defg-hij", startedAt: 1, lines });
   it("приема заглавие, до 2 реплики и откъде е картата", () => {
