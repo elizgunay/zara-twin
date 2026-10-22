@@ -73,6 +73,32 @@ function wholeSentences(text: string): string {
   return end > 0 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "");
 }
 
+/** Репликата се казва на глас: без **удебеляване**, # и звездички от модела. */
+export function plainText(text: string): string {
+  return text.replace(/\*\*|__|[*#`]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Най-много 2 изречения: моделът понякога пише по 4 (тест в Meet, 22.10.2026). */
+export function firstSentences(text: string, max = 2): string {
+  const parts = text.match(/[^.!?]+[.!?]+["“”»]?|[^.!?]+$/g) ?? [text];
+  return parts.slice(0, max).join("").trim();
+}
+
+/** Представяне с име („Аз съм Иван“, „Казвам се Мария“): моделът го измисля. */
+const INVENTED_NAME = /(?<!\p{L})(?:[Аа]з съм|[Кк]азвам се|[Ии]мето ми е)\s+\p{Lu}\p{Ll}+/u;
+
+/** Числата като низ от цифри: „8 000 €“ и „8000“ са едно и също. */
+const numbersIn = (text: string) => (text.match(/\d[\d\s.,:]*\d|\d/g) ?? []).map((n) => n.replace(/[\s.,]/g, ""));
+
+/**
+ * Защита срещу измислени числа (видяхме „спестявате над 1 500 € месечно“): всяко число в репликата
+ * трябва да го има във фактите или в разговора. Иначе вариантът отпада.
+ */
+export function numbersAreKnown(text: string, known: string): boolean {
+  const allowed = new Set(numbersIn(known));
+  return numbersIn(text).every((n) => allowed.has(n) || n.length <= 1);
+}
+
 export function parseRequest(value: unknown): SuggestRequest | null {
   if (typeof value !== "object" || value === null) return null;
   const r = value as Record<string, unknown>;
@@ -106,7 +132,8 @@ export const SYSTEM_PROMPT = `Ти си Copilot на продавач по вр�
 
 Правила:
 - Само на правилен български, на „вие“, готово за казване на глас. Никакви руски думи („потому“, „сейчас“, „очень“): само български („затова“, „сега“, „много“).
-- Всяка реплика е 1–2 кратки, завършени изречения (до около 160 знака).
+- Всяка реплика е 1–2 кратки, завършени изречения (до около 160 знака). Без удебеляване, звездички и списъци.
+- Не се представяй и не измисляй имена: не знаеш как се казва продавачът. Не измисляй числа: суми, спестявания, разходи, проценти, срокове. Число може само ако го има във фактите или в разговора.
 - Върни 2 варианта: първият е най-добрият, вторият е различен подход (напр. въпрос вместо твърдение).
 - Ползвай САМО фактите на фирмата. Не измисляй цени, срокове, отстъпки, модели или условия. Ако факт липсва: „Ще ви го уточня в офертата до утре в 12.“
 - Уверено и настоятелно, по правилата на сценария. Без съвети към продавача („кажете му…“): само думите към клиента.
@@ -119,8 +146,11 @@ export function userPrompt(request: SuggestRequest): string {
   return `Факти на фирмата:\n${request.facts}\n\nРазговорът досега:\n${context || "(начало)"}\n\n${who}: „${request.question}“`;
 }
 
-/** Отговорът на модела: репликите (кратки, на български) и стъпката от сценария (1–20), ако я има. */
-export function parseReply(raw: string): { say: string[]; stage?: number } {
+/**
+ * Отговорът на модела: репликите (кратки, на български) и стъпката от сценария (1–20), ако я има.
+ * known: фактите и разговорът; реплика с число, което го няма там, отпада.
+ */
+export function parseReply(raw: string, known?: string): { say: string[]; stage?: number } {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -138,9 +168,12 @@ export function parseReply(raw: string): { say: string[]; stage?: number } {
   const say = Array.isArray(reply.say)
     ? reply.say
         .filter((s): s is string => typeof s === "string")
-        .map((s) => s.replace(/\s+/g, " ").trim())
+        .map((s) => plainText(s))
         .filter((s) => s.length > 0 && !RUSSIAN_LETTERS.test(s))
-        .map((s) => wholeSentences(toBulgarian(s)))
+        .filter((s) => known === undefined || numbersAreKnown(s, known))
+        // Моделът не знае името на продавача: „Аз съм Иван…“ отпада.
+        .filter((s) => !INVENTED_NAME.test(s))
+        .map((s) => wholeSentences(firstSentences(toBulgarian(s))))
         .slice(0, MAX_SAY)
     : [];
   return Number.isInteger(stage) && stage >= 1 && stage <= 20 ? { say, stage } : { say };
@@ -161,7 +194,8 @@ export async function handle(jwt: string | null, body: unknown, deps: Deps): Pro
   if (!(await deps.isMember(request.orgId, caller.id))) return deny(403, "Не сте член на тази фирма.");
   const started = Date.now();
   const raw = await deps.complete(SYSTEM_PROMPT, userPrompt(request));
-  return { status: 200, body: { ok: true, ...parseReply(raw), modelMs: Date.now() - started } };
+  const known = [request.facts, request.question, ...request.turns.map((t) => t.text)].join("\n");
+  return { status: 200, body: { ok: true, ...parseReply(raw, known), modelMs: Date.now() - started } };
 }
 
 // ---------- Mistral и Supabase (изпълнява се само на сървъра, в Deno) ----------

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, parseReply, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
+import { handle, numbersAreKnown, parseReply, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
 
 const ORG = "00000000-0000-4000-8000-00000000a000";
 const OTHER = "00000000-0000-4000-8000-00000000b000";
@@ -83,6 +83,24 @@ describe("AI отговор (Edge Function suggest)", () => {
     // Странна стъпка се пропуска, репликите остават.
     expect(parseReply('{"stage": "x", "say": ["Добре е."]}')).toEqual({ say: ["Добре е."] });
     expect(parseReply('{"stage": 99, "say": []}')).toEqual({ say: [] });
+  });
+
+  it("репликите от теста в Meet (22.10): без измислени числа и имена, без **, до 2 изречения", () => {
+    const facts = "Сервитьорът T8 е 8 000 € без ДДС, носи 20 кг, минимален проход 55 см. Вторник в 15:00 или четвъртък в 11:00?";
+    const raw = JSON.stringify({
+      stage: 5,
+      say: [
+        "Малкият **T8** е за 8 000 € без ДДС. Ще ви спестим над 1 500 € месечно.",
+        "Малкият **T8** носи до 20 кг и минава през 55 см. Той е за 8 000 € без ДДС. Вторник в 15:00 или четвъртък в 11:00? Ще ви хареса.",
+      ],
+    });
+    const reply = parseReply(raw, facts);
+    // Първият вариант има измислено число (1 500) и отпада; вторият остава, изчистен и до 2 изречения.
+    expect(reply.say).toEqual(["Малкият T8 носи до 20 кг и минава през 55 см. Той е за 8 000 € без ДДС."]);
+    expect(parseReply(JSON.stringify({ say: ["Здравейте, Никола. Аз съм Иван от Zara Robotics.", "Какво ви накара да се свържете с нас?"] }), facts).say)
+      .toEqual(["Какво ви накара да се свържете с нас?"]);
+    expect(numbersAreKnown("около 20 € на месец", "носи 20 кг")).toBe(true); // числото е във фактите
+    expect(numbersAreKnown("около 25 € на месец", "носи 20 кг")).toBe(false);
   });
 
   it("без разговор пише „(начало)“", () => {
