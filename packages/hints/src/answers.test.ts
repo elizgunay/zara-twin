@@ -11,7 +11,7 @@ describe("AnswerDetector", () => {
     const d = new AnswerDetector(pack);
     const [hint] = client(d, "А колко е гаранцията?");
     expect(hint).toMatchObject({ key: "answer:warranty", kind: "answer", title: "Гаранция" });
-    expect(hint!.say![0]).toBe("Гаранцията е до 24 месеца, а сервизът е тук, в България.");
+    expect(hint!.say![0]).toBe("Гаранцията е 2 години пълна, включително батерията, а сервизът е тук, в България.");
   });
 
   it("разпознава най-честите въпроси", () => {
