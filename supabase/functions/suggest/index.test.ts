@@ -99,6 +99,8 @@ describe("AI отговор (Edge Function suggest)", () => {
     expect(reply.say).toEqual(["Малкият T8 носи до 20 кг и минава през 55 см. Той е за 8 000 € без ДДС."]);
     expect(parseReply(JSON.stringify({ say: ["Здравейте, Никола. Аз съм Иван от Zara Robotics.", "Какво ви накара да се свържете с нас?"] }), facts).say)
       .toEqual(["Какво ви накара да се свържете с нас?"]);
+    // Развален руски („Потомучето“, 22.10) отпада; нормалният вариант остава.
+    expect(parseReply(JSON.stringify({ say: ["Потомучето ние ги внедряваме.", "Защото ние ги внедряваме."] }), facts).say).toEqual(["Защото ние ги внедряваме."]);
     expect(numbersAreKnown("около 20 € на месец", "носи 20 кг")).toBe(true); // числото е във фактите
     expect(numbersAreKnown("около 25 € на месец", "носи 20 кг")).toBe(false);
   });

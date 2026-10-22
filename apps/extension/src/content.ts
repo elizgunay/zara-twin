@@ -314,7 +314,9 @@ const words = (text: string) => text.split(/\s+/).filter((w) => /\p{L}/u.test(w)
  */
 function askAi(speaker: SpeakerRole, text: string, current: typeof meeting): void {
   if (!aiEnabled || current.lineHinted) return;
-  if (words(text) < 3 && !(speaker === "counterpart" && isQuestion(text))) return;
+  // Продавачът: само цяло изречение (5+ думи). Откъсите от шумен микрофон („Аз не съм“) дават безсмислени реплики.
+  const minWords = speaker === "owner" ? 5 : 3;
+  if (words(text) < minWords && !(speaker === "counterpart" && isQuestion(text))) return;
   if (current.aiPending || Date.now() - current.aiAt < AI_GAP_MS) {
     current.aiNext = { speaker, text };
     if (!current.aiPending) setTimeout(() => flushAi(current), AI_GAP_MS - (Date.now() - current.aiAt));
