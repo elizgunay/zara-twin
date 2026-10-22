@@ -26,4 +26,14 @@ describe("EchoFilter", () => {
     expect(filter.isEcho("owner", "Да, точно така.", 500)).toBe(false);
     expect(filter.isEcho("counterpart", "Да, точно така.", 4000)).toBe(false);
   });
+
+  it("ехо, нарязано различно на двата източника (тест в Meet, 22.10.2026)", () => {
+    const filter = new EchoFilter();
+    expect(filter.isEcho("counterpart", "Какви са минусите на", 0)).toBe(false);
+    expect(filter.isEcho("counterpart", "роботите", 600)).toBe(false);
+    // Микрофонът на лаптопа е чул същото като клиента в телефона, но нарязано другояче.
+    expect(filter.isEcho("owner", "Какви минусите на", 900)).toBe(true);
+    // Кратко истинско „да“ след клиента остава, ако клиентът не го е казал.
+    expect(filter.isEcho("owner", "Разбирам ви напълно.", 1500)).toBe(false);
+  });
 });

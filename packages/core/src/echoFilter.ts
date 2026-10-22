@@ -34,16 +34,22 @@ export class EchoFilter {
     this.recent = this.recent.filter((item) => at - item.at <= this.windowMs);
     const words = new Set(normalizeForWer(text));
     if (words.size === 0) return false;
-    const echo = this.recent.some((item) => item.speaker !== speaker && overlap(words, item.words) >= this.minOverlap);
+    // Двата източника режат изречението различно („Какви са минусите на“ / „роботите“ срещу
+    // „Какви минусите на“): сравняваме и с всички думи на другия от последните секунди.
+    const other = this.recent.filter((item) => item.speaker !== speaker);
+    const otherWords = new Set(other.flatMap((item) => [...item.words]));
+    const echo =
+      other.some((item) => overlap(words, item.words) >= this.minOverlap) ||
+      (words.size >= 2 && otherWords.size > 0 && overlap(words, otherWords, words.size) >= this.minOverlap);
     // Ехото не влиза в паметта, иначе би „потвърдило“ следващото истинско изречение.
     if (!echo) this.recent.push({ speaker, words, at });
     return echo;
   }
 }
 
-/** Общите думи спрямо по-краткото изречение: „T8“ и „имате T8“ съвпадат напълно. */
-function overlap(a: Set<string>, b: Set<string>): number {
+/** Общите думи спрямо по-краткото изречение (или спрямо base): „T8“ и „имате T8“ съвпадат напълно. */
+function overlap(a: Set<string>, b: Set<string>, base = Math.min(a.size, b.size)): number {
   let common = 0;
   for (const word of a) if (b.has(word)) common++;
-  return common / Math.min(a.size, b.size);
+  return common / base;
 }

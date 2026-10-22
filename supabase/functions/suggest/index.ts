@@ -89,6 +89,24 @@ export function firstSentences(text: string, max = 2): string {
 /** Представяне с име („Аз съм Иван“, „Казвам се Мария“): моделът го измисля. */
 const INVENTED_NAME = /(?<!\p{L})(?:[Аа]з съм|[Кк]азвам се|[Ии]мето ми е)\s+\p{Lu}\p{Ll}+/u;
 
+/** Шаблон с празно място („[името на контактьора]“): моделът не е имал какво да каже. */
+const PLACEHOLDER = /[[\]{}<>]/;
+
+/**
+ * Защита срещу измислени имена, градове и фирми (тест 22.10: „ресторанта „Златна роза“ в Пловдив“):
+ * дума с главна буква, която не е в началото на изречение, трябва да я има във фактите или разговора.
+ */
+export function namesAreKnown(text: string, known: string): boolean {
+  const knownWords = new Set((known.match(/[\p{L}\p{N}-]+/gu) ?? []).map((w) => w.toLowerCase()));
+  for (const match of text.matchAll(/\p{Lu}[\p{L}\p{N}-]*/gu)) {
+    // Началото на изречение (след . ! ? или в самото начало) може да е с главна буква.
+    const before = text.slice(0, match.index).replace(/[\s"„“«(]+$/u, "");
+    if (before === "" || /[.!?]$/.test(before)) continue;
+    if (!knownWords.has(match[0].toLowerCase())) return false;
+  }
+  return true;
+}
+
 /** Числата като низ от цифри: „8 000 €“ и „8000“ са едно и също. */
 const numbersIn = (text: string) => (text.match(/\d[\d\s.,:]*\d|\d/g) ?? []).map((n) => n.replace(/[\s.,]/g, ""));
 
@@ -172,7 +190,8 @@ export function parseReply(raw: string, known?: string): { say: string[]; stage?
         .filter((s): s is string => typeof s === "string")
         .map((s) => plainText(s))
         .filter((s) => s.length > 0 && !RUSSIAN_LETTERS.test(s) && !RUSSIAN_STEMS.test(toBulgarian(s)))
-        .filter((s) => known === undefined || numbersAreKnown(s, known))
+        .filter((s) => known === undefined || (numbersAreKnown(s, known) && namesAreKnown(s, known)))
+        .filter((s) => !PLACEHOLDER.test(s))
         // Моделът не знае името на продавача: „Аз съм Иван…“ отпада.
         .filter((s) => !INVENTED_NAME.test(s))
         .map((s) => wholeSentences(firstSentences(toBulgarian(s))))

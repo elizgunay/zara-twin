@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, numbersAreKnown, parseReply, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
+import { handle, namesAreKnown, numbersAreKnown, parseReply, parseRequest, parseSay, toBulgarian, userPrompt, type Deps } from "./index";
 
 const ORG = "00000000-0000-4000-8000-00000000a000";
 const OTHER = "00000000-0000-4000-8000-00000000b000";
@@ -101,6 +101,11 @@ describe("AI отговор (Edge Function suggest)", () => {
       .toEqual(["Какво ви накара да се свържете с нас?"]);
     // Развален руски („Потомучето“, 22.10) отпада; нормалният вариант остава.
     expect(parseReply(JSON.stringify({ say: ["Потомучето ние ги внедряваме.", "Защото ние ги внедряваме."] }), facts).say).toEqual(["Защото ние ги внедряваме."]);
+    // Тест 22.10, 11:47: измислен ресторант и град, шаблон с празно място.
+    const known = "Zara Robotics, официален дистрибутор на Keenon за България. Kleenbot C40S. Шоурум в Хасково.";
+    expect(namesAreKnown("Добър ден, вие сте от ресторанта „Златна роза“ в Пловдив?", known)).toBe(false);
+    expect(namesAreKnown("Имаме Keenon Kleenbot C40S. Той мете и мие. Шоурумът е в Хасково.", known)).toBe(true);
+    expect(parseReply(JSON.stringify({ say: ["Контактьорът ви е [името на контактьора].", "Как да ви помогна?"] }), known).say).toEqual(["Как да ви помогна?"]);
     expect(numbersAreKnown("около 20 € на месец", "носи 20 кг")).toBe(true); // числото е във фактите
     expect(numbersAreKnown("около 25 € на месец", "носи 20 кг")).toBe(false);
   });
